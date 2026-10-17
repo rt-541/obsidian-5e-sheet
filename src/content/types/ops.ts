@@ -1,7 +1,7 @@
 import { checkFormula, hasPlaceholder, isUnlimitedWord, UNLIMITED, type Formula } from "../../core/formula";
 import { parseDice } from "../../core/dice";
 import { ABILS, SKILLS, type Abil, type Effects } from "../../core/types";
-import { isObj, type Errs, type Raw } from "../check";
+import { bool, isObj, type Errs, type Raw } from "../check";
 import { slug } from "../registry";
 import { validateEffects } from "./effects";
 
@@ -21,7 +21,7 @@ export type Progression = "full" | "half" | "third" | "pact" | "table";
 interface Base { id: string; }
 export type Op =
   | (Base & { op: "grant"; proficiencies: string[]; languages: string[]; spells: string[]; items: string[]; speed?: number; darkvision?: number })
-  | (Base & { op: "feature"; name: string; text?: string; effects: Effects; action?: ActionDef })
+  | (Base & { op: "feature"; name: string; text?: string; effects: Effects; action?: ActionDef; /** Not applied unless the player takes it (the level-up asks). */ optional?: boolean })
   | (Base & { op: "resource"; name: string; max: Formula; reset: Reset; refill?: { on: "short"; amount: Formula; oncePer?: "long" } })
   | (Base & { op: "scale"; name: string; values?: Record<number, string | number>; formula?: Formula })
   | (Base & { op: "dc"; name: string; abil: Abil; alt?: Abil })
@@ -169,7 +169,8 @@ function validateOp(raw: unknown, at: string, index: number, ctx: OpsCtx, e: Err
     case "feature": {
       const n = reqName(raw.name, `${at}.name`, e), text = optText(raw.text, `${at}.text`, e);
       const effects = validateEffects(raw.effects, `${at}.effects`, e), action = validateAction(raw.action, `${at}.action`, e);
-      return done({ id, op: "feature", name: n, effects, ...(text !== undefined ? { text } : {}), ...(action ? { action } : {}) });
+      const optional = bool(raw.optional, `${at}.optional`, e);
+      return done({ id, op: "feature", name: n, effects, ...(text !== undefined ? { text } : {}), ...(action ? { action } : {}), ...(optional ? { optional } : {}) });
     }
     case "resource": {
       const n = reqName(raw.name, `${at}.name`, e), max = formula(raw.max, `${at}.max`, e);

@@ -3,7 +3,7 @@ import { STANDARD_ARRAY, POINT_BUY_BUDGET, type ScoreMethod } from "../core/buil
 import { ABILS, type Abil } from "../core/types";
 import type { BuilderController, BuilderPage } from "./builder";
 import { clear, h } from "./h";
-import { asiPage, choiceButton, pickPage, spellsPage, subclassPage } from "./levelup-ui";
+import { asiPage, choiceButton, optionalPage, pickPage, spellsPage, subclassPage } from "./levelup-ui";
 import { btn, titleCase } from "./widgets";
 import { sourceLabel } from "../content/registry";
 
@@ -101,6 +101,7 @@ function stepPage(ctl: BuilderController, p: Extract<BuilderPage, { id: "step" }
     case "subclass": return subclassPage(ctl, s, st);
     case "asi": return asiPage(ctl, s, st);
     case "pick": return pickPage(ctl, s, st);
+    case "optional": return optionalPage(ctl, s, st);
     case "spells": return spellsPage(ctl, s, st);
   }
 }

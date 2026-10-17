@@ -24,6 +24,7 @@ export function answered(s: Step, st: { choices: Record<string, unknown>; hp?: u
     case "hp": return s.first || !!st.hp;
     case "subclass": return typeof v === "string";
     case "asi": return isObj(v) && (typeof v.feat === "string" || (isObj(v.abilities) && Object.values(v.abilities).reduce<number>((a, n) => a + (typeof n === "number" ? n : 0), 0) === 2));
+    case "optional": return typeof v === "boolean";
     case "pick": return isStrs(v) && v.length === s.count && v.every(x => x.trim() !== "");
     case "spells": return isStrs(v) && v.length === s.cantrips + s.count;
   }
@@ -103,6 +104,16 @@ export function asiPage(ctl: PageCtl, s: Pick<"asi">, st: PageState): HTMLElemen
     feat ? featList(ctl, s, st) : abilityRows(ctl, s, st));
 }
 
+/** An optional class feature: its text and a Yes / No. */
+export function optionalPage(ctl: PageCtl, s: Pick<"optional">, st: PageState): HTMLElement {
+  const v = st.choices[s.key];
+  return h("div", { cls: "fe-lu-body", data: { step: s.key } }, h("div", { cls: "fe-muted", text: s.label }),
+    s.text ? h("div", { cls: "fe-faint", text: s.text }) : null,
+    h("div", { cls: "fe-filters" },
+      choiceButton("Yes, take it", undefined, v === true, undefined, () => ctl.pick(s.key, true), { opt: "yes" }),
+      choiceButton("No", undefined, v === false, undefined, () => ctl.pick(s.key, false), { opt: "no" })));
+}
+
 export function pickPage(ctl: PageCtl, s: Pick<"pick">, st: PageState): HTMLElement {
   const v = st.choices[s.key], cur = isStrs(v) ? v : [];
   const toggle = (id: string) => ctl.pick(s.key, cur.includes(id) ? cur.filter(x => x !== id) : cur.length >= s.count ? [...cur.slice(1), id] : [...cur, id]);
@@ -172,7 +183,7 @@ export function levelUpPanel(ctl: SheetController): HTMLElement {
   else if (step) {
     ready = answered(step, st);
     body = step.kind === "hp" ? hpPage(ctl, step, st) : step.kind === "subclass" ? subclassPage(ctl, step, st) : step.kind === "asi" ? asiPage(ctl, step, st)
-      : step.kind === "pick" ? pickPage(ctl, step, st) : spellsPage(ctl, step, st);
+      : step.kind === "pick" ? pickPage(ctl, step, st) : step.kind === "optional" ? optionalPage(ctl, step, st) : spellsPage(ctl, step, st);
   } else { body = h("div", { cls: "fe-faint", text: error ?? "Pick a class first." }); ready = false; }
   const back = btn(page === 0 ? "Cancel" : "Back", () => { if (page === 0) ctl.cancelLevelUp(); else ctl.setLevelUp({ page: page - 1 }); }, "", );
   back.dataset.act = "lu-back";

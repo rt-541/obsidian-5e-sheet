@@ -103,7 +103,10 @@ export function progress(c: Character, registry: Registry): Progress {
           if (op.speed !== undefined) out.speed = op.speed;
           if (op.darkvision !== undefined) out.darkvision = Math.max(out.darkvision ?? 0, op.darkvision);
           break;
-        case "feature": feature(src, key, op.name, op.text, op.effects, op.action); break;
+        case "feature":
+          // an optional feature is only there when the level-up (or the note's choices) says it was taken
+          if (!op.optional || choice(key, src.classId, src.level) === true) feature(src, key, op.name, op.text, op.effects, op.action);
+          break;
         case "effect": if (Object.keys(op.effects).length) out.effects.push({ source: src.label, effects: op.effects }); break;
         case "resource": {
           const id = slug(op.name);

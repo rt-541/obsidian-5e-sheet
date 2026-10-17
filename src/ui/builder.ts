@@ -142,6 +142,7 @@ export class BuilderController {
     switch (s.kind) {
       case "subclass": return typeof v === "string";
       case "asi": return typeof v === "object" && v !== null && ("feat" in v || Object.values((v as { abilities?: Record<string, number> }).abilities ?? {}).reduce((a, n) => a + n, 0) === 2);
+      case "optional": return typeof v === "boolean";
       case "pick": return isStrs(v) && v.length === s.count && v.every(x => x.trim() !== "");
       case "spells": return isStrs(v) && v.length === s.cantrips + s.count;
     }

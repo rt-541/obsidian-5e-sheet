@@ -72,6 +72,7 @@ export type Step =
   | { kind: "subclass"; key: string; label: string; source: string; options: StepOption[] }
   | { kind: "asi"; key: string; label: string; source: string; maxScores: Record<Abil, number> }
   | { kind: "pick"; key: string; label: string; source: string; what: "skills" | "expertise" | "tools" | "languages" | "option" | "abilities"; count: number; /** Option list name when `what` is option. */ list?: string; options: StepOption[]; /** No list to choose from: type the names. */ free: boolean }
+  | { kind: "optional"; key: string; label: string; source: string; name: string; text?: string }
   | { kind: "spells"; key: string; label: string; source: string; count: number; cantrips: number; swap: number; maxLevel: number; options: StepOption[] };
 export interface LevelPlan { class: string; className: string; /** Class level after this level. */ level: number; total: number; first: boolean; steps: Step[]; }
 export interface LevelAnswers {
@@ -171,6 +172,22 @@ function abilityPicks(env: Env, c: Character, addedFeats: string[]): Step[] {
   return out;
 }
 
+/** One yes / no question for every optional feature of the class level being gained (and of the subclass, at that class level). */
+function optionalFeatures(env: Env): Step[] {
+  if (env.mode.kind !== "level") return [];
+  const classId = env.mode.classId, k = env.cand.classes.find(x => x.class === classId), cd = env.registry.get<ClassData>("class", classId);
+  if (!k || !cd) return [];
+  const sub = k.subclass ? env.registry.get<SubclassData>("subclass", k.subclass) : undefined;
+  const out: Step[] = [];
+  const scan = (ops: Op[] | undefined, keyBase: string, source: string) => {
+    for (const op of ops ?? []) if (op.op === "feature" && op.optional)
+      out.push({ kind: "optional", key: `${keyBase}:${k.level}:${op.id}`, label: `Take optional feature ${op.name}?`, source, name: op.name, ...(op.text !== undefined ? { text: op.text } : {}) });
+  };
+  scan(cd.data.levels?.[k.level], `class:${classId}`, `${cd.name} ${k.level}`);
+  if (sub && sub.data.class === classId) scan(sub.data.levels[k.level], `subclass:${k.subclass}`, `${sub.name} (${cd.name} ${k.level})`);
+  return out;
+}
+
 interface Planned { env: Env; steps: Step[]; ops: Map<string, PendingChoice>; first: boolean; className: string; level: number; die: number; }
 
 /** Build the candidate (class level raised, subclass and feat answers applied so their follow-up steps appear) and its steps. */
@@ -216,7 +233,7 @@ function plan(c: Character, mode: Mode, registry: Registry, choices: Record<stri
     steps.push({ kind: "hp", key: "hp", label: first ? "Hit points (first level)" : "Hit points", die, conMod, average: averageHp(die), first });
   }
   for (const p of mine.values()) { const s = stepOf(p, env, maxScores); if (s) steps.push(s); }
-  steps.push(...abilityPicks(env, c, addedFeats));
+  steps.push(...abilityPicks(env, c, addedFeats), ...optionalFeatures(env));
   return { env, steps, ops: mine, first, className, level, die };
 }
 
@@ -262,6 +279,10 @@ function checkStep(s: Exclude<Step, { kind: "hp" }>, v: unknown, env: Env, taken
         if (env.mode.kind === "level" && to > s.maxScores[abil]) return { error: `${label}: ${ABIL_NAME[abil]} cannot go above ${s.maxScores[abil]}` };
       }
       return { ok: { abilities: Object.fromEntries(entries) } };
+    }
+    case "optional": {
+      if (typeof v !== "boolean") return { error: `${label}: answer yes or no` };
+      return { ok: v };
     }
     case "pick": {
       if (!isStrs(v) || v.length !== s.count) return { error: `${label}: pick exactly ${s.count}` };
@@ -326,6 +347,7 @@ function commitSteps(steps: Step[], choices: Record<string, unknown>, env: Env, 
     }
     record[s.key] = r.ok;
     if (s.kind === "subclass") summary.push(`Subclass: ${optionName(s, r.ok as string)}`);
+    else if (s.kind === "optional") summary.push(`Optional feature: ${s.name} (${r.ok === true ? "taken" : "not taken"})`);
     else if (s.kind === "pick") summary.push(`${s.what === "option" ? titleCase(s.list ?? "choice") : titleCase(s.what)}: ${(r.ok as string[]).map(id => optionName(s, id)).join(", ")}`);
     else if (s.kind === "asi") {
       const a = r.ok as { feat?: string; abilities?: Record<string, number> };
