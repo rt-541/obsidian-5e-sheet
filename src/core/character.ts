@@ -5,9 +5,13 @@ export interface InventoryEntry { id?: string; name?: string; qty: number; equip
 export type CompanionKind = "familiar" | "companion" | "steed" | "summon" | "sidekick";
 export interface CompanionEntry { creature: string; name: string; kind: CompanionKind; hp: { current?: number; temp: number }; conditions: Record<string, number>; }
 export interface Resource { name: string; max: number; used: number; reset: "short" | "long" | "dawn" | "none"; }
+export type HpMethod = "roll" | "average" | "first" | "recorded";
+const HP_METHODS: HpMethod[] = ["roll", "average", "first", "recorded"];
+/** What one applied level added: the HP method and amount (before CON) and every pick made, keyed `<source>:<level>:<op id>`. */
+export interface LevelEntry { class: string; level: number; hp: { method: HpMethod; die?: number; gained: number }; choices: Record<string, unknown>; }
 export interface SheetToggles { hide: string[]; show: string[]; }
 export interface Character {
-  type: "5e-character"; schema: 1; name: string; campaign?: string; race?: string; background?: string;
+  type: "5e-character"; schema: 1; name: string; campaign?: string; race?: string; subrace?: string; background?: string;
   classes: ClassLevel[]; abilities: Record<Abil, number>;
   proficiencies: { saves: Abil[]; skills: string[]; expertise: string[] };
   hp: { max: number; current: number; temp: number };
@@ -18,6 +22,14 @@ export interface Character {
   inventory: InventoryEntry[]; coins: { pp: number; gp: number; ep: number; sp: number; cp: number };
   resources: Resource[]; conditions: Record<string, number>; injuries: { id: string; overcome: boolean }[];
   modifiers: Modifier[]; inspiration: boolean; xp: number; baseSpeed: number;
+  /** Applied levels, oldest first; absent on notes that predate leveling. */
+  levelLog: LevelEntry[];
+  /** Feat ids. */
+  feats: string[];
+  /** Used counts of resources derived from class operations, keyed by resource id. */
+  uses: Record<string, number>;
+  /** Non-level choices and toggles, e.g. "dc.hemocraft.alt": true. */
+  choices: Record<string, unknown>;
   concentration?: string;
   /** Spells shown on the main page: own spell id, or "<item id>/<spell id>" for item spells. */
   mainSpells: string[];
@@ -103,7 +115,7 @@ export function newCharacter(name: string): Character {
     type: "5e-character", schema: 1, name, classes: [], abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
     proficiencies: { saves: [], skills: [], expertise: [] }, hp: { max: 0, current: 0, temp: 0 }, hitDice: {},
     deathSaves: { successes: 0, failures: 0 }, spellSlots: {}, spells: [], inventory: [], coins: { pp: 0, gp: 0, ep: 0, sp: 0, cp: 0 },
-    resources: [], conditions: {}, injuries: [], modifiers: [], inspiration: false, xp: 0, baseSpeed: 30, mainSpells: [],
+    resources: [], conditions: {}, injuries: [], modifiers: [], inspiration: false, xp: 0, baseSpeed: 30, levelLog: [], feats: [], uses: {}, choices: {}, mainSpells: [],
     rest: { nightsInPlace: 0 }, companions: [], sheet: { hide: [], show: [] }, rules: {},
   };
 }
@@ -117,7 +129,7 @@ function schemaCheck(fm: R, r: Reader): void {
 function parseCharacter(fm: R): Parsed {
   const r = new Reader(), c = newCharacter(r.str(fm.name, "name") ?? "Unnamed");
   schemaCheck(fm, r);
-  for (const k of ["campaign", "race", "background"] as const) { const s = r.str(fm[k], k); if (s) c[k] = s; }
+  for (const k of ["campaign", "race", "subrace", "background"] as const) { const s = r.str(fm[k], k); if (s) c[k] = s; }
   c.classes = r.list(fm.classes, "classes").flatMap((x, i) => {
     if (!isObj(x) || typeof x.class !== "string") { r.errors.push(`classes[${i}]: must have a class`); return []; }
     const sub = r.str(x.subclass, `classes[${i}].subclass`);
@@ -182,6 +194,18 @@ function parseCharacter(fm: R): Parsed {
     if (hp.current !== undefined) ce.hp.current = r.whole(hp.current, `companions[${i}].hp.current`);
     return [ce];
   });
+  c.levelLog = r.list(fm.levelLog, "levelLog").flatMap((x, i) => {
+    const at = `levelLog[${i}]`;
+    if (!isObj(x) || typeof x.class !== "string" || !x.class) { r.errors.push(`${at}: must have a class`); return []; }
+    const hp = r.obj(x.hp, `${at}.hp`);
+    if (!HP_METHODS.includes(hp.method as HpMethod)) r.errors.push(`${at}.hp.method: must be ${HP_METHODS.join(", ")}`);
+    const entryHp: LevelEntry["hp"] = { ...hp, method: HP_METHODS.includes(hp.method as HpMethod) ? hp.method as HpMethod : "recorded", gained: r.whole(hp.gained, `${at}.hp.gained`) };
+    if (hp.die !== undefined) entryHp.die = r.whole(hp.die, `${at}.hp.die`);
+    return [{ ...x, class: x.class, level: r.whole(x.level, `${at}.level`, 1) || (r.errors.push(`${at}.level: must be from 1`), 1), hp: entryHp, choices: r.obj(x.choices, `${at}.choices`) }];
+  });
+  c.feats = r.strs(fm.feats, "feats");
+  for (const [k, v] of Object.entries(r.obj(fm.uses, "uses"))) c.uses[k] = r.whole(v, `uses.${k}`);
+  c.choices = r.obj(fm.choices, "choices");
   const conc = r.str(fm.concentration, "concentration"); if (conc) c.concentration = conc;
   c.mainSpells = r.strs(fm.mainSpells, "mainSpells");
   c.sheet = r.toggles(fm.sheet, "sheet");
