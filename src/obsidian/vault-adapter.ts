@@ -6,6 +6,10 @@ export class ObsidianVaultAdapter implements VaultAdapter {
   listMarkdown(folder: string): string[] {
     return this.app.vault.getMarkdownFiles().map(f => f.path).filter(p => p.startsWith(folder + "/"));
   }
+  frontmatter(path: string): Record<string, unknown> | undefined {
+    const f = this.app.vault.getAbstractFileByPath(path);
+    return f instanceof TFile ? this.app.metadataCache.getFileCache(f)?.frontmatter as Record<string, unknown> | undefined : undefined;
+  }
   async read(path: string): Promise<VaultNote> {
     const f = this.app.vault.getAbstractFileByPath(path);
     if (!(f instanceof TFile)) return { path, frontmatter: undefined, body: "" };
