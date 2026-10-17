@@ -28,13 +28,28 @@ function nameCell(r: SpellRow): HTMLElement {
     r.concentration ? h("span", { cls: "fe-src", text: "C" }) : null);
 }
 
+/** Key stored in Character.mainSpells: the spell id for own spells, "<item id>/<spell id>" for item spells. */
+export function pinKey(ctl: SheetController, r: SpellRow): string {
+  return r.source.kind === "item" ? `${ctl.character!.inventory[r.source.itemIndex]?.id ?? r.source.itemIndex}/${r.id}` : r.id;
+}
+function pinButton(ctl: SheetController, r: SpellRow): HTMLElement {
+  const key = pinKey(ctl, r), on = ctl.character!.mainSpells.includes(key);
+  const el = btn(on ? "Pinned" : "Pin", () => ctl.dispatch({ type: "pinSpell", key, on: !on }), on ? "is-on" : "", { act: "pin" });
+  el.title = on ? "Shown on the main page (click to unpin)" : "Show on the main page";
+  return el;
+}
+function castButton(ctl: SheetController, r: SpellRow): HTMLElement | null {
+  if (!r.known) return null;
+  if (r.source.kind === "item") { const idx = r.source.itemIndex; return btn("Cast", () => ctl.cast(r.id, r.castLevel !== r.level ? r.castLevel : undefined, idx), "", { act: "cast" }); }
+  return btn("Cast", () => r.level >= 1 ? ctl.open({ kind: "cast", spell: r.id }) : ctl.cast(r.id), "", { act: "cast" });
+}
+
 function ownRow(ctl: SheetController, r: SpellRow, index: number): HTMLElement {
   const prepared = r.source.kind === "own" && r.source.prepared;
   return h("div", { cls: "fe-inv", data: { spell: r.id } },
     r.level >= 1 && r.known ? h("button", { cls: `fe-dot ${prepared ? "is-prof" : ""}`, title: prepared ? "Prepared" : "Not prepared", attrs: { "aria-label": `Prepared: ${r.name}` },
       data: { act: "prepare" }, on: { click: () => ctl.dispatch({ type: "prepare", index, on: !prepared }) } }) : null,
-    nameCell(r), ...rolls(ctl, r),
-    r.known ? btn("Cast", () => r.level >= 1 ? ctl.open({ kind: "cast", spell: r.id }) : ctl.cast(r.id), "", { act: "cast" }) : null,
+    nameCell(r), ...rolls(ctl, r), castButton(ctl, r), r.known ? pinButton(ctl, r) : null,
     ctl.editing ? btn("Remove", () => ctl.dispatch({ type: "removeSpell", index }), "", { act: "remove-spell" }) : null);
 }
 
@@ -52,13 +67,24 @@ export function spellsFeature(ctl: SheetController, st: ActorStats): HTMLElement
     h("div", { cls: "fe-card-title", text: (list[0].source as { itemName: string }).itemName }),
     ...list.map(r => h("div", { cls: "fe-inv", data: { spell: r.id } }, nameCell(r), ...rolls(ctl, r),
       h("span", { cls: "fe-faint", text: costLabel(r.source as Extract<SpellRow["source"], { kind: "item" }>) }),
-      r.known ? btn("Cast", () => ctl.cast(r.id, r.castLevel !== r.level ? r.castLevel : undefined, idx), "", { act: "cast" }) : null))));
+      castButton(ctl, r), r.known ? pinButton(ctl, r) : null))));
   return h("div", { cls: "fe-card fe-spells" }, head,
     h("div", { cls: "fe-card-title", text: "Your spells" }),
     ...(own.length ? own : [h("div", { cls: "fe-faint", text: "No spells yet." })]),
     ctl.editing ? btn("Add spell", () => ctl.open({ kind: "add-spell" }), "", { act: "add-spell" }) : null,
     h("div", { data: { fromItems: "" } }, h("div", { cls: "fe-card-title", text: "From items" }),
       ...(fromItems.length ? fromItems : [h("div", { cls: "fe-faint", text: "None from equipped items." })])));
+}
+
+/** Compact card of pinned spells for the main page. Pins whose spell or item is gone are skipped. */
+export function pinnedSpellsFeature(ctl: SheetController, st: ActorStats): HTMLElement {
+  const c = ctl.character!, rows = spellRows(c, st, ctl.ctx());
+  const all = [...rows.own, ...rows.fromItems].filter(r => r.known);
+  const pinned = c.mainSpells.map(k => all.find(r => pinKey(ctl, r) === k)).filter((r): r is SpellRow => !!r);
+  return h("div", { cls: "fe-card" }, h("div", { cls: "fe-card-title", text: "Spells" }),
+    ...(pinned.length ? pinned.map(r => h("div", { cls: "fe-attack", data: { spell: r.id } }, nameCell(r), ...rolls(ctl, r),
+      r.source.kind === "item" ? h("span", { cls: "fe-faint", text: costLabel(r.source) }) : null, castButton(ctl, r)))
+      : [h("div", { cls: "fe-faint", text: "Pin spells on the Spells tab to show them here." })]));
 }
 
 export function concentrationFeature(ctl: SheetController): HTMLElement {

@@ -2,7 +2,7 @@
 export const CHARACTER_FEATURES = [
   "identity", "inspiration", "prof", "xp", "ac", "initiative", "speed", "passive-perception",
   "hp", "hp-controls", "hit-dice", "death-saves", "conditions", "concentration", "active-effects",
-  "abilities", "saves", "skills", "attacks", "spell-dc", "spell-slots", "spells", "resources", "rests",
+  "abilities", "saves", "skills", "attacks", "pinned-spells", "spell-dc", "spell-slots", "spells", "resources", "rests",
   "inventory", "companions", "roll-mode", "roll-log", "play-edit", "notes",
 ] as const;
 export const NPC_FEATURES = [
@@ -18,7 +18,7 @@ export const DESKTOP: LayoutSpec = {
     { id: "main", label: "Main", columns: [
       ["abilities", "saves", "skills"],
       ["ac", "initiative", "speed", "passive-perception", "hp", "hp-controls", "hit-dice", "death-saves", "conditions", "concentration", "active-effects"],
-      ["attacks", "spell-dc", "spell-slots", "resources"]] },
+      ["attacks", "pinned-spells", "spell-dc", "spell-slots", "resources"]] },
     { id: "spells", label: "Spells", columns: [["spells"]] },
     { id: "inventory", label: "Inventory", columns: [["inventory"]] },
     { id: "companions", label: "Companions", columns: [["companions"]] },
@@ -28,7 +28,7 @@ export const DESKTOP: LayoutSpec = {
 export const MOBILE: LayoutSpec = {
   pinned: ["identity", "hp", "ac", "initiative", "speed", "roll-mode", "conditions", "concentration", "roll-log"],
   tabs: [
-    { id: "combat", label: "Combat", columns: [["hp-controls", "attacks", "spell-dc", "spell-slots", "resources", "hit-dice", "death-saves", "rests"]] },
+    { id: "combat", label: "Combat", columns: [["hp-controls", "attacks", "pinned-spells", "spell-dc", "spell-slots", "resources", "hit-dice", "death-saves", "rests"]] },
     { id: "checks", label: "Checks", columns: [["abilities", "saves", "skills", "passive-perception"]] },
     { id: "spells", label: "Spells", columns: [["spells"]] },
     { id: "gear", label: "Gear", columns: [["inventory"]] },

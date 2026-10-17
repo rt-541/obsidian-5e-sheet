@@ -1,6 +1,15 @@
 /* 5e Character Sheet. Obsidian theme variables only, so it follows the user's theme. */
 .fe-sheet { --fe-gap: 10px; position: relative; padding: 10px; font-size: var(--font-ui-small); color: var(--text-normal); }
 .fe-sheet button { cursor: pointer; }
+/* Obsidian styles every button with a fixed height (button:not(.clickable-icon)); these selectors outrank it
+   so pips, dots, switches and chips keep their shape instead of turning into tall ovals. */
+.fe-sheet button.fe-btn, .fe-sheet button.fe-roll, .fe-sheet button.fe-chip, .fe-sheet button.fe-chip-add, .fe-sheet button.fe-tab {
+  height: auto; min-height: 26px; line-height: 1.3; padding: 2px 8px; }
+.fe-sheet button.fe-roll { min-width: 2.6em; }
+.fe-sheet button.fe-pip, .fe-sheet button.fe-dot, .fe-sheet button.fe-switch { min-height: 0; padding: 0; box-shadow: none; flex: none; }
+.fe-sheet button.fe-pip { width: 16px; height: 16px; }
+.fe-sheet button.fe-dot { width: 14px; height: 14px; }
+.fe-sheet button.fe-switch { width: 42px; height: 24px; }
 /* `hidden` must beat any display rule below (tab panes, toast, rules text) */
 .fe-sheet [hidden] { display: none !important; }
 .fe-pinned { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; padding-bottom: 8px; border-bottom: 1px solid var(--background-modifier-border); }
@@ -67,8 +76,9 @@
 .fe-toast.is-crit { border-left-color: var(--color-green); } .fe-toast.is-fumble { border-left-color: var(--color-red); }
 .fe-toast-total { font-size: 1.8em; font-weight: var(--font-bold); }
 /* mobile: big targets, tabs scroll, toast near the top so the thumb does not cover it */
-.fe-mobile .fe-btn, .fe-mobile .fe-roll, .fe-mobile .fe-tab { min-height: 44px; }
-.fe-mobile .fe-pip { width: 26px; height: 26px; }
+.fe-mobile button.fe-btn, .fe-mobile button.fe-roll, .fe-mobile button.fe-tab { min-height: 44px; }
+.fe-sheet.fe-mobile button.fe-pip { width: 26px; height: 26px; }
+.fe-sheet.fe-mobile button.fe-dot { width: 24px; height: 24px; }
 .fe-mobile .fe-toast { left: 12px; right: 12px; top: 120px; bottom: auto; }
 .fe-mobile .fe-row { min-height: 44px; border-bottom: 1px solid var(--background-modifier-border); }
 .fe-spell-group { margin-bottom: 6px; } .fe-conc { display: flex; align-items: center; gap: 6px; }

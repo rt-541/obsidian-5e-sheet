@@ -19,6 +19,8 @@ export interface Character {
   resources: Resource[]; conditions: Record<string, number>; injuries: { id: string; overcome: boolean }[];
   modifiers: Modifier[]; inspiration: boolean; xp: number; baseSpeed: number;
   concentration?: string;
+  /** Spells shown on the main page: own spell id, or "<item id>/<spell id>" for item spells. */
+  mainSpells: string[];
   rest: { nightsInPlace: number }; companions: CompanionEntry[]; sheet: SheetToggles; rules: Record<string, boolean>;
 }
 export interface Npc {
@@ -101,7 +103,7 @@ export function newCharacter(name: string): Character {
     type: "5e-character", schema: 1, name, classes: [], abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
     proficiencies: { saves: [], skills: [], expertise: [] }, hp: { max: 0, current: 0, temp: 0 }, hitDice: {},
     deathSaves: { successes: 0, failures: 0 }, spellSlots: {}, spells: [], inventory: [], coins: { pp: 0, gp: 0, ep: 0, sp: 0, cp: 0 },
-    resources: [], conditions: {}, injuries: [], modifiers: [], inspiration: false, xp: 0, baseSpeed: 30,
+    resources: [], conditions: {}, injuries: [], modifiers: [], inspiration: false, xp: 0, baseSpeed: 30, mainSpells: [],
     rest: { nightsInPlace: 0 }, companions: [], sheet: { hide: [], show: [] }, rules: {},
   };
 }
@@ -181,6 +183,7 @@ function parseCharacter(fm: R): Parsed {
     return [ce];
   });
   const conc = r.str(fm.concentration, "concentration"); if (conc) c.concentration = conc;
+  c.mainSpells = r.strs(fm.mainSpells, "mainSpells");
   c.sheet = r.toggles(fm.sheet, "sheet");
   c.rules = r.rules(fm.rules, "rules");
   return { kind: "character", value: c, errors: r.errors, writable: r.errors.length === 0 };

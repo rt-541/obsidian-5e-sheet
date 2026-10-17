@@ -4,7 +4,7 @@ import { ABILS, type Abil, type Effects } from "../core/types";
 import { activeRests } from "../rules";
 import type { SheetController } from "./controller";
 import { h, sgn } from "./h";
-import { concentrationFeature, spellsFeature } from "./spells-ui";
+import { concentrationFeature, pinnedSpellsFeature, spellsFeature } from "./spells-ui";
 
 export type Render = (ctl: SheetController, st: ActorStats) => HTMLElement;
 const card = (title: string, ...kids: (Node | null | false)[]) => h("div", { cls: "fe-card" }, title ? h("div", { cls: "fe-card-title", text: title }) : null, ...kids);
@@ -105,6 +105,7 @@ export const RENDER: Record<string, Render> = {
   conditions: ctl => conditionChips(ctl, ctl.value.conditions),
   concentration: ctl => concentrationFeature(ctl),
   spells: (ctl, st) => spellsFeature(ctl, st),
+  "pinned-spells": (ctl, st) => pinnedSpellsFeature(ctl, st),
   "active-effects": (ctl, st) => card("Active effects",
     ...(st.effects.length ? st.effects.map(e => h("div", { cls: "fe-kv" }, h("span", { text: e.source, data: { ref: `effect:${e.source}` } }), h("span", { cls: "fe-muted", text: describeEffects(e.effects) }))) : [h("div", { cls: "fe-faint", text: "None" })]),
     st.missing.length ? h("div", { cls: "fe-warn", text: `Missing from compendium: ${st.missing.join(", ")}` }) : null),
