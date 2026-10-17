@@ -9,6 +9,19 @@
 - **Never modify `C:/obsidian/dnd/campaigns/**`** (the user's own campaign notes).
 - Vault host alias: `azure-dragon-vpn` (ssh/scp, Windows OpenSSH, cmd.exe login shell; create folders with `powershell -NoProfile -Command "New-Item -ItemType Directory -Force -Path '<p>'"`, never pipe inside the -Command string).
 
+### Library facts from the compendium session's briefing (2026-10-17)
+
+- Generated from the user's own PDFs (22 books incl. 3rd party: Tome of Beasts 1/2, Fifth Edition Foes, Strongholds & Followers). **Personal use only: never commit book text to git and never publish it.** Test fixtures copied from the library keep frontmatter and tags only; replace every body with one invented sentence.
+- `WotC/` holds `Creatures/` (~2,050), `Spells/` (~478), `Items/` (~480), `Conditions/` (15), `Books/<Title>/NN <Chapter>.md` (book text with `![[...]]` embeds: NOT content entries, skip them), `Index/` (skip), `5e Library.md` (skip), the marker file (skip).
+- Frontmatter (all `type: 5e-<type>`, `schema: 1`, `id` = slug of name, `source` = book abbreviation, `page`):
+  - `5e-creature`: `size`, `creature_type`, `alignment`, `ac`, `ac_note`, `hp`, `hp_formula`, `speed`, `abilities {str..cha}`, `saves {dex: 5}`, `skills {perception: 3}`, `damage_vulnerabilities` / `damage_resistances` / `damage_immunities`, `condition_immunities` (lists), `senses`, `passive_perception`, `languages`, `cr` (string "1/4"), `cr_value` (number), `xp`, optional `corrected_from_page` / `verified_as_printed` (bool), optional `needs_review` (list of issues: treat as usable but show a "needs review" badge). Body: rendered stat block then `## Actions` / `## Reactions` / `## Legendary Actions` with `***Name.***` entries (parse attacks from Actions: "+N to hit", "Hit: X (NdM + K) <type> damage", "DC N <Ability> saving throw").
+  - `5e-spell`: `level`, `school`, `ritual`, `casting_time`, `range`, `components` (string), `material`, `duration`, `concentration`, `classes` (list; Tasha's spells have none).
+  - `5e-item`: `item_type`, `rarity`, `attunement` (bool), `magic: true`. Body = rules text. No `effects:` extracted.
+  - `5e-condition`: `name`, `source`, `page`.
+- Tags are nested under `5e/` (e.g. `5e/save/dex`, `5e/damage/fire`, `5e/class/wizard`, `5e/source/mm`). The plugin's own tags for user notes use `5e/<type>` and `source/<source>` and must not collide with or rewrite the graph groups that `compendium.py graph` owns in `.obsidian/graph.json` (do not edit graph.json).
+- **Note names and paths in `WotC/` can still change between syncs** (OCR name repairs, "(unverified, BOOK p. N)" suffixes). Never hard-code library paths; reference library entries by `id`/name and resolve at runtime.
+- Schema change requests go to the compendium session by message, never by editing generated notes (they are overwritten on the next sync).
+
 ## Approved design (user, 2026-10-17)
 
 1. **One compendium root: `compendium/5e`.** The plugin setting `compendiumFolder` becomes `compendium/5e` (update `data.json` on the vault and the default in code).
