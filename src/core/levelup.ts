@@ -106,8 +106,14 @@ function spellOptions(env: Env, op: Extract<Op, { op: "spells" }>, maxLevel: num
     .map(e => ({ id: e.id, name: e.name, level: e.data.level, school: e.data.school, text: e.data.level === 0 ? `${e.data.school} cantrip` : `Level ${e.data.level} ${e.data.school}`,
       ...(owned.has(e.id) ? { disabled: "Already known" } : e.data.level > maxLevel ? { disabled: `Needs a level ${e.data.level} slot` } : {}) }));
 }
-function maxSpellLevel(prog: Progress): number {
-  const rows = slotTable(prog.spellcasting.map(e => ({ level: e.level, progression: e.progression, ...(e.table ? { table: e.table } : {}) })));
+/** 2014 (PHB p.164): spells known and prepared are worked out per class as if single-classed, so the cap comes from the leveling class's own entry. */
+function maxSpellLevel(env: Env, key: string): number {
+  const prog = env.prog, m = /^(class|subclass):([^:]+):/.exec(key);
+  const owner = m ? (m[1] === "class" ? m[2] : env.cand.classes.find(k => k.subclass === m[2])?.class) : undefined;
+  const mine = prog.spellcasting.filter(e => e.class === owner);
+  const own = mine.filter(e => e.from === (m?.[1] === "subclass" ? "subclass" : "class"));
+  const entries = own.length ? own : mine.length ? mine : prog.spellcasting;
+  const rows = slotTable(entries.map(e => ({ level: e.level, progression: e.progression, ...(e.table ? { table: e.table } : {}) })));
   const levels = rows.filter(r => r.max > 0).map(r => r.level === "pact" ? r.pactLevel ?? 0 : Number(r.level));
   return levels.length ? Math.max(...levels) : 9;
 }
@@ -123,7 +129,7 @@ function stepOf(p: PendingChoice, env: Env, maxScores: () => Record<Abil, number
     }
     case "asi": return { kind: "asi", ...base, maxScores: maxScores() };
     case "spells": {
-      const maxLevel = maxSpellLevel(prog);
+      const maxLevel = maxSpellLevel(env, key);
       const options = spellOptions(env, op, maxLevel);
       return { kind: "spells", ...base, count: op.count, cantrips: op.cantrips ?? 0, swap: op.swap ?? 0, maxLevel, options };
     }
@@ -139,7 +145,7 @@ function stepOf(p: PendingChoice, env: Env, maxScores: () => Record<Abil, number
         free = from === undefined;
         const have = op.what === "skills" ? new Set([...c.proficiencies.skills, ...prog.proficiencies.skills]) : op.what === "expertise" ? new Set([...c.proficiencies.expertise, ...prog.proficiencies.expertise])
           : op.what === "languages" ? new Set(prog.languages) : new Set(prog.proficiencies.other);
-        options = (from ?? []).map(id => ({ id, name: titleCase(id), ...(have.has(id) ? { disabled: op.what === "skills" ? "Already proficient" : "Already have" } : {}) }));
+        options = (from ?? []).map(id => ({ id, name: titleCase(id), ...(have.has(id) && env.mode.kind !== "resolve" ? { disabled: op.what === "skills" ? "Already proficient" : "Already have" } : {}) }));
       }
       return { kind: "pick", ...base, what: op.what, count: op.count, ...(op.list !== undefined ? { list: op.list } : {}), options, free };
     }
@@ -210,7 +216,7 @@ export function planResolve(c: Character, registry: Registry, choices: Record<st
 // ---------------------------------------------------------------- validation and application
 
 const optionName = (s: { options: StepOption[] }, id: string) => s.options.find(o => o.id === id)?.name ?? titleCase(id);
-interface Taken { skills: Set<string>; expertise: Set<string>; languages: Set<string>; tools: Set<string>; }
+interface Taken { skills: Set<string>; expertise: Set<string>; languages: Set<string>; tools: Set<string>; /** Picks made in this answer (resolve mode only checks against these). */ picked: Set<string>; }
 
 /** Check one step's answer against the step; returns the error, or the normalized answer. */
 function checkStep(s: Exclude<Step, { kind: "hp" }>, v: unknown, env: Env, taken: Taken): { error: string } | { ok: unknown } {
@@ -234,7 +240,7 @@ function checkStep(s: Exclude<Step, { kind: "hp" }>, v: unknown, env: Env, taken
       if (!entries.every(([a, n]) => ABILS.includes(a as Abil) && (n === 1 || n === 2)) || !(amounts === "2" || amounts === "1,1")) return { error: `${label}: add +2 to one ability or +1 to two` };
       for (const [a, n] of entries) {
         const abil = a as Abil, to = env.cand.abilities[abil] + (n as number);
-        if (to > s.maxScores[abil]) return { error: `${label}: ${ABIL_NAME[abil]} cannot go above ${s.maxScores[abil]}` };
+        if (env.mode.kind === "level" && to > s.maxScores[abil]) return { error: `${label}: ${ABIL_NAME[abil]} cannot go above ${s.maxScores[abil]}` };
       }
       return { ok: { abilities: Object.fromEntries(entries) } };
     }
@@ -247,8 +253,9 @@ function checkStep(s: Exclude<Step, { kind: "hp" }>, v: unknown, env: Env, taken
         if (s.free && !id.trim()) return { error: `${label}: a pick is empty` };
         if (o?.disabled) return { error: `${label}: ${o.name} is not available (${o.disabled.toLowerCase()})` };
         const set = s.what === "skills" ? taken.skills : s.what === "expertise" ? taken.expertise : s.what === "languages" ? taken.languages : s.what === "tools" ? taken.tools : undefined;
-        if (set?.has(id)) return { error: `${label}: ${optionName(s, id)} is already chosen` };
+        if (env.mode.kind === "resolve" ? taken.picked.has(`${s.what}:${id}`) : set?.has(id)) return { error: `${label}: ${optionName(s, id)} is already chosen` };
       }
+      v.forEach(x => taken.picked.add(`${s.what}:${x}`));
       if (s.what === "skills") v.forEach(x => taken.skills.add(x)); else if (s.what === "expertise") v.forEach(x => taken.expertise.add(x));
       else if (s.what === "languages") v.forEach(x => taken.languages.add(x)); else if (s.what === "tools") v.forEach(x => taken.tools.add(x));
       return { ok: v };
@@ -286,7 +293,7 @@ function checkSwaps(s: Extract<Step, { kind: "spells" }>, v: unknown, env: Env):
 /** Validate every step's answer and write the effects of the answers into `value`; returns what to record in the log. */
 function commitSteps(steps: Step[], choices: Record<string, unknown>, env: Env, value: Character, c: Character): { record: Record<string, unknown>; summary: string[] } | { error: string } {
   const taken: Taken = { skills: new Set([...c.proficiencies.skills, ...env.prog.proficiencies.skills]), expertise: new Set([...c.proficiencies.expertise, ...env.prog.proficiencies.expertise]),
-    languages: new Set(env.prog.languages), tools: new Set(env.prog.proficiencies.other) };
+    languages: new Set(env.prog.languages), tools: new Set(env.prog.proficiencies.other), picked: new Set() };
   const asked = steps.filter((s): s is Exclude<Step, { kind: "hp" }> => s.kind !== "hp");
   // expertise may use skills picked in the same level, so skills are checked first
   const order = [...asked.filter(s => !(s.kind === "pick" && s.what === "expertise")), ...asked.filter(s => s.kind === "pick" && s.what === "expertise")];
@@ -304,7 +311,7 @@ function commitSteps(steps: Step[], choices: Record<string, unknown>, env: Env, 
     else if (s.kind === "asi") {
       const a = r.ok as { feat?: string; abilities?: Record<string, number> };
       if (a.feat) summary.push(`Feat: ${env.registry.get<FeatData>("feat", a.feat)?.name ?? a.feat}`);
-      else { for (const [k, n] of Object.entries(a.abilities ?? {})) value.abilities[k as Abil] += n; summary.push(Object.entries(a.abilities ?? {}).map(([k, n]) => `${sgn(n)} ${ABIL_NAME[k as Abil]}`).join(", ")); }
+      else { if (env.mode.kind === "level") for (const [k, n] of Object.entries(a.abilities ?? {})) value.abilities[k as Abil] += n; summary.push(Object.entries(a.abilities ?? {}).map(([k, n]) => `${sgn(n)} ${ABIL_NAME[k as Abil]}`).join(", ")); }
     } else if (s.kind === "spells") {
       const ids = r.ok as string[], sw = checkSwaps(s, choices[`${s.key}:swap`], env);
       if ("error" in sw) return sw;
@@ -378,8 +385,11 @@ export function applyResolve(c: Character, answers: LevelAnswers, registry: Regi
   const choices = answers.choices ?? {};
   const p = plan(c, { kind: "resolve" }, registry, choices);
   if ("error" in p) return p;
-  const { env, steps } = p, value = env.cand;
-  if (!steps.length) return { error: "Nothing is waiting for a choice" };
+  const { env } = p, value = env.cand;
+  if (!p.steps.length) return { error: "Nothing is waiting for a choice" };
+  // one answered item at a time is fine: only the steps that have an answer are checked
+  const steps = p.steps.filter(s => s.key in choices);
+  if (!steps.length) return { error: `${p.steps[0].kind === "hp" ? "" : p.steps[0].label} still needs an answer` };
   const done = commitSteps(steps, choices, env, value, c);
   if ("error" in done) return done;
   for (const s of steps) if (s.kind !== "subclass" && s.kind !== "hp" && s.key in done.record) value.choices[s.key] = done.record[s.key];

@@ -364,7 +364,8 @@ describe("resolving pending choices without a level", () => {
     const r = applyResolve(c, { choices: { ...L1, ...L2, ...L3, ...L4 } }, reg);
     if ("error" in r) throw new Error(r.error);
     expect(r.value.classes[0]).toEqual({ class: "skirmisher", subclass: "scholar", level: 4 });
-    expect(r.value.levelLog).toEqual([]); expect(r.value.hp).toEqual(c.hp); expect(r.value.abilities.int).toBe(18);
+    expect(r.value.levelLog).toEqual([]); expect(r.value.hp).toEqual(c.hp); expect(r.value.abilities.int).toBe(c.abilities.int);   // already in the scores: recorded, not applied
+    expect(r.value.choices["class:skirmisher:4:asi-0"]).toEqual({ abilities: { int: 2 } });
     expect(r.value.choices["class:skirmisher:1:skills"]).toEqual(["acrobatics", "athletics"]);
     const p = progress(r.value, reg);
     expect(p.pending).toEqual([]); expect(p.options.stances).toEqual(["duelist"]); expect(p.proficiencies.expertise).toEqual(["stealth"]);
@@ -375,7 +376,11 @@ describe("resolving pending choices without a level", () => {
   });
   it("a partial or bad answer is an error and changes nothing; nothing pending is an error too", () => {
     const c = legacy();
-    expect(applyResolve(c, { choices: L1 }, reg)).toMatchObject({ error: expect.stringMatching(/still needs an answer/) });
+    expect(applyResolve(c, { choices: {} }, reg)).toMatchObject({ error: expect.stringMatching(/still needs an answer/) });
+    expect(applyResolve(c, { choices: { "class:skirmisher:1:skills": ["acrobatics"] } }, reg)).toMatchObject({ error: expect.stringMatching(/pick exactly 2/) });
+    const one = applyResolve(c, { choices: L1 }, reg);       // one item at a time
+    if ("error" in one) throw new Error(one.error);
+    expect(planResolve(one.value, reg).map(s => s.key)).not.toContain("class:skirmisher:1:skills");
     expect(applyResolve(upTo(3), { choices: {} }, reg)).toEqual({ error: "Nothing is waiting for a choice" });
   });
 });
