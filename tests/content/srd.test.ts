@@ -6,7 +6,7 @@ describe("SRD bundle", () => {
   const r = new Registry(); registerBuiltinTypes(r); const problems = loadSrd(r);
   it("every entry validates", () => expect(problems).toEqual([]));
   it("has the expected coverage", () => {
-    expect(srdCounts()).toEqual({ condition: 15, class: 12, item: 32, creature: 19 });
+    expect(srdCounts()).toEqual({ condition: 15, class: 12, item: 32, creature: 19, spell: 319 });
     expect(r.list("condition")).toHaveLength(15); expect(r.list("creature")).toHaveLength(19);
   });
   it("exhaustion has six cumulative levels", () => {

@@ -3,10 +3,12 @@ import conditions from "./conditions.json";
 import classes from "./classes.json";
 import items from "./items.json";
 import creatures from "./creatures.json";
+import spells from "./spells.json";
 
 const SETS: [string, Record<string, unknown>[]][] = [
   ["condition", conditions as Record<string, unknown>[]], ["class", classes as Record<string, unknown>[]],
   ["item", items as Record<string, unknown>[]], ["creature", creatures as Record<string, unknown>[]],
+  ["spell", spells as Record<string, unknown>[]],
 ];
 
 export function loadSrd(r: Registry): Problem[] {
