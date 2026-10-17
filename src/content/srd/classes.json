@@ -1,0 +1,14 @@
+[
+  { "name": "Barbarian", "hitDie": 12, "saves": ["str", "con"] },
+  { "name": "Bard", "hitDie": 8, "saves": ["dex", "cha"], "spellcasting": { "abil": "cha", "progression": "full" } },
+  { "name": "Cleric", "hitDie": 8, "saves": ["wis", "cha"], "spellcasting": { "abil": "wis", "progression": "full" } },
+  { "name": "Druid", "hitDie": 8, "saves": ["int", "wis"], "spellcasting": { "abil": "wis", "progression": "full" } },
+  { "name": "Fighter", "hitDie": 10, "saves": ["str", "con"] },
+  { "name": "Monk", "hitDie": 8, "saves": ["str", "dex"] },
+  { "name": "Paladin", "hitDie": 10, "saves": ["wis", "cha"], "spellcasting": { "abil": "cha", "progression": "half" } },
+  { "name": "Ranger", "hitDie": 10, "saves": ["str", "dex"], "spellcasting": { "abil": "wis", "progression": "half" } },
+  { "name": "Rogue", "hitDie": 8, "saves": ["dex", "int"] },
+  { "name": "Sorcerer", "hitDie": 6, "saves": ["con", "cha"], "spellcasting": { "abil": "cha", "progression": "full" } },
+  { "name": "Warlock", "hitDie": 8, "saves": ["wis", "cha"], "spellcasting": { "abil": "cha", "progression": "pact" } },
+  { "name": "Wizard", "hitDie": 6, "saves": ["int", "wis"], "spellcasting": { "abil": "int", "progression": "full" } }
+]
