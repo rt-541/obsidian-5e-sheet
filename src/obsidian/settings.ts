@@ -9,7 +9,7 @@ export interface Settings {
   layout: "auto" | "desktop" | "mobile";
   ruleDefaults: Record<string, boolean>;
 }
-export interface PluginData { settings: Settings; logs: Record<string, RollResult[]>; }
+export interface PluginData { settings: Settings; logs: Record<string, RollResult[]>; /** Collapsed traits-card groups per character note path. */ collapsed?: Record<string, string[]>; }
 export const DEFAULT_SETTINGS: Settings = { compendiumFolder: "compendium/5e", autoOpen: true, layout: "auto", ruleDefaults: {} };
 
 export class FiveESettingTab extends PluginSettingTab {

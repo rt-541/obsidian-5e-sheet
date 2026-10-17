@@ -6,6 +6,7 @@ import type { SheetController } from "./controller";
 import { h, sgn } from "./h";
 import { btn, card, describeEffects, pips } from "./widgets";
 import { featuresFeature, levelUpFeature, xpFeature } from "./features-ui";
+import { traitsFeature } from "./traits-ui";
 import { concentrationFeature, pinnedSpellsFeature, spellsFeature } from "./spells-ui";
 
 export { describeEffects, pips };
@@ -139,7 +140,8 @@ export const RENDER: Record<string, Render> = {
         ...traits.map((t, ti) => h("div", { cls: "fe-note" }, h("b", { text: t.name + ". ", data: { ref: `trait:${comp.creature}:${ti}` } }), t.text)),
         ctl.editing ? btn("Remove", () => ctl.dispatch({ type: "removeCompanion", index: i })) : null);
     }), btn("Add companion", () => ctl.open({ kind: "add-companion" }))); },
-  traits: ctl => { const n = ctl.value.type === "5e-npc" ? ctl.value : undefined;
+  traits: (ctl, st) => { if (ctl.character) return traitsFeature(ctl, st);
+    const n = ctl.value.type === "5e-npc" ? ctl.value : undefined;
     const traits = (n && ctl.host.registry.get<CreatureData>("creature", n.creature)?.data.traits) || [];
     return card("Traits", ...traits.map((t, ti) => h("div", { cls: "fe-note" }, h("b", { text: t.name + ". ", data: { ref: `trait:${n!.creature}:${ti}` } }), t.text))); },
   "roll-mode": ctl => h("div", { cls: "fe-seg" }, ...(["dis", "normal", "adv"] as const).map(m =>

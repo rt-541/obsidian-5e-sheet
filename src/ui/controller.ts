@@ -24,6 +24,9 @@ export interface SheetHost {
   renderMarkdown?(md: string, el: HTMLElement): void;
   /** Open the new-character builder (offered on a sheet that has no class yet). */
   openBuilder?(): void;
+  /** Trait groups the player collapsed, kept per character in plugin data (not in the note). */
+  collapsedGroups?(): string[];
+  setCollapsedGroups?(ids: string[]): void;
 }
 export type Panel =
   | { kind: "conditions"; who?: number } | { kind: "log" } | { kind: "rest"; id: string }
@@ -44,6 +47,7 @@ export class SheetController {
   mode: RollMode = "normal"; editing = false; tab = ""; amount = 5;
   panel: Panel | null = null; levelUp: LevelUpState | null = null; confirmUndo = false; lastRoll?: RollResult; restOpts: RestOptions = { samePlace: true, safeHaven: false };
   private subs = new Set<() => void>();
+  private collapsed?: Set<string>;
 
   constructor(public host: SheetHost, parsed: Exclude<Parsed, { kind: "none" }>) {
     this.value = parsed.value; this.errors = parsed.errors; this.writable = parsed.writable;
@@ -124,6 +128,13 @@ export class SheetController {
 
   setMode(m: RollMode) { this.mode = m; this.emit(); }
   setEditing(on: boolean) { this.editing = on; this.confirmUndo = false; if (!on && this.panel?.kind === "customize") this.panel = null; this.emit(); }
+  /** Whether the traits card section `id` is collapsed (default: expanded). */
+  isCollapsed(id: string) { return this.collapsedSet().has(id); }
+  toggleCollapsed(id: string) {
+    const s = this.collapsedSet(); if (!s.delete(id)) s.add(id);
+    this.host.setCollapsedGroups?.([...s]); this.emit();
+  }
+  private collapsedSet() { return (this.collapsed ??= new Set(this.host.collapsedGroups?.() ?? [])); }
   setTab(t: string) { this.tab = t; this.emit(); }
   open(p: Panel) { this.panel = p; this.emit(); }
   close() { this.panel = null; this.emit(); }

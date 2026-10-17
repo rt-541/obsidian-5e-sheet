@@ -32,6 +32,8 @@ export class CharacterView extends FileView {
   /** A renamed note keeps its roll log, and the sheet is rebuilt so nothing points at the old path. */
   async onRename(file: TFile) {
     const old = this.logPath, logs = this.plugin.data.logs;
+    const col = this.plugin.data.collapsed;
+    if (old && old !== file.path && col?.[old]) { col[file.path] = col[old]; delete col[old]; }
     if (old && old !== file.path) { if (logs[old] && !logs[file.path]) logs[file.path] = logs[old]; delete logs[old]; this.plugin.saveLogsSoon(); }
     await this.build(file);
   }
@@ -74,6 +76,8 @@ export class CharacterView extends FileView {
       notify: m => this.plugin.notice(m),
       openBuilder: () => this.plugin.openBuilder(),
       log, body,
+      collapsedGroups: () => this.plugin.data.collapsed?.[file.path] ?? [],
+      setCollapsedGroups: ids => { const d = (this.plugin.data.collapsed ??= {}); if (ids.length) d[file.path] = ids; else delete d[file.path]; this.plugin.saveLogsSoon(); },
       renderMarkdown: (md, el) => { void MarkdownRenderer.render(this.app, md, el, file.path, this); },
     }, parsed);
     if (prev) { ctl.tab = prev.tab; ctl.mode = prev.mode; ctl.editing = prev.editing; }

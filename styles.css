@@ -111,3 +111,9 @@
 .fe-detail-src { margin-bottom: 2px; } .fe-detail-src .fe-src { margin-left: 0; }
 .fe-comp-actions { justify-content: flex-start; }
 .fe-mobile .fe-compendium select, .fe-compendium.fe-mobile select { min-height: 44px; }
+.fe-trait-group { margin-bottom: 6px; }
+.fe-sheet button.fe-trait-head { display: flex; align-items: center; gap: 6px; width: 100%; text-align: left; background: transparent; box-shadow: none; font-weight: 600; padding: 4px 0; }
+.fe-trait-caret { width: 1em; text-align: center; color: var(--text-muted); }
+.fe-trait { display: flex; align-items: center; gap: 8px; padding: 3px 0 3px 1.2em; flex-wrap: wrap; }
+.fe-trait-uses { flex: none; }
+.fe-mobile .fe-sheet button.fe-trait-head, .fe-mobile button.fe-trait-head { min-height: 44px; }
