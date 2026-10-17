@@ -34,7 +34,7 @@ export function mountSheet(root: HTMLElement, ctl: SheetController, mobile: bool
     if (ctl.panel) root.append(h("div", { cls: "fe-scrim", on: { click: () => ctl.close() } }), renderPanel(ctl, ctl.panel, features));
     const r = ctl.lastRoll;
     const toast = h("div", { cls: `fe-toast ${r ? (r.crit ? "is-crit" : r.fumble ? "is-fumble" : "") : ""}`, data: { feature: "roll-result" } },
-      r ? h("div", { cls: "fe-muted", text: r.title }) : null, r ? h("div", { cls: "fe-toast-total", text: String(r.total) }) : null, r ? h("div", { cls: "fe-mono", text: r.detail }) : null);
+      r ? h("div", { cls: "fe-muted", text: r.title }) : null, r && (r.dice.length || r.total !== 0) ? h("div", { cls: "fe-toast-total", text: String(r.total) }) : null, r ? h("div", { cls: "fe-mono", text: r.detail }) : null);
     const fresh = !!r && r !== shownRoll;   // show only for a new roll, then hide after TOAST_MS
     if (fresh) { shownRoll = r; window.clearTimeout(toastTimer); toastTimer = window.setTimeout(() => { toast.hidden = true; }, TOAST_MS); }
     toast.hidden = !fresh;

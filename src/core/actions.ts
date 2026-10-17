@@ -16,7 +16,8 @@ export type Action =
   | { type: "addItem"; id: string } | { type: "removeItem"; index: number }
   | { type: "addCompanion"; creature: string; name: string; kind: CompanionEntry["kind"] } | { type: "removeCompanion"; index: number }
   | { type: "ability"; abil: Abil; value: number }
-  | { type: "cast"; spell: string; level?: number; item?: number } | { type: "endConcentration" };
+  | { type: "cast"; spell: string; level?: number; item?: number } | { type: "endConcentration" }
+  | { type: "addSpell"; id: string } | { type: "removeSpell"; index: number } | { type: "prepare"; index: number; on: boolean };
 export interface Limits {
   self: ActorStats; companions: (ActorStats | undefined)[]; chargesMax: (index: number) => number;
   /** Re-derive after a condition change so stored HP can be clamped to the new effective max. */
@@ -118,6 +119,9 @@ export function apply(c0: Character, a: Action, lim: Limits): { value: Character
     case "removeCompanion": c.companions.splice(a.index, 1); break;
     case "cast": return cast(c0, c, a, lim);
     case "endConcentration": delete c.concentration; break;
+    case "addSpell": if (!c.spells.some(x => x.id === a.id)) c.spells.push({ id: a.id, prepared: false }); break;
+    case "removeSpell": c.spells.splice(a.index, 1); break;
+    case "prepare": { const s = c.spells[a.index]; if (s) s.prepared = a.on; break; }
     case "ability": c.abilities[a.abil] = clamp(a.value, 1, 30); break;
   }
   return { value: c };

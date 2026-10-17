@@ -1,5 +1,5 @@
 import type { Registry } from "../content/registry";
-import type { CampaignData, ItemData } from "../content/types";
+import type { CampaignData, ItemData, SpellData } from "../content/types";
 import { apply, applyNpc, type Action, type Limits } from "../core/actions";
 import type { Character, Npc, Parsed } from "../core/character";
 import { deriveCharacter, deriveCompanion, deriveNpc, type ActorStats } from "../core/derive";
@@ -21,7 +21,8 @@ export interface SheetHost {
 }
 export type Panel =
   | { kind: "conditions"; who?: number } | { kind: "log" } | { kind: "rest"; id: string }
-  | { kind: "compendium" } | { kind: "add-companion" } | { kind: "customize" };
+  | { kind: "compendium" } | { kind: "add-companion" } | { kind: "customize" }
+  | { kind: "cast"; spell: string } | { kind: "add-spell" } | { kind: "details"; ref: string };
 type Mods = { shiftKey?: boolean; ctrlKey?: boolean; metaKey?: boolean };
 
 export const LOG_MAX = 50;
@@ -71,12 +72,27 @@ export class SheetController {
     this.host.notify("This note has errors, so the sheet is read-only. Fix the frontmatter first."); return false;
   }
 
-  dispatch(a: Action) {
-    if (!this.guard()) return;
-    const st = this.stats(); if (!st) { this.host.notify("Unknown creature for this NPC"); return; }
+  /** Apply an action; returns whether it changed the note, plus any note the rules attached (e.g. concentration replaced). */
+  dispatch(a: Action): { ok: boolean; note?: string } {
+    if (!this.guard()) return { ok: false };
+    const st = this.stats(); if (!st) { this.host.notify("Unknown creature for this NPC"); return { ok: false }; }
     const out = this.value.type === "5e-character" ? apply(this.value, a, this.limits()) : applyNpc(this.value, a, st, n => deriveNpc(n, this.ctx()));
-    if (out.error) { this.host.notify(out.error); return; }
+    if (out.error) { this.host.notify(out.error); return { ok: false }; }
     this.commit(out.value);
+    return { ok: true, ...("note" in out && out.note ? { note: out.note } : {}) };
+  }
+
+  /** Cast a spell (own, or from item `item`) and show what it cost. */
+  cast(spell: string, level?: number, item?: number) {
+    const sp = this.host.registry.get<SpellData>("spell", spell);
+    const out = this.dispatch({ type: "cast", spell, ...(level !== undefined ? { level } : {}), ...(item !== undefined ? { item } : {}) });
+    if (!out.ok) return false;
+    const lvl = level ?? sp?.data.level ?? 0, c = this.character;
+    const g = item !== undefined && c?.inventory[item]?.id ? this.host.registry.get<ItemData>("item", c.inventory[item].id!)?.data.grants?.spells.find(x => x.id === spell) : undefined;
+    const spent = item !== undefined ? (g?.cost.kind === "charges" ? "charge spent" : g?.cost.kind === "perDay" ? "daily use spent" : "at will") : lvl >= 1 ? "slot spent" : "cantrip";
+    this.record({ title: `Cast ${sp?.name ?? spell} (${item === undefined && lvl >= 1 ? `level ${lvl}, ` : ""}${spent})`, total: 0, dice: [],
+      detail: out.note ?? "", crit: false, fumble: false, sources: { adv: [], dis: [], fail: [] } });
+    return true;
   }
 
   private record(r: RollResult) {

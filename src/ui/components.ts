@@ -4,6 +4,7 @@ import { ABILS, type Abil, type Effects } from "../core/types";
 import { activeRests } from "../rules";
 import type { SheetController } from "./controller";
 import { h, sgn } from "./h";
+import { concentrationFeature, spellsFeature } from "./spells-ui";
 
 export type Render = (ctl: SheetController, st: ActorStats) => HTMLElement;
 const card = (title: string, ...kids: (Node | null | false)[]) => h("div", { cls: "fe-card" }, title ? h("div", { cls: "fe-card-title", text: title }) : null, ...kids);
@@ -102,6 +103,8 @@ export const RENDER: Record<string, Render> = {
       h("span", {}, "S ", pips(3, ds.successes, n => ctl.dispatch({ type: "deathSave", which: "successes", value: n }), "is-s"),
         " F ", pips(3, ds.failures, n => ctl.dispatch({ type: "deathSave", which: "failures", value: n }), "is-f"))); },
   conditions: ctl => conditionChips(ctl, ctl.value.conditions),
+  concentration: ctl => concentrationFeature(ctl),
+  spells: (ctl, st) => spellsFeature(ctl, st),
   "active-effects": (ctl, st) => card("Active effects",
     ...(st.effects.length ? st.effects.map(e => h("div", { cls: "fe-kv" }, h("span", { text: e.source }), h("span", { cls: "fe-muted", text: describeEffects(e.effects) }))) : [h("div", { cls: "fe-faint", text: "None" })]),
     st.missing.length ? h("div", { cls: "fe-warn", text: `Missing from compendium: ${st.missing.join(", ")}` }) : null),

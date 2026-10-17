@@ -4,6 +4,7 @@ import { MODULES } from "../rules";
 import type { Panel, SheetController } from "./controller";
 import { describeEffects } from "./components";
 import { h } from "./h";
+import { addSpellPanel, castPanel } from "./spells-ui";
 
 const KINDS: CompanionKind[] = ["familiar", "companion", "steed", "summon", "sidekick"];
 let condFilter: "all" | "active" | "srd" | "vault" = "all", condQuery = "";
@@ -82,11 +83,11 @@ function logPanel(ctl: SheetController): HTMLElement {
   return h("div", {}, ...ctl.host.log.map(r => h("div", { cls: "fe-log" }, h("div", { text: r.title }), h("b", { text: String(r.total) }), " ", h("span", { cls: "fe-mono", text: r.detail }))));
 }
 
-const TITLES: Record<Panel["kind"], string> = { conditions: "Conditions", log: "Roll log", rest: "Rest", compendium: "Item compendium", "add-companion": "Add companion", customize: "Customize sheet" };
+const TITLES: Record<Panel["kind"], string> = { conditions: "Conditions", log: "Roll log", rest: "Rest", compendium: "Item compendium", "add-companion": "Add companion", customize: "Customize sheet", cast: "Cast spell", "add-spell": "Add spell", details: "Details" };
 
 export function renderPanel(ctl: SheetController, p: Panel, features: readonly string[]): HTMLElement {
   const body = p.kind === "conditions" ? conditionsPanel(ctl, p.who) : p.kind === "rest" ? restPanel(ctl, p.id) : p.kind === "compendium" ? compendiumPanel(ctl)
-    : p.kind === "add-companion" ? addCompanionPanel(ctl) : p.kind === "customize" ? customizePanel(ctl, features) : logPanel(ctl);
+    : p.kind === "cast" ? castPanel(ctl, p.spell) : p.kind === "add-spell" ? addSpellPanel(ctl) : p.kind === "add-companion" ? addCompanionPanel(ctl) : p.kind === "customize" ? customizePanel(ctl, features) : logPanel(ctl);
   return h("div", { cls: "fe-panel", data: { panel: p.kind } },
     h("div", { cls: "fe-panel-head" }, h("span", { cls: "fe-grow fe-name", text: TITLES[p.kind] }), h("button", { cls: "fe-btn", text: "Close", on: { click: () => ctl.close() } })),
     h("div", { cls: "fe-panel-body" }, body));
