@@ -105,8 +105,11 @@ export class VaultLoader {
     if (before !== this.classIdFor(f, source)) this.reattach(f);
   }
   private classIdFor(folderSlug: string, source: string): string {
-    const m = this.classIds.get(folderSlug);
-    return m?.get(source) ?? [...(m?.values() ?? [])][0] ?? folderSlug;
+    const m = this.classIds.get(folderSlug), own = m?.get(source);
+    if (own) return own;
+    // Another source's class by folder name, but only when every source agrees on its id; unrelated classes that happen to share the folder name are not guessed between.
+    const others = new Set(m?.values());
+    return others.size === 1 ? [...others][0] : folderSlug;
   }
   private addSub(path: string): boolean {
     const s = this.subs.get(path); if (!s) return false;

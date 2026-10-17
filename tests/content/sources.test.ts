@@ -121,6 +121,23 @@ describe("class and subclass folders", () => {
     expect(e.sourceName).toBe("Homebrew"); expect(e.data.class).toBe("tactician");
     expect(r.list<any>("subclass").filter(s => s.data.class === "tactician").map(s => s.name)).toEqual(["Arbiter"]);
   });
+  it("with unrelated classes of the same folder name in two other sources, a subclass does not pick one of them", async () => {
+    const { r } = await setup({
+      [`${T}/Tactician.md`]: cls("Tactician", { id: "r20-tactician" }),
+      [`${R}/Critical Role/Classes/Tactician/Tactician.md`]: cls("Tactician", { id: "cr-tactician" }),
+      [`${R}/Homebrew/Classes/Tactician/Subclasses/Arbiter.md`]: sub("Arbiter"),
+    });
+    expect(r.get<any>("subclass", "arbiter")!.data.class).toBe("tactician");   // the folder name, not whichever class loaded first
+    expect(r.problems()).toEqual([]);
+  });
+  it("a subclass whose own source has the class uses that source's id even when another source's class differs", async () => {
+    const { r } = await setup({
+      [`${T}/Tactician.md`]: cls("Tactician"),
+      [`${R}/Critical Role/Classes/Tactician/Tactician.md`]: cls("Tactician", { id: "cr-tactician" }),
+      [`${R}/Critical Role/Classes/Tactician/Subclasses/Seer.md`]: sub("Seer"),
+    });
+    expect(r.get<any>("subclass", "seer")!.data.class).toBe("cr-tactician");
+  });
   it("an explicit class id on the class note is what subclasses attach to, whichever loads first", async () => {
     const notes = { [`${T}/Subclasses/Scholar.md`]: sub("Scholar"), [`${T}/Tactician.md`]: cls("Tactician", { id: "tact" }) };
     const { r } = await setup(notes);

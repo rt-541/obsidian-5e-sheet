@@ -51,4 +51,4 @@ needs_review:
 
 ## Actions
 
-***Claws.*** *Melee Weapon Attack:* +9 to hit, reach 10 ft., one target. *Hit:* 9 (1d8 + 5) slashing damage.
+***Claws.*** *Melee Weapon Attack:* +9 to hit. *Hit:* 9 (1d8 + 5) slashing damage.

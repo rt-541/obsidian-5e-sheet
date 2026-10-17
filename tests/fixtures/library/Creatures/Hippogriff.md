@@ -44,8 +44,8 @@ tags:
 
 ## Actions
 
-***Multiattack.*** The creature makes two attacks.
+***Multiattack.*** It pecks and screeches in one go.
 
-***Peck.*** Melee Weapon Attack: +4 to hit, reach 5 ft., one target. *Hit:* 7 (1d8 + 3) piercing damage.
+***Peck.*** *Melee Weapon Attack:* +4 to hit. *Hit:* 7 (1d8 + 3) piercing damage.
 
-***Screech.*** Each creature within 10 feet must succeed on a DC 12 Wisdom saving throw or be frightened.
+***Screech.*** A shrill cry that forces a DC 12 Wisdom saving throw.

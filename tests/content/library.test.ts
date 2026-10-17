@@ -38,7 +38,7 @@ describe("library adapter", () => {
     expect(a.reads).toHaveLength(1);
     expect(e.data.damage).toEqual({ type: "fire", bySlot: { 2: "3d8", 3: "4d8", 4: "5d8", 5: "6d8", 6: "7d8", 7: "8d8", 8: "9d8", 9: "10d8" } });
     expect(e.data.save).toEqual({ abil: "dex", onSuccess: "half" });
-    expect(e.data.higherLevel).toMatch(/^When you cast this spell using a spell slot of 3rd level or higher/);
+    expect(e.data.higherLevel).toMatch(/^A higher slot: the damage increases by 1d8/);
     expect(e.data.rules).toMatch(/^A made-up line of flame/); expect(e.data.rules).not.toMatch(/Higher/); expect(e.data.rules).not.toMatch(/^# /);
   });
 

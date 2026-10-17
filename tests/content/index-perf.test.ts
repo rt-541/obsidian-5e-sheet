@@ -3,7 +3,7 @@ import { registerBuiltinTypes } from "../../src/content/types";
 import { VaultLoader } from "../../src/content/vault-loader";
 import { fakeVault, type Notes } from "../fixtures/library";
 
-const N = 3500, L = "compendium/5e/WotC";
+const N = 8000, L = "compendium/5e/WotC";
 /** Synthetic library metadata in the generator's shape (no real book text). */
 function synthetic(): Notes {
   const notes: Notes = {};
@@ -17,7 +17,7 @@ function synthetic(): Notes {
   return notes;
 }
 
-describe("index 3,500 library entries", () => {
+describe("index 8,000 library entries", () => {
   it("indexes from frontmatter only, quickly, without reading a single note body", async () => {
     const r = new Registry(); registerBuiltinTypes(r);
     const a = fakeVault(synthetic());
