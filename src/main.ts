@@ -12,6 +12,7 @@ import { CharacterView, VIEW_TYPE } from "./obsidian/character-view";
 import { COMPENDIUM_VIEW, CompendiumView } from "./obsidian/compendium-view";
 import { addToSheet } from "./ui/compendium";
 import { DEFAULT_SETTINGS, FiveESettingTab, type PluginData } from "./obsidian/settings";
+import { healCompendiumFolder } from "./obsidian/heal";
 import { campaignLink, NoteStore } from "./obsidian/store";
 import { obsidianCreateNote } from "./obsidian/vault-note";
 import { ObsidianVaultAdapter } from "./obsidian/vault-adapter";
@@ -51,7 +52,10 @@ export default class FiveESheetPlugin extends Plugin {
     this.registry.onChange(() => this.refreshViews());
 
     this.app.workspace.onLayoutReady(async () => {
-      const n = await this.loader.indexAll();
+      const moved = await healCompendiumFolder(this.data.settings.compendiumFolder, p => this.app.vault.adapter.exists(p));
+      if (moved) { this.data.settings.compendiumFolder = moved; await this.persist(); this.notice(`5e sheet: compendium folder moved to ${moved}`); }
+      if (moved) await this.loader.setFolder(moved);   // re-indexes from the new root
+      const n = moved ? "?" : await this.loader.indexAll();
       if (this.registry.problems().length) this.notice(`5e sheet: ${this.registry.problems().length} compendium note(s) have errors. Run "Show compendium problems".`);
       console.debug(`5e sheet: indexed ${n} compendium notes (${this.registry.libraryCount()} from the WotC library, ${this.registry.referenceOnlyCount()} library notes not usable on the sheet)`);
       this.registerEvent(this.app.metadataCache.on("changed", file => { void this.loader.changed(file.path); this.forViews(v => v.file?.path === file.path, v => v.externalChange()); }));
