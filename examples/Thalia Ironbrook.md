@@ -17,6 +17,28 @@ inventory:
   - { id: rations, qty: 5 }
 coins: { gp: 47, sp: 12, cp: 30 }
 resources: [{ name: Channel Divinity, max: 1, used: 0, reset: short }]
+spells:
+  - { id: sacred-flame, prepared: true }
+  - { id: guidance, prepared: true }
+  - { id: spare-the-dying, prepared: true }
+  - { id: thaumaturgy, prepared: true }
+  - { id: bless, prepared: true }
+  - { id: cure-wounds, prepared: true }
+  - { id: guiding-bolt, prepared: true }
+  - { id: healing-word, prepared: true }
+  - { id: shield-of-faith, prepared: true }
+  - { id: lesser-restoration, prepared: true }
+  - { id: spiritual-weapon, prepared: true }
+  - { id: aid, prepared: true }
+  - { id: prayer-of-healing, prepared: true }
+  - { id: hold-person, prepared: true }
+  - { id: beacon-of-hope, prepared: true }
+  - { id: revivify, prepared: true }
+  - { id: spirit-guardians, prepared: true }
+  - { id: mass-healing-word, prepared: true }
+  - { id: command, prepared: false }
+  - { id: sanctuary, prepared: false }
+  - { id: dispel-magic, prepared: false }
 companions: [{ creature: owl, name: Hoot, kind: familiar }]
 ---
 # Backstory
