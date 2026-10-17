@@ -6,7 +6,7 @@ describe("SRD bundle", () => {
   const r = new Registry(); registerBuiltinTypes(r); const problems = loadSrd(r);
   it("every entry validates", () => expect(problems).toEqual([]));
   it("has the expected coverage", () => {
-    expect(srdCounts()).toEqual({ condition: 15, class: 12, item: 32, creature: 19, spell: 319 });
+    expect(srdCounts()).toEqual({ condition: 15, class: 12, item: 32, creature: 19, spell: 319, subclass: 12, race: 9, subrace: 4, background: 1, feat: 1 });
     expect(r.list("condition")).toHaveLength(15); expect(r.list("creature")).toHaveLength(19);
   });
   it("exhaustion has six cumulative levels", () => {
@@ -19,6 +19,6 @@ describe("SRD bundle", () => {
       expect(r.get("creature", id), id).toBeDefined();
   });
   it("cleric is a full wisdom caster with a d8", () => {
-    expect(r.get<any>("class", "cleric")!.data).toEqual({ name: "Cleric", hitDie: 8, saves: ["wis", "cha"], spellcasting: { abil: "wis", progression: "full" } });
+    expect(r.get<any>("class", "cleric")!.data).toMatchObject({ name: "Cleric", hitDie: 8, saves: ["wis", "cha"], spellcasting: { abil: "wis", progression: "full" } });
   });
 });

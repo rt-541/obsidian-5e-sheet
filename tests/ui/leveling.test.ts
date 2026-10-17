@@ -248,8 +248,8 @@ describe("Features tab", () => {
     expect(s.qa("[data-pending]")).toHaveLength(0); expect(s.host.log[0].title).toBe("Choices made");
   });
   it("homebrew problems and unknown content are listed, never thrown", () => {
-    const s = setup({ ...noteOf(upTo(2)), race: "gnome" }, false);
-    expect(s.q('[data-feature="features"]').textContent).toContain("race:gnome is not in the compendium");
+    const s = setup({ ...noteOf(upTo(2)), race: "pixie" }, false);
+    expect(s.q('[data-feature="features"]').textContent).toContain("race:pixie is not in the compendium");
   });
 });
 

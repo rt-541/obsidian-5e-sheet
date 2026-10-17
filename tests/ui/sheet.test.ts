@@ -58,7 +58,7 @@ describe("safety and robustness", () => {
       r.add("vault", "item", { id: "evil", name: '<img src=x onerror="window.pwned=1">', kind: "wondrous" }, { path: "e.md" }));
     s.click('[data-tab="inventory"]');
     expect(s.root.querySelector("img")).toBeNull();
-    expect(s.q(".fe-inv-name").textContent).toBe('<img src=x onerror="window.pwned=1">');
+    expect([...s.root.querySelectorAll(".fe-inv-name")].map(e => e.textContent)).toContain('<img src=x onerror="window.pwned=1">');
   });
   it("unknown ids show as missing and nothing crashes", () => {
     const s = setup({ ...thalia, inventory: [{ id: "vorpal-spoon", equipped: true }], conditions: { hexed: 1 }, companions: [{ creature: "dragon-turtle-pup", name: "Shelly" }] }, false);

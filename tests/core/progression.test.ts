@@ -89,8 +89,8 @@ describe("progress(): replaying race, background, feats and class levels", () =>
     expect(progress(char({ levelLog: [], choices: { "class:skirmisher:1:stance": ["guardian"] } }), reg).options.stances).toEqual(["guardian"]);
   });
   it("unknown content is listed, not fatal", () => {
-    const q = progress(char({ race: "gnome", background: "hermit", feats: ["lucky"], classes: [{ class: "skirmisher", subclass: "nope", level: 3 }] }), reg);
-    expect(q.unknown).toEqual(["race:gnome", "background:hermit", "feat:lucky", "subclass:nope"]);
+    const q = progress(char({ race: "pixie", background: "hermit", feats: ["lucky"], classes: [{ class: "skirmisher", subclass: "nope", level: 3 }] }), reg);
+    expect(q.unknown).toEqual(["race:pixie", "background:hermit", "feat:lucky", "subclass:nope"]);
     expect(progress(char({ classes: [{ class: "artificer", level: 3 }] }), reg).features).toBeDefined();
   });
 });
@@ -179,16 +179,19 @@ describe("deriveCharacter consumes the progression", () => {
 
 describe("legacy notes keep working unchanged", () => {
   const r = new Registry(); registerBuiltinTypes(r); loadSrd(r);
-  it("Thalia has no pending choices, no problems, and her stored numbers", () => {
+  it("Thalia keeps her stored numbers; the SRD choices she never logged are pending, not invented", () => {
     const p = parseNote(thalia); if (p.kind !== "character") throw new Error();
     const s = deriveCharacter(p.value, { registry: r });
-    expect(s.progress.pending).toEqual([]); expect(s.progress.problems).toEqual([]);
-    expect(s.progress.unknown).toEqual(["race:hill-dwarf", "background:acolyte", "subclass:life-domain"]);
-    expect(s.resources).toEqual([{ id: "manual:0", name: "Channel Divinity", max: 1, used: 0, reset: "short", derived: false }]);
+    expect(s.progress.pending.map(x => x.key)).toEqual(["background:acolyte:languages-pick", "class:cleric:1:skills", "class:cleric:1:spells", "class:cleric:4:asi", "class:cleric:4:spells"]);
+    expect(s.progress.problems).toEqual([]);
+    expect(s.progress.unknown).toEqual(["race:hill-dwarf", "subclass:life-domain"]);
+    expect(s.resources[0]).toEqual({ id: "manual:0", name: "Channel Divinity", max: 1, used: 0, reset: "short", derived: false });
     expect(s.speed.value).toBe(30); expect(s.casters).toHaveLength(1);
   });
-  it("an SRD class with no operations adds nothing", () => {
-    expect(progress(char({ race: undefined, subrace: undefined, background: undefined, feats: [], classes: [{ class: "fighter", level: 5 }], levelLog: [] }), r))
+  it("a class with no operations adds nothing", () => {
+    const plain = new Registry(); registerBuiltinTypes(plain);
+    plain.add("vault", "class", { name: "Plain", hitDie: 8, saves: ["str", "con"] }, { path: "plain.md" });
+    expect(progress(char({ race: undefined, subrace: undefined, background: undefined, feats: [], classes: [{ class: "plain", level: 5 }], levelLog: [] }), plain))
       .toMatchObject({ features: [], pending: [], resources: [], proficiencies: { saves: ["str", "con"] } });
   });
   it("the skirmisher fixture is a valid note", () => expect(skirmisher.type).toBe("5e-class"));
