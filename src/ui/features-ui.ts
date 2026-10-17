@@ -71,6 +71,10 @@ export function featuresFeature(ctl: SheetController, st: ActorStats): HTMLEleme
   if (res.length) cards.push(card("Class resources", ...res.map(r => h("div", { cls: "fe-kv", data: { resource: r.id } },
     h("span", {}, `${r.name} `, h("span", { cls: "fe-faint", text: `(${RESET_NAME[r.reset]}${r.refill ? `, short rest regains ${r.refill.amount}${r.refill.oncePer ? " once per long rest" : ""}` : ""})` })),
     usesPips(r, n => ctl.dispatch({ type: "uses", id: r.id, used: n }))))));
+  if (c && (st.languages?.length || ctl.editing)) cards.push(card("Languages",
+    h("div", { cls: "fe-kv", data: { languages: "" } }, h("span", { text: (st.languages ?? []).join(", ") || "None" })),
+    ctl.editing ? h("input", { cls: "fe-amt", attrs: { type: "text", value: c.languages.join(", "), placeholder: "Manual languages, comma separated", "aria-label": "Languages" },
+      on: { change: (e: Event) => ctl.dispatch({ type: "languages", value: (e.target as HTMLInputElement).value.split(",") }) } }) : null));
   const acts = p.features.filter(f => f.action);
   if (acts.length) cards.push(card("Actions", ...acts.map(f => actionRow(ctl, st, f))));
   const groups = new Map<string, FeatureRow[]>();

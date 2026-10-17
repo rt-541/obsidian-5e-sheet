@@ -32,9 +32,17 @@ export interface ActorStats {
   crit?: { range: number; vs?: string };
   /** Ability score caps (20 unless a feature raises one). */
   maxScores: Record<Abil, number>; darkvision?: number;
+  /** Languages from race, background and class choices plus the manual list on the note (characters only). */
+  languages?: string[];
 }
 
 export { abilityMod, profBonus };
+/** Derived languages first, then manual ones, without case-insensitive duplicates. */
+export function mergeLanguages(...lists: string[][]): string[] {
+  const seen = new Set<string>(), out: string[] = [];
+  for (const l of lists.flat()) { const k = l.trim().toLowerCase(); if (k && !seen.has(k)) { seen.add(k); out.push(l.trim()); } }
+  return out;
+}
 const sgn = (n: number) => (n >= 0 ? "+" : "") + n;
 const mods = (a: Record<Abil, number>) => Object.fromEntries(ABILS.map(k => [k, abilityMod(a[k])])) as Record<Abil, number>;
 
@@ -111,6 +119,7 @@ export function deriveCharacter(c: Character, ctx: EffectContext): ActorStats {
     carry: { weight, capacity: c.abilities.str * 15 / (carryHalf ? 2 : 1) },
     traits: damageTraits(fx), notes: notes(fx), effects: fx, missing, attunedCount: c.inventory.filter(e => e.attuned).length,
     resources, casters, progress: prog, maxScores, ...(crits[0] ? { crit: { range: crits[0].effects.critRange!, ...(crits[0].effects.critVs ? { vs: crits[0].effects.critVs } : {}) } } : {}),
+    languages: mergeLanguages(prog.languages, c.languages),
     ...(prog.darkvision !== undefined ? { darkvision: prog.darkvision } : {}),
   };
 }

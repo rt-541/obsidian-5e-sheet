@@ -30,6 +30,8 @@ export interface Character {
   levelLog: LevelEntry[];
   /** Feat ids. */
   feats: string[];
+  /** Languages entered by hand, merged with those the race, background and class choices give. */
+  languages: string[];
   /** Used counts of resources derived from class operations, keyed by resource id. */
   uses: Record<string, number>;
   /** Non-level choices and toggles, e.g. "dc.hemocraft.alt": true. */
@@ -119,7 +121,7 @@ export function newCharacter(name: string): Character {
     type: "5e-character", schema: 1, name, classes: [], abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
     proficiencies: { saves: [], skills: [], expertise: [] }, hp: { max: 0, current: 0, temp: 0 }, hitDice: {},
     deathSaves: { successes: 0, failures: 0 }, spellSlots: {}, spells: [], inventory: [], coins: { pp: 0, gp: 0, ep: 0, sp: 0, cp: 0 },
-    resources: [], conditions: {}, injuries: [], modifiers: [], inspiration: false, xp: 0, baseSpeed: 30, levelLog: [], feats: [], uses: {}, choices: {}, mainSpells: [],
+    resources: [], conditions: {}, injuries: [], modifiers: [], inspiration: false, xp: 0, baseSpeed: 30, levelLog: [], feats: [], languages: [], uses: {}, choices: {}, mainSpells: [],
     rest: { nightsInPlace: 0 }, companions: [], sheet: { hide: [], show: [] }, rules: {},
   };
 }
@@ -209,6 +211,7 @@ function parseCharacter(fm: R): Parsed {
     return [{ ...x, class: x.class, level: r.whole(x.level, `${at}.level`, 1) || (r.errors.push(`${at}.level: must be from 1`), 1), hp: entryHp, choices: r.obj(x.choices, `${at}.choices`) }];
   });
   c.feats = r.strs(fm.feats, "feats");
+  c.languages = r.strs(fm.languages, "languages");
   for (const [k, v] of Object.entries(r.obj(fm.uses, "uses"))) c.uses[k] = r.whole(v, `uses.${k}`);
   c.choices = r.obj(fm.choices, "choices");
   const conc = r.str(fm.concentration, "concentration"); if (conc) c.concentration = conc;

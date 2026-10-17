@@ -22,6 +22,7 @@ export type Action =
   /** Used count of a resource derived from class operations (stored in character.uses). */
   | { type: "uses"; id: string; used: number }
   | { type: "xp"; value: number }
+  | { type: "languages"; value: string[] }
   /** Switch a class DC to its alternate ability (stored as character.choices["dc.<id>.alt"]). */
   | { type: "dcAlt"; id: string; on: boolean };
 export interface Limits {
@@ -129,6 +130,7 @@ export function apply(c0: Character, a: Action, lim: Limits): { value: Character
     case "removeSpell": { const gone = c.spells.splice(a.index, 1)[0]; if (gone) c.mainSpells = c.mainSpells.filter(k => k !== gone.id); break; }
     case "pinSpell": c.mainSpells = c.mainSpells.filter(k => k !== a.key); if (a.on) c.mainSpells.push(a.key); break;
     case "prepare": { const s = c.spells[a.index]; if (s) s.prepared = a.on; break; }
+    case "languages": c.languages = a.value.map(s => s.trim()).filter(Boolean); break;
     case "xp": c.xp = Math.max(0, Math.round(a.value)); break;
     case "dcAlt": {
       if (!lim.self.progress.dcs.some(d => d.id === a.id && d.alt)) return { value: c0, error: "That class DC has no alternate ability" };
