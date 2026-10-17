@@ -11,12 +11,20 @@ const TOAST_MS = 2600, HOVER_MS = 250;
 export function mountSheet(root: HTMLElement, ctl: SheetController, mobile: boolean): { destroy(): void; render(): void } {
   let toastTimer: number | undefined, shownRoll: unknown, hoverTimer: number | undefined, popover: HTMLElement | undefined;
   const hidePopover = () => { window.clearTimeout(hoverTimer); hoverTimer = undefined; popover?.remove(); popover = undefined; };
-  const showPopover = (el: HTMLElement) => {
+  /**
+   * The card lives on the window's <body>, not inside the sheet: Obsidian's pane containers create their own
+   * containing block, which would make position:fixed relative to the pane instead of the window.
+   * It is placed just below-right of the pointer and kept inside the window.
+   */
+  const showPopover = (el: HTMLElement, x: number, y: number) => {
     const card = detailCard(el.dataset.ref ?? "", ctl); if (!card) return;
-    popover = h("div", { cls: "fe-popover", attrs: { role: "tooltip" } }, card); root.append(popover);
-    const r = el.getBoundingClientRect(), w = popover.offsetWidth, ph = popover.offsetHeight;
-    const left = Math.max(8, Math.min(r.right + 8, window.innerWidth - w - 8)), top = Math.max(8, Math.min(r.top, window.innerHeight - ph - 8));
-    popover.style.left = `${left}px`; popover.style.top = `${top}px`;
+    const doc = root.ownerDocument, win = doc.defaultView ?? window;
+    popover = h("div", { cls: "fe-popover", attrs: { role: "tooltip" } }, card); doc.body.append(popover);
+    const w = popover.offsetWidth, ph = popover.offsetHeight, gap = 14;
+    let left = x + gap, top = y + gap;
+    if (left + w > win.innerWidth - 8) left = x - gap - w;          // flip to the left of the pointer
+    if (top + ph > win.innerHeight - 8) top = y - gap - ph;         // flip above the pointer
+    popover.style.left = `${Math.max(8, left)}px`; popover.style.top = `${Math.max(8, top)}px`;
   };
   const refOf = (e: Event) => (e.target as Element | null)?.closest?.<HTMLElement>("[data-ref]") ?? null;
   const onOver = (e: MouseEvent) => {
@@ -24,7 +32,8 @@ export function mountSheet(root: HTMLElement, ctl: SheetController, mobile: bool
     const el = refOf(e); if (!el) return;
     const from = (e.relatedTarget as Node | null);
     if (from && el.contains(from)) return;      // moving between children of the same name
-    hidePopover(); hoverTimer = window.setTimeout(() => { hoverTimer = undefined; showPopover(el); }, HOVER_MS);
+    const x = e.clientX, y = e.clientY;
+    hidePopover(); hoverTimer = window.setTimeout(() => { hoverTimer = undefined; showPopover(el, x, y); }, HOVER_MS);
   };
   const onOut = (e: MouseEvent) => {
     const el = refOf(e), to = e.relatedTarget as Node | null;

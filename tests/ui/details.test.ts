@@ -15,58 +15,77 @@ function setup(note: object, mobile: boolean, extra?: (r: Registry) => void) {
   const host: SheetHost = { registry: r, ruleDefaults: {}, save: v => saved.push(structuredClone(v)), notify: () => {}, log: [], rng: seeded(11), body: "" };
   const p = parseNote(note); if (p.kind === "none") throw new Error("not a sheet");
   const ctl = new SheetController(host, p), root = document.createElement("div");
-  document.body.append(root); mountSheet(root, ctl, mobile);
+  document.body.append(root); const mounted = mountSheet(root, ctl, mobile);
   const q = (sel: string) => root.querySelector(sel) as HTMLElement;
-  return { r, ctl, root, q };
+  return { r, ctl, root, q, mounted };
 }
 const charm = (r: Registry) => r.add("vault", "item", { id: "charm", name: "Warding Charm", kind: "wondrous", rarity: "rare", effects: { modifiers: [{ target: "ac", value: 1 }] } },
   { path: "Compendium/charm.md", body: "A small charm that turns blows aside." });
 const withCharm = { ...thalia, inventory: [{ id: "charm", equipped: true }] };
-const over = (el: HTMLElement) => el.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+const over = (el: HTMLElement, x = 0, y = 0) => el.dispatchEvent(new MouseEvent("mouseover", { bubbles: true, clientX: x, clientY: y }));
+/** The popover is attached to document.body (not the sheet) so position:fixed is relative to the window. */
+const pop$ = () => document.querySelector(".fe-popover") as HTMLElement;
 const out = (el: HTMLElement) => el.dispatchEvent(new MouseEvent("mouseout", { bubbles: true }));
 
 describe("detail cards", () => {
   beforeEach(() => { vi.useFakeTimers(); });
-  afterEach(() => { vi.useRealTimers(); });
+  afterEach(() => { vi.useRealTimers(); document.body.replaceChildren(); });
 
   it("hovering an item name shows a popover with rules and +1 AC, and mouseout hides it", () => {
     const s = setup(withCharm, false, charm);
     const name = s.q('[data-ref="item:charm"]');
     over(name);
-    expect(s.q(".fe-popover")).toBeNull();
+    expect(pop$()).toBeNull();
     vi.advanceTimersByTime(260);
-    const pop = s.q(".fe-popover");
+    const pop = pop$();
     expect(pop.textContent).toContain("A small charm that turns blows aside.");
     expect(pop.textContent).toContain("+1 AC");
     expect(pop.textContent).toContain("Source note: Compendium/charm.md");
     out(name);
-    expect(s.q(".fe-popover")).toBeNull();
+    expect(pop$()).toBeNull();
+  });
+  it("the popover sits on <body> just below-right of the pointer, and flips when near the window edge", () => {
+    const s = setup(withCharm, false, charm);
+    over(s.q('[data-ref="item:charm"]'), 100, 120); vi.advanceTimersByTime(300);
+    expect(pop$().parentElement).toBe(document.body);
+    expect(s.root.contains(pop$())).toBe(false);
+    expect(pop$().style.left).toBe("114px"); expect(pop$().style.top).toBe("134px");
+    out(s.q('[data-ref="item:charm"]'));
+    Object.defineProperty(HTMLElement.prototype, "offsetWidth", { configurable: true, get: () => 300 });
+    over(s.q('[data-ref="item:charm"]'), window.innerWidth - 20, 120); vi.advanceTimersByTime(300);
+    expect(pop$().style.left).toBe(`${window.innerWidth - 20 - 14 - 300}px`);
+    delete (HTMLElement.prototype as unknown as Record<string, unknown>).offsetWidth;
+  });
+  it("destroying the sheet removes an open popover", () => {
+    const s = setup(withCharm, false, charm);
+    over(s.q('[data-ref="item:charm"]')); vi.advanceTimersByTime(300);
+    expect(pop$()).not.toBeNull(); s.mounted.destroy(); expect(pop$()).toBeNull();
   });
   it("a hover that ends before the delay never shows", () => {
     const s = setup(withCharm, false, charm);
     const name = s.q('[data-ref="item:charm"]');
     over(name); out(name);
-    vi.advanceTimersByTime(500); expect(s.q(".fe-popover")).toBeNull();
+    vi.advanceTimersByTime(500); expect(pop$()).toBeNull();
   });
   it("note text is shown literally, never as HTML", () => {
     const s = setup({ ...thalia, inventory: [{ id: "evil", equipped: true }] }, false, r =>
       r.add("vault", "item", { id: "evil", name: "<b>x</b>", kind: "wondrous" }, { path: "e.md", body: "<i>hi</i>" }));
     over(s.q('[data-ref="item:evil"]')); vi.advanceTimersByTime(300);
-    const pop = s.q(".fe-popover");
+    const pop = pop$();
     expect(pop.textContent).toContain("<b>x</b>"); expect(pop.textContent).toContain("<i>hi</i>");
     expect(pop.querySelector("b")).toBeNull(); expect(pop.querySelector("i")).toBeNull();
   });
   it("scroll closes the popover", () => {
     const s = setup(withCharm, false, charm);
     over(s.q('[data-ref="item:charm"]')); vi.advanceTimersByTime(300);
-    expect(s.q(".fe-popover")).not.toBeNull();
-    window.dispatchEvent(new Event("scroll")); expect(s.q(".fe-popover")).toBeNull();
+    expect(pop$()).not.toBeNull();
+    window.dispatchEvent(new Event("scroll")); expect(pop$()).toBeNull();
   });
   it("on mobile hover does nothing and tapping the name opens the details panel", () => {
     const s = setup(withCharm, true, charm);
     const name = s.q('[data-ref="item:charm"]');
     over(name); vi.advanceTimersByTime(300);
-    expect(s.q(".fe-popover")).toBeNull();
+    expect(pop$()).toBeNull();
     name.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     expect(s.q('[data-panel="details"]').textContent).toContain("A small charm that turns blows aside.");
   });
