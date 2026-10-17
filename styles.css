@@ -98,3 +98,16 @@
 .fe-builder-modal { width: 640px; max-width: 94vw; }
 .fe-builder select, .fe-builder .fe-amt { min-width: 64px; }
 .fe-mobile.fe-builder select, .fe-mobile.fe-builder .fe-amt { min-height: 44px; }
+/* compendium browser */
+.fe-compendium .fe-src-tabs, .fe-compendium .fe-type-tabs { margin-bottom: 4px; }
+.fe-comp-cols { display: grid; grid-template-columns: minmax(220px, 2fr) 3fr; gap: var(--fe-gap); align-items: start; }
+.fe-comp-list { display: grid; gap: 4px; align-content: start; max-height: 70vh; overflow-y: auto; }
+.fe-comp-detail { display: grid; gap: 8px; align-content: start; position: sticky; top: 0; }
+.fe-mobile .fe-comp-detail { position: static; }
+.fe-sheet button.fe-crow-btn { text-align: left; }
+.fe-comp-list .is-off { opacity: .55; }
+.fe-src.fe-review { background: var(--color-orange); color: var(--text-on-accent); }
+.fe-src.fe-reference { background: transparent; border: 1px dashed var(--text-faint); }
+.fe-detail-src { margin-bottom: 2px; } .fe-detail-src .fe-src { margin-left: 0; }
+.fe-comp-actions { justify-content: flex-start; }
+.fe-mobile .fe-compendium select, .fe-compendium.fe-mobile select { min-height: 44px; }

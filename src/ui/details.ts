@@ -66,7 +66,7 @@ function traitCard(creature: string, index: number, ctl: SheetController): HTMLE
   return e && t ? card(t.name, e.name, [], t.text, e.source === "vault" ? e.path : undefined, sourceLabel(e)) : null;
 }
 
-function creatureCard(e: Entry<CreatureData>): HTMLElement {
+function creatureCard(e: Entry<CreatureData>, body?: string): HTMLElement {
   const d = e.data, ab = (["str", "dex", "con", "int", "wis", "cha"] as const).map(a => `${ABIL[a]} ${d.abilities[a]}`).join("  ");
   const sp = [`${d.speed.walk} ft.`, ...(["fly", "swim", "climb"] as const).flatMap(m => d.speed[m] ? [`${m} ${d.speed[m]} ft.`] : [])].join(", ");
   const lines = [`AC ${d.ac}`, `HP ${d.hp.average}${d.hp.formula ? ` (${d.hp.formula})` : ""}`, `Speed ${sp}`, ab,
@@ -74,7 +74,7 @@ function creatureCard(e: Entry<CreatureData>): HTMLElement {
     ...(Object.keys(d.skills).length ? [`Skills: ${Object.entries(d.skills).map(([k, n]) => `${cap(k)} ${sgn(n)}`).join(", ")}`] : []),
     ...(d.senses ? [`Senses: ${d.senses}`] : []),
     ...d.attacks.map(a => `${a.name}${a.toHit !== undefined ? `: ${sgn(a.toHit)} to hit` : ""}${a.damage ? `, ${a.damage}${a.note ? ` ${a.note}` : ""}` : ""}${a.save ? `, DC ${a.save.dc} ${ABIL[a.save.abil]} save` : ""}`)];
-  const rules = [...d.traits.map(t => `${t.name}. ${t.text}`), d.rules ?? ""].filter(Boolean).join("\n\n") || undefined;
+  const rules = [...d.traits.map(t => `${t.name}. ${t.text}`), d.rules ?? ""].filter(Boolean).join("\n\n") || body || undefined;
   return card(e.name, [`${d.size} ${d.ctype}`, d.cr !== undefined ? `CR ${d.cr}` : ""].filter(Boolean).join(" · "), lines, rules, e.source === "vault" ? e.path : undefined, sourceLabel(e));
 }
 
@@ -123,7 +123,7 @@ export function entryCard(reg: Registry, e: Entry, body?: string): HTMLElement {
     case "item": return itemCard(reg, e as Entry<ItemData>);
     case "spell": return spellCard(reg, e as Entry<SpellData>);
     case "condition": case "injury": return conditionCard(e as Entry<ConditionData>);
-    case "creature": return creatureCard(e as Entry<CreatureData>);
+    case "creature": return creatureCard(e as Entry<CreatureData>, body);
     case "class": return classCard(e as Entry<ClassData>);
     case "subclass": return subclassCard(reg, e as Entry<SubclassData>);
     case "feat": return featCard(e as Entry<FeatData>);
