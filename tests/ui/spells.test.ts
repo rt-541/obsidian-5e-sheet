@@ -42,6 +42,19 @@ describe("spells tab", () => {
     expect(s.ctl.panel).toBeNull();
     expect(s.q(".fe-toast").textContent).toContain("Cast Burning Hands (level 2, slot spent)");
   });
+  it("the cast panel offers damage and healing dice at the chosen slot level", () => {
+    const s = setup(withSpell, false);
+    s.click('[data-tab="spells"]');
+    s.click('[data-spell="burning-hands"] [data-act="cast"]');
+    s.click('[data-panel="cast"] [data-slot="3"]');
+    expect(s.q('[data-panel="cast"] [data-upcast="3"]').textContent).toBe("5d6");
+    s.click('[data-panel="cast"] [data-upcast] button');
+    expect(s.ctl.lastRoll?.title).toContain("Burning Hands damage");
+    s.click('[data-panel="cast"] [data-act="cast-apply"]');
+    s.click('[data-spell="cure-wounds"] [data-act="cast"]');
+    s.click('[data-panel="cast"] [data-slot="2"]');
+    expect(s.q('[data-panel="cast"] [data-upcast="2"]').textContent).toMatch(/^2d8/);
+  });
   it("an attuned charged item lists its spell, casting spends a charge, unattuning removes it", () => {
     const base = { ...thalia, inventory: [{ id: "ember-wand", equipped: true, attuned: false }] };
     const s = setup(base, false, wand);

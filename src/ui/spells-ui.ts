@@ -1,5 +1,5 @@
 import type { SpellData } from "../content/types";
-import { spellRows, type SpellRow } from "../core/spells";
+import { castRow, spellRows, type SpellRow } from "../core/spells";
 import type { ActorStats } from "../core/derive";
 import type { SheetController } from "./controller";
 import { clear, h, sgn } from "./h";
@@ -14,7 +14,7 @@ function costLabel(src: Extract<SpellRow["source"], { kind: "item" }>): string {
   return c.kind === "charges" ? `${c.amount} charge${c.amount === 1 ? "" : "s"}` : c.kind === "perDay" ? `${src.usesLeft ?? c.uses}/${c.uses} per day` : "at will";
 }
 
-function rolls(ctl: SheetController, r: SpellRow): (Node | null)[] {
+export function rolls(ctl: SheetController, r: SpellRow): (Node | null)[] {
   return [
     r.attack !== undefined ? h("button", { cls: "fe-roll", text: sgn(r.attack), title: "Spell attack", on: { click: (e: MouseEvent) => ctl.roll(`${r.name} attack`, r.attack!, { kind: "attack", range: r.data?.attack }, e) } }) : null,
     r.dc !== undefined && r.data?.save ? h("span", { cls: "fe-faint", text: `DC ${r.dc} ${ABIL[r.data.save.abil]}` }) : null,
@@ -75,9 +75,10 @@ export function castPanel(ctl: SheetController, spell: string): HTMLElement {
   if (!sp) return h("div", { cls: "fe-warn", text: "Spell missing from compendium" });
   const levels = [...new Set(st.slots.filter(s => s.used < s.max).map(s => s.level === "pact" ? s.pactLevel! : Number(s.level)).filter(l => l >= sp.data.level))].sort((a, b) => a - b);
   if (castLevel === undefined || !levels.includes(castLevel)) castLevel = levels[0];
-  const chosen = castLevel;
+  const chosen = castLevel, row = chosen === undefined ? undefined : castRow(ctl.character!, st, ctl.ctx(), spell, chosen);
   return h("div", {}, h("div", { cls: "fe-muted", text: `${sp.name}: choose a slot level` }),
     levels.length ? h("div", { cls: "fe-filters" }, ...levels.map(l => btn(`Level ${l}`, () => { castLevel = l; ctl.emit(); }, chosen === l ? "is-on" : "", { slot: String(l) }))) : h("div", { cls: "fe-warn", text: "No free spell slots." }),
+    row ? h("div", { cls: "fe-kv", data: { upcast: String(chosen) } }, ...rolls(ctl, row).filter(n => n && (n as HTMLElement).tagName === "BUTTON" && !(n as HTMLElement).title.startsWith("Spell attack"))) : null,
     h("div", { cls: "fe-kv" }, btn("Cancel", () => ctl.close()),
       btn("Cast", () => { if (chosen !== undefined && ctl.cast(spell, chosen)) { castLevel = undefined; ctl.close(); } }, "mod-cta", { act: "cast-apply" })));
 }

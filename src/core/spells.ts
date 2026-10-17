@@ -53,3 +53,10 @@ export function spellRows(c: Character, stats: ActorStats, ctx: EffectContext): 
   });
   return { own, fromItems };
 }
+
+/** One own spell as it would be cast at `level` (upcast dice included). */
+export function castRow(c: Character, stats: ActorStats, ctx: EffectContext, id: string, level: number): SpellRow | undefined {
+  const e = c.spells.find(x => x.id === id) ?? { id, prepared: true };
+  const data = ctx.registry.get<SpellData>("spell", id)?.data;
+  return data ? build(id, data, { kind: "own", prepared: e.prepared }, Math.max(level, data.level), stats) : undefined;
+}
