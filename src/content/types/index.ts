@@ -6,7 +6,7 @@ import { classType } from "./class";
 import { campaignType } from "./campaign";
 import { spellType } from "./spell";
 export type { ConditionData } from "./condition";
-export type { ItemData, ArmorData, WeaponData } from "./item";
+export type { ItemData, GrantedSpell, ArmorData, WeaponData } from "./item";
 export type { CreatureData, CreatureAttack } from "./creature";
 export type { ClassData } from "./class";
 export type { CampaignData } from "./campaign";

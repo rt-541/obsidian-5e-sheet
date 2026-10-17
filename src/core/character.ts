@@ -1,7 +1,7 @@
 import { ABILS, type Abil, type Modifier } from "./types";
 
 export interface ClassLevel { class: string; subclass?: string; level: number; }
-export interface InventoryEntry { id?: string; name?: string; qty: number; equipped: boolean; attuned: boolean; charges?: { used: number }; weight?: number; }
+export interface InventoryEntry { id?: string; name?: string; qty: number; equipped: boolean; attuned: boolean; charges?: { used: number }; weight?: number; spellUses?: Record<string, number>; }
 export type CompanionKind = "familiar" | "companion" | "steed" | "summon" | "sidekick";
 export interface CompanionEntry { creature: string; name: string; kind: CompanionKind; hp: { current?: number; temp: number }; conditions: Record<string, number>; }
 export interface Resource { name: string; max: number; used: number; reset: "short" | "long" | "dawn" | "none"; }
@@ -18,6 +18,7 @@ export interface Character {
   inventory: InventoryEntry[]; coins: { pp: number; gp: number; ep: number; sp: number; cp: number };
   resources: Resource[]; conditions: Record<string, number>; injuries: { id: string; overcome: boolean }[];
   modifiers: Modifier[]; inspiration: boolean; xp: number; baseSpeed: number;
+  concentration?: string;
   rest: { nightsInPlace: number }; companions: CompanionEntry[]; sheet: SheetToggles; rules: Record<string, boolean>;
 }
 export interface Npc {
@@ -145,6 +146,11 @@ function parseCharacter(fm: R): Parsed {
     const e: InventoryEntry = { ...x, qty: r.whole(x.qty, `inventory[${i}].qty`, 1), equipped: r.bool(x.equipped, `inventory[${i}].equipped`), attuned: r.bool(x.attuned, `inventory[${i}].attuned`) };
     if (typeof x.id === "string") e.id = x.id; if (typeof x.name === "string") e.name = x.name;
     if (x.charges !== undefined) { const ch = r.obj(x.charges, `inventory[${i}].charges`); e.charges = { ...ch, used: r.whole(ch.used, `inventory[${i}].charges.used`) }; }
+    if (x.spellUses !== undefined) {
+      const su = r.obj(x.spellUses, `inventory[${i}].spellUses`), uses: Record<string, number> = {};
+      for (const [k, v] of Object.entries(su)) uses[k] = r.whole(v, `inventory[${i}].spellUses.${k}`);
+      e.spellUses = uses;
+    }
     if (x.weight !== undefined) e.weight = r.num(x.weight, `inventory[${i}].weight`, 0);
     return [e];
   });
@@ -174,6 +180,7 @@ function parseCharacter(fm: R): Parsed {
     if (hp.current !== undefined) ce.hp.current = r.whole(hp.current, `companions[${i}].hp.current`);
     return [ce];
   });
+  const conc = r.str(fm.concentration, "concentration"); if (conc) c.concentration = conc;
   c.sheet = r.toggles(fm.sheet, "sheet");
   c.rules = r.rules(fm.rules, "rules");
   return { kind: "character", value: c, errors: r.errors, writable: r.errors.length === 0 };
@@ -202,6 +209,7 @@ export function parseNote(fm: unknown): Parsed {
 
 export function writeInto(fm: Record<string, unknown>, value: Character | Npc): void {
   const defaults = (value.type === "5e-character" ? newCharacter(value.name) : { modifiers: [], conditions: {}, sheet: { hide: [], show: [] }, rules: {} }) as unknown as Record<string, unknown>;
+  if (value.type === "5e-character" && value.concentration === undefined) delete fm.concentration;
   for (const [k, v] of Object.entries(value)) {
     if (v === undefined) continue;
     const isDefault = JSON.stringify(v) === JSON.stringify(defaults[k]);
