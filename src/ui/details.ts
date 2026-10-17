@@ -1,8 +1,9 @@
-import type { ConditionData, CreatureData, FeatData, ItemData, SpellData, SubclassData } from "../content/types";
+import { sourceLabel, type Entry, type Registry } from "../content/registry";
+import type { ClassData, ConditionData, CreatureData, FeatData, GrantsData, ItemData, Op, SpellData, SubclassData, SubraceData } from "../content/types";
 import type { Effects } from "../core/types";
 import { diceAt } from "../core/spells";
 import type { SheetController } from "./controller";
-import { describeEffects } from "./widgets";
+import { describeEffects, sourceBadge } from "./widgets";
 import { h, sgn } from "./h";
 
 const MOD_LABEL: Record<string, string> = { ac: "AC", speed: "speed", hpMax: "max HP", save: "saves", attack: "attack rolls", damage: "damage", spellDC: "spell DC",
@@ -17,17 +18,17 @@ function effectLines(e: Effects): string[] {
   return [...mods, ...(rest ? [rest] : [])];
 }
 
-function card(title: string, subtitle: string, lines: string[], rules: string | undefined, path?: string): HTMLElement {
+function card(title: string, subtitle: string, lines: string[], rules: string | undefined, path?: string, source?: string): HTMLElement {
   return h("div", { cls: "fe-detail" },
     h("div", { cls: "fe-name", text: title }),
+    source ? h("div", { cls: "fe-detail-src" }, sourceBadge(source)) : null,
     subtitle ? h("div", { cls: "fe-muted", text: subtitle }) : null,
     ...lines.filter(Boolean).map(l => h("div", { cls: "fe-detail-line", text: l })),
     rules ? h("div", { cls: "fe-rules", text: rules }) : null,
     path ? h("div", { cls: "fe-faint", text: `Source note: ${path}` }) : null);
 }
 
-function itemCard(id: string, ctl: SheetController): HTMLElement | null {
-  const reg = ctl.host.registry, e = reg.get<ItemData>("item", id); if (!e) return null;
+function itemCard(reg: Registry, e: Entry<ItemData>): HTMLElement {
   const d = e.data, lines: string[] = [];
   if (d.armor) lines.push(`Armor: AC ${d.armor.base}${d.armor.dex === "full" ? " + Dex" : d.armor.dex === "max2" ? " + Dex (max 2)" : ""}${d.armor.stealthDis ? ", disadvantage on Stealth" : ""}`);
   if (d.weapon) lines.push(`Weapon: ${d.weapon.dmg}${d.weapon.bonus ? sgn(d.weapon.bonus) : ""} ${d.weapon.type}${d.weapon.extraDamage ? ` + ${d.weapon.extraDamage}` : ""} (${d.weapon.range})`);
@@ -37,11 +38,10 @@ function itemCard(id: string, ctl: SheetController): HTMLElement | null {
     const sp = reg.get<SpellData>("spell", g.id), c = g.cost;
     lines.push(`Casts ${sp?.name ?? `${g.id} (missing from compendium)`}: ${c.kind === "charges" ? `${c.amount} charge${c.amount === 1 ? "" : "s"}` : c.kind === "perDay" ? `${c.uses} per day` : "at will"}`);
   }
-  return card(e.name, [cap(d.kind), d.rarity, d.attunement ? "requires attunement" : ""].filter(Boolean).join(" · "), lines, d.rules, e.source === "vault" ? e.path : undefined);
+  return card(e.name, [cap(d.kind), d.rarity, d.attunement ? "requires attunement" : ""].filter(Boolean).join(" · "), lines, d.rules, e.source === "vault" ? e.path : undefined, sourceLabel(e));
 }
 
-function spellCard(id: string, ctl: SheetController): HTMLElement | null {
-  const e = ctl.host.registry.get<SpellData>("spell", id); if (!e) return null;
+function spellCard(_reg: Registry, e: Entry<SpellData>): HTMLElement {
   const d = e.data, lines: string[] = [];
   lines.push(`Casting time: ${d.castingTime}${d.ritual ? " (ritual)" : ""}`, `Range: ${d.range}`,
     `Components: ${d.components.join(", ")}${d.material ? ` (${d.material})` : ""}`, `Duration: ${d.concentration ? "Concentration, " : ""}${d.duration}`);
@@ -52,19 +52,30 @@ function spellCard(id: string, ctl: SheetController): HTMLElement | null {
   const heal = diceAt(d.heal?.bySlot, d.level);
   if (heal) lines.push(`Healing: ${heal.replace(/\+MOD/g, " + spellcasting modifier")}`);
   const sub = [d.level === 0 ? `${d.school} cantrip` : `Level ${d.level} ${d.school}`, d.classes.length ? d.classes.map(cap).join(", ") : ""].filter(Boolean).join(" · ");
-  return card(e.name, sub, lines, [d.rules, d.higherLevel ? `At higher levels: ${d.higherLevel}` : ""].filter(Boolean).join("\n\n") || undefined, e.source === "vault" ? e.path : undefined);
+  return card(e.name, sub, lines, [d.rules, d.higherLevel ? `At higher levels: ${d.higherLevel}` : ""].filter(Boolean).join("\n\n") || undefined, e.source === "vault" ? e.path : undefined, sourceLabel(e));
 }
 
-function conditionCard(id: string, ctl: SheetController): HTMLElement | null {
-  const e = ctl.host.registry.get<ConditionData>("condition", id) ?? ctl.host.registry.get<ConditionData>("injury", id); if (!e) return null;
-  const d = e.data, lvl = ctl.value.conditions[id] ?? 0;
+function conditionCard(e: Entry<ConditionData>, active = 0): HTMLElement {
+  const d = e.data, lvl = active;
   const eff = d.levels && d.levelEffects ? d.levelEffects[Math.min(Math.max(lvl, 1), d.levels)] ?? {} : d.effects;
-  return card(e.name, d.levels ? `${cap(d.category)}, ${d.levels} levels${lvl ? ` (level ${lvl} active)` : ""}` : cap(d.category), effectLines(eff), d.rules, e.source === "vault" ? e.path : undefined);
+  return card(e.name, d.levels ? `${cap(d.category)}, ${d.levels} levels${lvl ? ` (level ${lvl} active)` : ""}` : cap(d.category), effectLines(eff), d.rules, e.source === "vault" ? e.path : undefined, sourceLabel(e));
 }
 
 function traitCard(creature: string, index: number, ctl: SheetController): HTMLElement | null {
   const e = ctl.host.registry.get<CreatureData>("creature", creature), t = e?.data.traits[index];
-  return e && t ? card(t.name, e.name, [], t.text, e.source === "vault" ? e.path : undefined) : null;
+  return e && t ? card(t.name, e.name, [], t.text, e.source === "vault" ? e.path : undefined, sourceLabel(e)) : null;
+}
+
+function creatureCard(e: Entry<CreatureData>): HTMLElement {
+  const d = e.data, ab = (["str", "dex", "con", "int", "wis", "cha"] as const).map(a => `${ABIL[a]} ${d.abilities[a]}`).join("  ");
+  const sp = [`${d.speed.walk} ft.`, ...(["fly", "swim", "climb"] as const).flatMap(m => d.speed[m] ? [`${m} ${d.speed[m]} ft.`] : [])].join(", ");
+  const lines = [`AC ${d.ac}`, `HP ${d.hp.average}${d.hp.formula ? ` (${d.hp.formula})` : ""}`, `Speed ${sp}`, ab,
+    ...(Object.keys(d.saves).length ? [`Saves: ${Object.entries(d.saves).map(([a, n]) => `${ABIL[a as keyof typeof ABIL] ?? a} ${sgn(n as number)}`).join(", ")}`] : []),
+    ...(Object.keys(d.skills).length ? [`Skills: ${Object.entries(d.skills).map(([k, n]) => `${cap(k)} ${sgn(n)}`).join(", ")}`] : []),
+    ...(d.senses ? [`Senses: ${d.senses}`] : []),
+    ...d.attacks.map(a => `${a.name}${a.toHit !== undefined ? `: ${sgn(a.toHit)} to hit` : ""}${a.damage ? `, ${a.damage}${a.note ? ` ${a.note}` : ""}` : ""}${a.save ? `, DC ${a.save.dc} ${ABIL[a.save.abil]} save` : ""}`)];
+  const rules = [...d.traits.map(t => `${t.name}. ${t.text}`), d.rules ?? ""].filter(Boolean).join("\n\n") || undefined;
+  return card(e.name, [`${d.size} ${d.ctype}`, d.cr !== undefined ? `CR ${d.cr}` : ""].filter(Boolean).join(" · "), lines, rules, e.source === "vault" ? e.path : undefined, sourceLabel(e));
 }
 
 function featureCard(key: string, ctl: SheetController): HTMLElement | null {
@@ -75,18 +86,29 @@ function featureCard(key: string, ctl: SheetController): HTMLElement | null {
 }
 
 /** Every feature a subclass or feat grants, by level, for the pick lists. */
-function opsCard(title: string, sub: string, byLevel: [string, import("../content/types").Op[]][], path?: string): HTMLElement {
+function opsCard(title: string, sub: string, byLevel: [string, Op[]][], path?: string, source?: string): HTMLElement {
   const lines: string[] = [], text: string[] = [];
   for (const [lvl, ops] of byLevel) for (const op of ops) if (op.op === "feature") { lines.push(lvl ? `Level ${lvl}: ${op.name}` : op.name); if (op.text) text.push(`${op.name}. ${op.text}`); }
-  return card(title, sub, lines, text.join("\n\n") || undefined, path);
+  return card(title, sub, lines, text.join("\n\n") || undefined, path, source);
 }
-function subclassCard(id: string, ctl: SheetController): HTMLElement | null {
-  const e = ctl.host.registry.get<SubclassData>("subclass", id); if (!e) return null;
-  return opsCard(e.name, `${cap(e.data.class)} subclass`, Object.entries(e.data.levels), e.source === "vault" ? e.path : undefined);
+function subclassCard(reg: Registry, e: Entry<SubclassData>): HTMLElement {
+  return opsCard(e.name, `${reg.get<ClassData>("class", e.data.class)?.name ?? cap(e.data.class)} subclass`, Object.entries(e.data.levels), e.source === "vault" ? e.path : undefined, sourceLabel(e));
 }
-function featCard(id: string, ctl: SheetController): HTMLElement | null {
-  const e = ctl.host.registry.get<FeatData>("feat", id); if (!e) return null;
-  return opsCard(e.name, e.data.prerequisite ? `Prerequisite: ${e.data.prerequisite}` : "Feat", [["", e.data.grants]], e.source === "vault" ? e.path : undefined);
+function featCard(e: Entry<FeatData>): HTMLElement {
+  return opsCard(e.name, e.data.prerequisite ? `Prerequisite: ${e.data.prerequisite}` : "Feat", [["", e.data.grants]], e.source === "vault" ? e.path : undefined, sourceLabel(e));
+}
+function grantsCard(e: Entry<GrantsData | SubraceData>, kind: string, reg: Registry): HTMLElement {
+  const race = "race" in e.data ? reg.get<GrantsData>("race", e.data.race)?.name : undefined;
+  return opsCard(e.name, race ? `${race} subrace` : kind, [["", e.data.grants]], e.source === "vault" ? e.path : undefined, sourceLabel(e));
+}
+function classCard(e: Entry<ClassData>): HTMLElement {
+  const d = e.data, lines = [`Hit die: d${d.hitDie}`, `Saving throws: ${d.saves.map(a => ABIL[a]).join(", ")}`,
+    ...(d.spellcasting ? [`Spellcasting: ${d.spellcasting.progression} caster, ${ABIL[d.spellcasting.abil]}`] : []),
+    ...(d.proficiencies?.length ? [`Proficiencies: ${d.proficiencies.join(", ")}`] : []),
+    ...(d.skills ? [`Skills: choose ${d.skills.count} from ${d.skills.from.map(cap).join(", ")}`] : [])];
+  const text: string[] = [];
+  for (const [lvl, ops] of Object.entries(d.levels ?? {})) for (const op of ops) if (op.op === "feature") { lines.push(`Level ${lvl}: ${op.name}`); if (op.text) text.push(`${op.name}. ${op.text}`); }
+  return card(e.name, "Class", lines, text.join("\n\n") || undefined, e.source === "vault" ? e.path : undefined, sourceLabel(e));
 }
 
 function effectCard(source: string, ctl: SheetController): HTMLElement | null {
@@ -94,18 +116,36 @@ function effectCard(source: string, ctl: SheetController): HTMLElement | null {
   return card(source, "Active effect", effectLines(hit.effects), undefined);
 }
 
+/** The card for one compendium entry (any source), for the compendium browser and the sheet. A reference-only library note gets a plain card: the caller supplies its body text. */
+export function entryCard(reg: Registry, e: Entry, body?: string): HTMLElement {
+  if (e.referenceOnly) return card(e.name, `${cap(e.type)} · reference only`, [`Not usable on the sheet: ${e.referenceOnly}`], body, undefined, sourceLabel(e));
+  switch (e.type) {
+    case "item": return itemCard(reg, e as Entry<ItemData>);
+    case "spell": return spellCard(reg, e as Entry<SpellData>);
+    case "condition": case "injury": return conditionCard(e as Entry<ConditionData>);
+    case "creature": return creatureCard(e as Entry<CreatureData>);
+    case "class": return classCard(e as Entry<ClassData>);
+    case "subclass": return subclassCard(reg, e as Entry<SubclassData>);
+    case "feat": return featCard(e as Entry<FeatData>);
+    case "race": return grantsCard(e as Entry<GrantsData>, "Race", reg);
+    case "subrace": return grantsCard(e as Entry<SubraceData>, "Subrace", reg);
+    case "background": return grantsCard(e as Entry<GrantsData>, "Background", reg);
+    default: return card(e.name, cap(e.type), [], body, e.source === "vault" ? e.path : undefined, sourceLabel(e));
+  }
+}
+
 /** A detail card for `ref` (item:, spell:, condition:, trait:<creature>:<index>, effect:<source>), or null if it is not known. All text goes in as text nodes. */
 export function detailCard(ref: string, ctl: SheetController): HTMLElement | null {
   const i = ref.indexOf(":"); if (i < 0) return null;
-  const kind = ref.slice(0, i), rest = ref.slice(i + 1);
+  const kind = ref.slice(0, i), rest = ref.slice(i + 1), reg = ctl.host.registry;
   switch (kind) {
-    case "item": return itemCard(rest, ctl);
-    case "spell": return spellCard(rest, ctl);
-    case "condition": return conditionCard(rest, ctl);
+    case "item": { const e = reg.get<ItemData>("item", rest); return e ? itemCard(reg, e) : null; }
+    case "spell": { const e = reg.get<SpellData>("spell", rest); return e ? spellCard(reg, e) : null; }
+    case "condition": { const e = reg.get<ConditionData>("condition", rest) ?? reg.get<ConditionData>("injury", rest); return e ? conditionCard(e, ctl.value.conditions[rest] ?? 0) : null; }
     case "effect": return effectCard(rest, ctl);
     case "feature": return featureCard(rest, ctl);
-    case "subclass": return subclassCard(rest, ctl);
-    case "feat": return featCard(rest, ctl);
+    case "subclass": { const e = reg.get<SubclassData>("subclass", rest); return e ? subclassCard(reg, e) : null; }
+    case "feat": { const e = reg.get<FeatData>("feat", rest); return e ? featCard(e) : null; }
     case "trait": { const j = rest.lastIndexOf(":"); return j < 0 ? null : traitCard(rest.slice(0, j), Number(rest.slice(j + 1)), ctl); }
     default: return null;
   }

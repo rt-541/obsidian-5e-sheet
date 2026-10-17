@@ -1,8 +1,10 @@
+import { sourceLabel } from "../content/registry";
 import type { SpellData } from "../content/types";
 import { castRow, spellRows, type SpellRow } from "../core/spells";
 import type { ActorStats } from "../core/derive";
 import type { SheetController } from "./controller";
 import { clear, h, sgn } from "./h";
+import { sourceBadge } from "./widgets";
 
 const btn = (text: string, onClick: () => void, cls = "", data?: Record<string, string>) =>
   h("button", { cls: `fe-btn ${cls}`.trim(), text, ...(data ? { data } : {}), on: { click: onClick } });
@@ -112,13 +114,13 @@ export function castPanel(ctl: SheetController, spell: string): HTMLElement {
 let showAll = false, query = "";
 export function addSpellPanel(ctl: SheetController): HTMLElement {
   const c = ctl.character!, mine = new Set(c.classes.map(x => x.class)), owned = new Set(c.spells.map(s => s.id));
-  const all = ctl.host.registry.list<SpellData>("spell");
+  const all = ctl.pickers().list<SpellData>("spell");
   const list = h("div", {});
   const fill = () => {
     clear(list);
     const rows = all.filter(e => e.name.toLowerCase().includes(query) && (showAll || !mine.size || e.data.classes.some(k => mine.has(k))));
     for (const e of rows.slice(0, 80)) list.append(h("div", { cls: "fe-inv" },
-      h("div", { cls: "fe-grow" }, h("span", { cls: "fe-spell-name", text: e.name, data: { ref: `spell:${e.id}`, noclick: "" } }), h("div", { cls: "fe-faint", text: `${levelTitle(e.data.level)} · ${e.data.school}` })),
+      h("div", { cls: "fe-grow" }, h("span", { cls: "fe-spell-name", text: e.name, data: { ref: `spell:${e.id}`, noclick: "" } }), sourceBadge(sourceLabel(e)), h("div", { cls: "fe-faint", text: `${levelTitle(e.data.level)} · ${e.data.school}` })),
       owned.has(e.id) ? h("span", { cls: "fe-faint", text: "added" }) : btn("Add", () => { ctl.dispatch({ type: "addSpell", id: e.id }); }, "", { add: e.id })));
     if (rows.length > 80) list.append(h("div", { cls: "fe-faint", text: `${rows.length - 80} more: narrow the search.` }));
     if (!rows.length) list.append(h("div", { cls: "fe-faint", text: "No spells match." }));

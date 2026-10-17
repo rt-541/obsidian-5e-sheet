@@ -3,6 +3,8 @@ import { h, sgn } from "./h";
 
 export const card = (title: string, ...kids: (Node | null | false)[]) => h("div", { cls: "fe-card" }, title ? h("div", { cls: "fe-card-title", text: title }) : null, ...kids);
 export const btn = (text: string, onClick: (e: MouseEvent) => void, cls = "") => h("button", { cls: `fe-btn ${cls}`.trim(), text, on: { click: onClick } });
+/** A source badge (`WotC · PHB`, `Roll20`, `Homebrew`, `WotC (SRD)`): user sources are accented, WotC content is neutral. */
+export const sourceBadge = (label: string, extra = "") => h("span", { cls: `fe-src ${label.startsWith("WotC") ? "" : "is-hb"} ${extra}`.replace(/\s+/g, " ").trim(), text: label, data: { source: label } });
 export const titleCase = (s: string) => s.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase());
 
 export function describeEffects(e: Effects): string {

@@ -1,4 +1,4 @@
-import type { Registry } from "../content/registry";
+import { sourceLabel, type Registry } from "../content/registry";
 import type { AbilReq, ClassData, FeatData, Op, OptionDef, SpellData, SubclassData } from "../content/types";
 import { abilityMod } from "./abilities";
 import type { Character, HpMethod, LevelEntry } from "./character";
@@ -31,7 +31,7 @@ const sgn = (n: number) => (n >= 0 ? "+" : "") + n;
 
 // ---------------------------------------------------------------- which class can be taken
 
-export interface LevelOption { class: string; name: string; /** Class level after this level. */ level: number; current: boolean; allowed: boolean; reasons: string[]; }
+export interface LevelOption { class: string; name: string; /** Source badge text. */ source: string; /** Class level after this level. */ level: number; current: boolean; allowed: boolean; reasons: string[]; }
 
 const reqText = (r: AbilReq) => Object.entries(r).map(([a, n]) => `${ABIL_NAME[a as Abil]} ${n}`).join(" and ");
 const reqMet = (r: AbilReq, c: Character) => Object.entries(r).every(([a, n]) => c.abilities[a as Abil] >= (n as number));
@@ -59,13 +59,13 @@ export function levelOptions(c: Character, registry: Registry): LevelOption[] {
       reasons.push(...requirementProblems(e.data, c, `Multiclassing into ${e.name}`));
       for (const k of c.classes) { const d = registry.get<ClassData>("class", k.class)?.data; if (d) reasons.push(...requirementProblems(d, c, `Leaving ${d.name}`)); }
     }
-    return { class: e.id, name: e.name, level: (have?.level ?? 0) + 1, current: !!have, allowed: reasons.length === 0, reasons };
+    return { class: e.id, name: e.name, source: sourceLabel(e), level: (have?.level ?? 0) + 1, current: !!have, allowed: reasons.length === 0, reasons };
   });
 }
 
 // ---------------------------------------------------------------- steps
 
-export interface StepOption { id: string; name: string; text?: string; level?: number; school?: string; /** Why it cannot be picked. */ disabled?: string; }
+export interface StepOption { id: string; name: string; /** Source badge text. */ source?: string; text?: string; level?: number; school?: string; /** Why it cannot be picked. */ disabled?: string; }
 export type Step =
   | { kind: "hp"; key: "hp"; label: string; die: number; conMod: number; average: number; first: boolean }
   | { kind: "subclass"; key: string; label: string; source: string; options: StepOption[] }
@@ -103,7 +103,7 @@ function spellOptions(env: Env, op: Extract<Op, { op: "spells" }>, maxLevel: num
   const owned = new Set(env.cand.spells.map(s => s.id)), schools = op.schools?.map(s => s.toLowerCase());
   return env.registry.list<SpellData>("spell")
     .filter(e => (Array.isArray(op.from) ? op.from.includes(e.id) : e.data.classes.includes(op.from)) && (!schools || schools.includes(e.data.school.toLowerCase())))
-    .map(e => ({ id: e.id, name: e.name, level: e.data.level, school: e.data.school, text: e.data.level === 0 ? `${e.data.school} cantrip` : `Level ${e.data.level} ${e.data.school}`,
+    .map(e => ({ id: e.id, name: e.name, source: sourceLabel(e), level: e.data.level, school: e.data.school, text: e.data.level === 0 ? `${e.data.school} cantrip` : `Level ${e.data.level} ${e.data.school}`,
       ...(owned.has(e.id) ? { disabled: "Already known" } : e.data.level > maxLevel ? { disabled: `Needs a level ${e.data.level} slot` } : {}) }));
 }
 /** 2014 (PHB p.164): spells known and prepared are worked out per class as if single-classed, so the cap comes from the leveling class's own entry. */
@@ -124,7 +124,7 @@ function stepOf(p: PendingChoice, env: Env, maxScores: () => Record<Abil, number
   switch (op.op) {
     case "subclass": {
       const cls = classOfKey(key); if (!cls) return undefined;
-      const options = env.registry.list<SubclassData>("subclass").filter(e => e.data.class === cls).map(e => ({ id: e.id, name: e.name }));
+      const options = env.registry.list<SubclassData>("subclass").filter(e => e.data.class === cls).map(e => ({ id: e.id, name: e.name, source: sourceLabel(e) }));
       return options.length ? { kind: "subclass", ...base, options } : undefined;
     }
     case "asi": return { kind: "asi", ...base, maxScores: maxScores() };

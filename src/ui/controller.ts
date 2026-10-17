@@ -57,6 +57,8 @@ export class SheetController {
   /** Replace the value after an external file change (Obsidian Sync, manual edit). */
   reload(parsed: Exclude<Parsed, { kind: "none" }>) { this.value = parsed.value; this.errors = parsed.errors; this.writable = parsed.writable; this.emit(); }
 
+  /** The registry the pickers (level-up wizard, add spell / item / companion) list from: sources this campaign switched off are left out. */
+  pickers(): Registry { return this.host.registry.scoped(this.host.campaign?.sources); }
   ctx() { return { registry: this.host.registry, ...(this.host.campaign ? { campaign: this.host.campaign } : {}) }; }
   rules() { return resolveRules(MODULES, [this.host.ruleDefaults, this.host.campaign?.rules, this.value.rules]); }
   visible(features: string[]) {
@@ -176,9 +178,9 @@ export class SheetController {
   levelUpSteps(): { steps: Step[]; plan?: LevelPlan; error?: string } {
     const c = this.character, st = this.levelUp;
     if (!c || !st) return { steps: [] };
-    if (st.mode === "resolve") return { steps: planResolve(c, this.host.registry, st.choices) };
+    if (st.mode === "resolve") return { steps: planResolve(c, this.pickers(), st.choices) };
     if (!st.classId) return { steps: [] };
-    const p = planLevel(c, st.classId, this.host.registry, st.choices);
+    const p = planLevel(c, st.classId, this.pickers(), st.choices);
     return "error" in p ? { steps: [], error: p.error } : { steps: p.steps, plan: p };
   }
   /** What applying the wizard now would do, without changing anything. */
@@ -186,7 +188,7 @@ export class SheetController {
     const c = this.character, st = this.levelUp;
     if (!c || !st) return { error: "Nothing to apply" };
     const answers = { ...(st.hp ? { hp: st.hp } : {}), choices: st.choices };
-    return st.mode === "level" ? applyLevel(c, { class: st.classId ?? "" }, answers, this.host.registry, this.host.rng) : applyResolve(c, answers, this.host.registry);
+    return st.mode === "level" ? applyLevel(c, { class: st.classId ?? "" }, answers, this.pickers(), this.host.rng) : applyResolve(c, answers, this.pickers());
   }
   applyLevelUp(): boolean {
     const c = this.character, st = this.levelUp;

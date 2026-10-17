@@ -5,6 +5,7 @@ import type { BuilderController, BuilderPage } from "./builder";
 import { clear, h } from "./h";
 import { asiPage, choiceButton, pickPage, spellsPage, subclassPage } from "./levelup-ui";
 import { btn, titleCase } from "./widgets";
+import { sourceLabel } from "../content/registry";
 
 const ABIL_NAME: Record<Abil, string> = { str: "STR", dex: "DEX", con: "CON", int: "INT", wis: "WIS", cha: "CHA" };
 const sgn = (n: number) => (n >= 0 ? "+" : "") + n;
@@ -12,20 +13,20 @@ const body = (step: string, ...kids: (Node | null)[]) => h("div", { cls: "fe-lu-
 const hint = (text: string) => h("div", { cls: "fe-muted", text });
 
 function racePage(ctl: BuilderController): HTMLElement {
-  const reg = ctl.host.registry, d = ctl.draft;
+  const reg = ctl.pickers(), d = ctl.draft;
   const subs = d.race ? reg.list<SubraceData>("subrace").filter(e => e.data.race === d.race) : [];
   return body("race", hint("Pick a race."),
-    ...reg.list<GrantsData>("race").map(e => choiceButton(e.name, undefined, d.race === e.id, undefined, () => ctl.setRace(e.id), { race: e.id })),
+    ...reg.list<GrantsData>("race").map(e => choiceButton(e.name, undefined, d.race === e.id, undefined, () => ctl.setRace(e.id), { race: e.id }, sourceLabel(e))),
     subs.length ? hint("Subrace") : null,
     ...(subs.length ? [choiceButton("No subrace", undefined, !d.subrace, undefined, () => ctl.setSubrace(undefined), { subrace: "" }),
-      ...subs.map(e => choiceButton(e.name, undefined, d.subrace === e.id, undefined, () => ctl.setSubrace(e.id), { subrace: e.id }))] : []));
+      ...subs.map(e => choiceButton(e.name, undefined, d.subrace === e.id, undefined, () => ctl.setSubrace(e.id), { subrace: e.id }, sourceLabel(e)))] : []));
 }
 
 function backgroundPage(ctl: BuilderController): HTMLElement {
   const d = ctl.draft;
   return body("background", hint("Pick a background."),
     choiceButton("No background", undefined, !d.background, undefined, () => ctl.setBackground(undefined), { background: "" }),
-    ...ctl.host.registry.list<GrantsData>("background").map(e => choiceButton(e.name, undefined, d.background === e.id, undefined, () => ctl.setBackground(e.id), { background: e.id })));
+    ...ctl.pickers().list<GrantsData>("background").map(e => choiceButton(e.name, undefined, d.background === e.id, undefined, () => ctl.setBackground(e.id), { background: e.id }, sourceLabel(e))));
 }
 
 const METHODS: [ScoreMethod, string][] = [["point-buy", "Point buy"], ["standard-array", "Standard array"], ["manual", "Manual"]];
@@ -57,7 +58,7 @@ function scoresPage(ctl: BuilderController): HTMLElement {
 function classPage(ctl: BuilderController): HTMLElement {
   const d = ctl.draft;
   return body("class", hint("Pick a class (level 1)."),
-    ...ctl.host.registry.list<{ name: string; hitDie: number }>("class").map(e => choiceButton(e.name, `d${e.data.hitDie}`, d.classId === e.id, undefined, () => ctl.setClass(e.id), { class: e.id })));
+    ...ctl.pickers().list<{ name: string; hitDie: number }>("class").map(e => choiceButton(e.name, `d${e.data.hitDie}`, d.classId === e.id, undefined, () => ctl.setClass(e.id), { class: e.id }, sourceLabel(e))));
 }
 
 function equipmentPage(ctl: BuilderController): HTMLElement {

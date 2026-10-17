@@ -1,18 +1,18 @@
-import type { Registry } from "../content/registry";
+import { sourceLabel, type Registry } from "../content/registry";
 import type { FeatData } from "../content/types";
 import type { Character } from "../core/character";
 import { levelOptions, type Step } from "../core/levelup";
 import { ABILS, type Abil } from "../core/types";
 import type { LevelUpState, LevelUpView, SheetController } from "./controller";
 import { clear, h } from "./h";
-import { btn, titleCase } from "./widgets";
+import { btn, sourceBadge, titleCase } from "./widgets";
 
 const ABIL_NAME: Record<Abil, string> = { str: "STR", dex: "DEX", con: "CON", int: "INT", wis: "WIS", cha: "CHA" };
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 const isStrs = (v: unknown): v is string[] => Array.isArray(v) && v.every(x => typeof x === "string");
 const sgn = (n: number) => (n >= 0 ? "+" : "") + n;
 /** What the step pages need from their owner: the level-up wizard's SheetController, or the character builder. */
-export interface PageCtl { character?: Character; host: { registry: Registry; notify(msg: string): void }; pick(key: string, value: unknown): void; }
+export interface PageCtl { character?: Character; host: { registry: Registry; notify(msg: string): void }; /** Registry for pick lists (campaign source switches applied). */ pickers(): Registry; pick(key: string, value: unknown): void; }
 /** The answers and view state the pages read. */
 export interface PageState { choices: Record<string, unknown>; view: LevelUpView; }
 type Pick<K extends Step["kind"]> = Extract<Step, { kind: K }>;
@@ -30,9 +30,9 @@ export function answered(s: Step, st: { choices: Record<string, unknown>; hp?: u
 }
 
 const row = (cls: string, ...kids: (Node | null)[]) => h("div", { cls }, ...kids);
-export const choiceButton = (name: string, detail: string | undefined, on: boolean, disabled: string | undefined, click: () => void, data: Record<string, string>) => {
+export const choiceButton = (name: string, detail: string | undefined, on: boolean, disabled: string | undefined, click: () => void, data: Record<string, string>, source?: string) => {
   const b = h("button", { cls: `fe-btn fe-choice ${on ? "is-on" : ""}`.trim(), data, on: { click } },
-    h("span", { cls: "fe-name", text: name }), detail ? h("span", { cls: "fe-faint", text: ` ${detail}` }) : null, disabled ? h("span", { cls: "fe-faint", text: ` (${disabled.toLowerCase()})` }) : null);
+    h("span", { cls: "fe-name", text: name }), detail ? h("span", { cls: "fe-faint", text: ` ${detail}` }) : null, disabled ? h("span", { cls: "fe-faint", text: ` (${disabled.toLowerCase()})` }) : null, source ? sourceBadge(source) : null);
   if (disabled) b.disabled = true;
   b.setAttribute("aria-pressed", String(on));
   return b;
@@ -41,8 +41,8 @@ export const choiceButton = (name: string, detail: string | undefined, on: boole
 function classPage(ctl: SheetController, st: LevelUpState): HTMLElement {
   const c = ctl.character!;
   return h("div", { cls: "fe-lu-body", data: { step: "class" } }, h("div", { cls: "fe-muted", text: c.classes.length ? "Which class takes this level?" : "Pick the first class." }),
-    ...levelOptions(c, ctl.host.registry).map(o => h("div", {},
-      choiceButton(`${o.name} ${o.current ? `${o.level - 1} to ${o.level}` : `(new) ${o.level}`}`, undefined, st.classId === o.class, o.allowed ? undefined : o.reasons[0], () => ctl.setLevelUp({ classId: o.class, page: st.page }), { class: o.class }),
+    ...levelOptions(c, ctl.pickers()).map(o => h("div", {},
+      choiceButton(`${o.name} ${o.current ? `${o.level - 1} to ${o.level}` : `(new) ${o.level}`}`, undefined, st.classId === o.class, o.allowed ? undefined : o.reasons[0], () => ctl.setLevelUp({ classId: o.class, page: st.page }), { class: o.class }, o.source),
       ...(o.allowed ? [] : o.reasons.slice(0, 3).map(r => h("div", { cls: "fe-warn", text: r }))))));
 }
 
@@ -60,7 +60,7 @@ function hpPage(ctl: SheetController, s: Pick<"hp">, st: LevelUpState): HTMLElem
 export function subclassPage(ctl: PageCtl, s: Pick<"subclass">, st: PageState): HTMLElement {
   return h("div", { cls: "fe-lu-body", data: { step: s.key } }, h("div", { cls: "fe-muted", text: s.label }),
     ...s.options.map(o => h("div", { cls: "fe-subclass" },
-      choiceButton(o.name, undefined, st.choices[s.key] === o.id, o.disabled, () => ctl.pick(s.key, o.id), { opt: o.id }),
+      choiceButton(o.name, undefined, st.choices[s.key] === o.id, o.disabled, () => ctl.pick(s.key, o.id), { opt: o.id }, o.source),
       h("span", { cls: "fe-faint fe-detail-link", text: "details", data: { ref: `subclass:${o.id}`, noclick: "" } }))));
 }
 
@@ -84,9 +84,9 @@ export function featList(ctl: PageCtl, s: Pick<"asi">, st: PageState): HTMLEleme
   const fill = () => {
     clear(list);
     const q = view.featQuery.toLowerCase();
-    const feats = ctl.host.registry.list<FeatData>("feat").filter(e => e.name.toLowerCase().includes(q));
+    const feats = ctl.pickers().list<FeatData>("feat").filter(e => e.name.toLowerCase().includes(q));
     for (const e of feats.slice(0, 60)) list.append(h("div", { cls: "fe-inv" },
-      h("div", { cls: "fe-grow" }, h("span", { cls: "fe-inv-name", text: e.name, data: { ref: `feat:${e.id}`, noclick: "" } }), e.data.prerequisite ? h("div", { cls: "fe-faint", text: `Prerequisite: ${e.data.prerequisite}` }) : null),
+      h("div", { cls: "fe-grow" }, h("span", { cls: "fe-inv-name", text: e.name, data: { ref: `feat:${e.id}`, noclick: "" } }), sourceBadge(sourceLabel(e)), e.data.prerequisite ? h("div", { cls: "fe-faint", text: `Prerequisite: ${e.data.prerequisite}` }) : null),
       owned.has(e.id) ? h("span", { cls: "fe-faint", text: "taken" }) : btn(picked === e.id ? "Picked" : "Pick", () => ctl.pick(s.key, { feat: e.id }), picked === e.id ? "is-on" : "")));
     if (!feats.length) list.append(h("div", { cls: "fe-faint", text: "No feats match." }));
   };
@@ -109,7 +109,7 @@ export function pickPage(ctl: PageCtl, s: Pick<"pick">, st: PageState): HTMLElem
   const body = s.free
     ? Array.from({ length: s.count }, (_, i) => h("input", { cls: "fe-search", attrs: { placeholder: `${titleCase(s.what)} ${i + 1}`, value: cur[i] ?? "", "aria-label": `${titleCase(s.what)} ${i + 1}` },
         on: { change: (e: Event) => { const next = [...cur]; next[i] = (e.target as HTMLInputElement).value.trim(); ctl.pick(s.key, next.filter(x => x !== "" || next.length > i).slice(0, s.count)); } } }))
-    : s.options.map(o => choiceButton(o.name, o.text, cur.includes(o.id), o.disabled, () => toggle(o.id), { opt: o.id }));
+    : s.options.map(o => choiceButton(o.name, o.text, cur.includes(o.id), o.disabled, () => toggle(o.id), { opt: o.id }, o.source));
   return h("div", { cls: "fe-lu-body", data: { step: s.key } }, h("div", { cls: "fe-muted", text: `${s.label} (${cur.length} of ${s.count})` }), ...body);
 }
 
@@ -128,7 +128,7 @@ export function spellsPage(ctl: PageCtl, s: Pick<"spells">, st: PageState): HTML
     clear(list);
     const q = st.view.spellQuery.toLowerCase(), rows = s.options.filter(o => o.name.toLowerCase().includes(q));
     for (const o of rows.slice(0, 80)) list.append(h("div", { cls: "fe-inv", data: { spell: o.id } },
-      h("div", { cls: "fe-grow" }, h("span", { cls: "fe-spell-name", text: o.name, data: { ref: `spell:${o.id}`, noclick: "" } }), h("div", { cls: "fe-faint", text: o.text ?? "" })),
+      h("div", { cls: "fe-grow" }, h("span", { cls: "fe-spell-name", text: o.name, data: { ref: `spell:${o.id}`, noclick: "" } }), o.source ? sourceBadge(o.source) : null, h("div", { cls: "fe-faint", text: o.text ?? "" })),
       o.disabled ? h("span", { cls: "fe-faint", text: o.disabled.toLowerCase() }) : btn(cur.includes(o.id) ? "Chosen" : "Add", () => toggle(o.id), cur.includes(o.id) ? "is-on" : "", )));
     if (rows.length > 80) list.append(h("div", { cls: "fe-faint", text: `${rows.length - 80} more: narrow the search.` }));
     if (!rows.length) list.append(h("div", { cls: "fe-faint", text: "No spells match." }));
@@ -167,7 +167,7 @@ export function levelUpPanel(ctl: SheetController): HTMLElement {
   const pages = lead + steps.length + 1, page = Math.max(0, Math.min(st.page, pages - 1));
   const last = page === pages - 1, step = page >= lead && !last ? steps[page - lead] : undefined;
   let body: HTMLElement, ready: boolean;
-  if (!resolve && page === 0) { body = classPage(ctl, st); ready = !!st.classId && levelOptions(ctl.character, ctl.host.registry).find(o => o.class === st.classId)?.allowed === true; }
+  if (!resolve && page === 0) { body = classPage(ctl, st); ready = !!st.classId && levelOptions(ctl.character, ctl.pickers()).find(o => o.class === st.classId)?.allowed === true; }
   else if (last) { body = summaryPage(ctl, st); ready = !("error" in ctl.levelUpPreview()); }
   else if (step) {
     ready = answered(step, st);

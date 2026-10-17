@@ -1,4 +1,5 @@
 import type { Registry } from "../content/registry";
+import type { SourceSwitches } from "../content/sources";
 import type { ClassData } from "../content/types";
 import { baseCharacter, buildCharacter, buildSteps, characterFrontmatter, defaultScores, draftProblems, newDraft, notePath, pointBuyCost, rollGold, scoreProblems, POINT_BUY_BUDGET, POINT_BUY_COST,
   type BuildDraft, type EquipmentChoice, type ScoreMethod } from "../core/builder";
@@ -10,6 +11,8 @@ import type { LevelUpView } from "./controller";
 /** What the Obsidian layer (or a test) provides to the builder. */
 export interface BuilderHost {
   registry: Registry; rng?: Rng;
+  /** Source switches of the campaign the draft names (a link or plain name); pickers leave out switched-off sources. */
+  campaignSources?(campaign: string): SourceSwitches;
   notify(msg: string): void;
   /** Folder new notes go in ("" = the vault root). */
   folder: string;
@@ -33,6 +36,9 @@ export class BuilderController {
   view: LevelUpView = { featOpen: new Set(), spellQuery: "", featQuery: "" };
   private subs = new Set<() => void>();
   constructor(public host: BuilderHost) {}
+
+  /** The registry the pickers list from: sources the draft's campaign switched off are left out. */
+  pickers(): Registry { return this.host.registry.scoped(this.draft.campaign ? this.host.campaignSources?.(this.draft.campaign) : undefined); }
 
   subscribe(fn: () => void) { this.subs.add(fn); return () => { this.subs.delete(fn); }; }
   emit() { this.subs.forEach(f => f()); }
@@ -106,7 +112,7 @@ export class BuilderController {
 
   // ---- pages
   steps(): { origin: Exclude<Step, { kind: "hp" }>[]; level: Exclude<Step, { kind: "hp" }>[]; error?: string } {
-    const s = buildSteps(this.draft, this.host.registry);
+    const s = buildSteps(this.draft, this.pickers());
     return { origin: stepsOf(s.origin), level: stepsOf(s.level), ...(s.error ? { error: s.error } : {}) };
   }
   pages(): BuilderPage[] {

@@ -22,6 +22,9 @@ export interface TypeDef<T> { type: string; validate(raw: Record<string, unknown
 export interface AddMeta { path?: string; body?: string; sourceName?: string; library?: boolean; book?: string; needsReview?: string[]; }
 export interface ListOpts { /** Campaign source switches: entries of sources set to false are left out. */ sources?: SourceSwitches; }
 
+/** User-facing source badge text: `WotC · PHB` for a library note with a book, else the source name. */
+export const sourceLabel = (e: { sourceName: string; library?: boolean; book?: string }): string => (e.library && e.book ? `${e.sourceName} · ${e.book}` : e.sourceName);
+
 export const slug = (s: string) => s.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 
 const BODY_CACHE = 64;
@@ -107,6 +110,15 @@ export class Registry {
     return changed;
   }
   removePath(path: string) { if (this.dropPath(path)) this.emit(); }
+
+  /**
+   * A view of this registry whose `list` leaves out sources a campaign switched off (for pickers). `get` stays unfiltered,
+   * so characters that already use an entry from a switched-off source keep working. Reads through to the live registry.
+   */
+  scoped(sources: SourceSwitches): Registry {
+    if (!sources || !Object.values(sources).includes(false)) return this;
+    return Object.create(this, { list: { value: <T>(type: string, o?: ListOpts) => this.list<T>(type, { ...o, sources: { ...sources, ...o?.sources } }) } }) as Registry;
+  }
 
   /** Highest-precedence usable entry among `list` (reference-only entries and switched-off sources are skipped). */
   private winner(list: Entry[] | undefined, o?: ListOpts): Entry | undefined {
