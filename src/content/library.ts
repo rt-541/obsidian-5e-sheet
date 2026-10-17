@@ -154,3 +154,27 @@ export function libraryBody(type: string, raw: Raw, body: string): Raw {
     default: return raw;
   }
 }
+
+/** Does a user note use the library's snake_case spelling for this type? Only then is the adapter run on it. */
+function usesLibrarySchema(type: string, fm: Raw): boolean {
+  switch (type) {
+    case "spell": return fm.casting_time !== undefined || typeof fm.components === "string";
+    case "item": return fm.item_type !== undefined;
+    case "creature": return fm.creature_type !== undefined || fm.hp_formula !== undefined || typeof fm.hp === "number" || typeof fm.speed === "string";
+    default: return false;
+  }
+}
+const sameShape = (a: unknown, b: unknown) => typeof a === typeof b && Array.isArray(a) === Array.isArray(b);
+
+/**
+ * A user note (any source) written in the library's schema: map it with the library adapter, then lay the note's own fields over
+ * the result wherever they have the plugin-native shape, so native fields win when both spellings are present. Notes that do not
+ * use the library spelling come back untouched, and anything still invalid afterwards stays a listed problem.
+ */
+export function adaptUserNote(type: string, fm: Raw, body: string): Raw {
+  if (!usesLibrarySchema(type, fm)) return fm;
+  const adapted = libraryBody(type, libraryMeta(type, fm).raw, body), out: Raw = { ...adapted };
+  for (const [k, v] of Object.entries(fm)) if (v !== undefined && (adapted[k] === undefined || sameShape(v, adapted[k]))) out[k] = v;
+  if (type === "spell" && typeof out.school === "string") out.school = cap(out.school);
+  return out;
+}

@@ -1,4 +1,4 @@
-import { libraryMeta } from "./library";
+import { adaptUserNote, libraryMeta } from "./library";
 import { slug, type Registry } from "./registry";
 import { classFolder, isLibrarySkip, LIBRARY_MARKER, LIBRARY_SOURCE, locate, type Located } from "./sources";
 
@@ -81,7 +81,7 @@ export class VaultLoader {
       this.subs.set(path, { fm: fm!, body, loc, folder: cf.folder });
       return this.addSub(path);
     }
-    return this.registry.add("vault", type, fm!, { path, body, sourceName: loc.source }) === null;
+    return this.registry.add("vault", type, adaptUserNote(type, fm!, body), { path, body, sourceName: loc.source }) === null;
   }
 
   private loadLibrary(path: string, type: string, fm: Record<string, unknown>, sourceName: string): boolean {
