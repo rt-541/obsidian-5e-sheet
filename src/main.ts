@@ -48,6 +48,12 @@ export default class FiveESheetPlugin extends Plugin {
       this.registerEvent(ref);
     });
 
+    // Right-click (file explorer, tab menu, links): open a character or NPC note as a sheet.
+    this.registerEvent(this.app.workspace.on("file-menu", (menu, file) => {
+      if (!(file instanceof TFile) || !this.isSheet(file)) return;
+      menu.addItem(i => i.setTitle("Open as 5e sheet").setIcon("dice").setSection("open").onClick(() => this.openAsSheet(file)));
+      menu.addItem(i => i.setTitle("Open as 5e sheet in new tab").setIcon("dice").setSection("open").onClick(() => this.openAsSheet(file, true)));
+    }));
     this.addCommand({ id: "toggle-sheet", name: "Toggle sheet / markdown", callback: () => this.toggleActive() });
     this.addCommand({ id: "new-character", name: "New character", callback: () => this.createNote("5e-character") });
     this.addCommand({ id: "new-npc", name: "New NPC", callback: () => this.createNote("5e-npc") });
@@ -88,6 +94,16 @@ export default class FiveESheetPlugin extends Plugin {
     const file = (leaf.view as CharacterView).file; if (!file) return;
     this.asMarkdown.add(leaf);
     await leaf.setViewState({ type: "markdown", state: { file: file.path }, active: true });
+  }
+  /** Open `file` as a sheet: reuse a tab already showing it, else the current tab, or a new tab when asked. */
+  async openAsSheet(file: TFile, newTab = false) {
+    const ws = this.app.workspace;
+    const existing = ws.getLeavesOfType(VIEW_TYPE).find(l => (l.view as CharacterView).file?.path === file.path);
+    if (existing && !newTab) { ws.revealLeaf(existing); return; }
+    const shown = newTab ? undefined : ws.getLeavesOfType("markdown").find(l => (l.view as MarkdownView).file?.path === file.path);
+    const leaf = shown ?? ws.getLeaf(newTab ? "tab" : false);
+    this.asMarkdown.delete(leaf);
+    await leaf.setViewState({ type: VIEW_TYPE, state: { file: file.path }, active: true });
   }
   private async toggleActive() {
     const leaf = this.app.workspace.getMostRecentLeaf(); if (!leaf) return;
