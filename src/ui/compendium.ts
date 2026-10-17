@@ -1,7 +1,9 @@
 import { sourceLabel, type Entry, type Registry } from "../content/registry";
 import { cleanBody } from "../content/library";
 import { LIBRARY_SOURCE, SRD_SOURCE, sourceOn, type SourceSwitches } from "../content/sources";
+import type { Action } from "../core/actions";
 import type { CompanionKind } from "../core/character";
+import type { SheetController } from "./controller";
 import { entryCard } from "./details";
 import { clear, h } from "./h";
 import { sourceBadge } from "./widgets";
@@ -185,4 +187,15 @@ export function mountCompendium(root: HTMLElement, ctl: CompendiumController, mo
   };
   const off = ctl.subscribe(render); render();
   return { render, destroy: () => { off(); token++; clear(root); } };
+}
+
+/** Add `e` to the character on `ctl` (item to the inventory, spell to the spell list, creature as a companion). Returns the message to show. */
+export function addToSheet(ctl: SheetController, e: Entry, kind: CompanionKind, who: string): string {
+  if (!ctl.character) return "Open a character sheet first";
+  const action: Action | null = e.type === "item" ? { type: "addItem", id: e.id } : e.type === "spell" ? { type: "addSpell", id: e.id }
+    : e.type === "creature" ? { type: "addCompanion", creature: e.id, name: e.name, kind } : null;
+  if (!action) return "Only items, spells and creatures can be added";
+  if (!ctl.dispatch(action).ok) return `Could not add ${e.name} to ${who}.`;
+  const used = ctl.host.registry.get(e.type, e.id);
+  return `Added ${e.name} to ${who}.${used && used.sourceName !== e.sourceName ? ` The sheet uses the ${sourceLabel(used)} version of it.` : ""}`;
 }

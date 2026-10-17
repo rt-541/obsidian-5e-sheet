@@ -1,13 +1,18 @@
 import { MarkdownView, Notice, Plugin, TFile, TFolder, type WorkspaceLeaf } from "obsidian";
-import { Registry } from "./content/registry";
+import { Registry, type Entry } from "./content/registry";
+import type { SourceSwitches } from "./content/sources";
+import { campaignType, type CampaignData } from "./content/types/campaign";
+import type { CompanionKind } from "./core/character";
 import { loadSrd } from "./content/srd";
 import { registerBuiltinTypes } from "./content/types";
 import { VaultLoader } from "./content/vault-loader";
 import { BuilderController } from "./ui/builder";
 import { BuilderModal } from "./obsidian/builder-modal";
 import { CharacterView, VIEW_TYPE } from "./obsidian/character-view";
+import { COMPENDIUM_VIEW, CompendiumView } from "./obsidian/compendium-view";
+import { addToSheet } from "./ui/compendium";
 import { DEFAULT_SETTINGS, FiveESettingTab, type PluginData } from "./obsidian/settings";
-import { NoteStore } from "./obsidian/store";
+import { campaignLink, NoteStore } from "./obsidian/store";
 import { obsidianCreateNote } from "./obsidian/vault-note";
 import { ObsidianVaultAdapter } from "./obsidian/vault-adapter";
 
@@ -20,6 +25,8 @@ export default class FiveESheetPlugin extends Plugin {
   store!: NoteStore;
   loader!: VaultLoader;
   private asMarkdown = new WeakSet<WorkspaceLeaf>();
+  /** The sheet tab most recently active: where the compendium browser adds things. */
+  private lastSheet?: WorkspaceLeaf;
   private logTimer?: number;
 
   async onload() {
@@ -34,6 +41,12 @@ export default class FiveESheetPlugin extends Plugin {
     } }, 300, undefined, undefined, path => this.notice(`5e sheet: could not save, ${path} no longer exists.`));
     this.loader = new VaultLoader(this.registry, new ObsidianVaultAdapter(this.app), this.data.settings.compendiumFolder);
     this.registerView(VIEW_TYPE, leaf => new CharacterView(leaf, this));
+    this.registerView(COMPENDIUM_VIEW, leaf => new CompendiumView(leaf, this));
+    this.addRibbonIcon("book-open", "Open 5e compendium", () => { void this.openCompendium(); });
+    this.registerEvent(this.app.workspace.on("active-leaf-change", leaf => {
+      if (leaf?.view instanceof CharacterView) this.lastSheet = leaf;
+      this.app.workspace.getLeavesOfType(COMPENDIUM_VIEW).forEach(l => (l.view as CompendiumView).refresh());
+    }));
     this.addSettingTab(new FiveESettingTab(this.app, this));
     this.registry.onChange(() => this.refreshViews());
 
@@ -57,6 +70,7 @@ export default class FiveESheetPlugin extends Plugin {
       menu.addItem(i => i.setTitle("Open as 5e sheet").setIcon("dice").setSection("open").onClick(() => this.openAsSheet(file)));
       menu.addItem(i => i.setTitle("Open as 5e sheet in new tab").setIcon("dice").setSection("open").onClick(() => this.openAsSheet(file, true)));
     }));
+    this.addCommand({ id: "open-compendium", name: "Open 5e compendium", callback: () => { void this.openCompendium(); } });
     this.addCommand({ id: "toggle-sheet", name: "Toggle sheet / markdown", callback: () => this.toggleActive() });
     this.addCommand({ id: "new-character", name: "New character", callback: () => this.createNote("5e-character") });
     this.addCommand({ id: "new-character-builder", name: "New character (builder)", callback: () => this.openBuilder() });
@@ -73,6 +87,39 @@ export default class FiveESheetPlugin extends Plugin {
   notice(msg: string) { new Notice(msg, 6000); }
   async persist() { await this.saveData(this.data); }
   saveLogsSoon() { window.clearTimeout(this.logTimer); this.logTimer = window.setTimeout(() => { void this.persist(); }, LOG_SAVE_MS); }
+
+  /** Show the compendium browser: reuse its tab, else a new tab (the whole screen on mobile). */
+  async openCompendium() {
+    const ws = this.app.workspace, existing = ws.getLeavesOfType(COMPENDIUM_VIEW)[0];
+    if (existing) { ws.revealLeaf(existing); return; }
+    const leaf = ws.getLeaf("tab");
+    await leaf.setViewState({ type: COMPENDIUM_VIEW, active: true });
+    ws.revealLeaf(leaf);
+  }
+  /** The character sheet "Add to character" targets: the most recently active one, else any open one. */
+  private targetSheet(): CharacterView | undefined {
+    const ok = (l?: WorkspaceLeaf) => (l?.view instanceof CharacterView && l.view.sheet?.character ? l.view : undefined);
+    return ok(this.lastSheet) ?? this.app.workspace.getLeavesOfType(VIEW_TYPE).map(l => ok(l)).find(Boolean);
+  }
+  targetSheetName(): string | undefined { return this.targetSheet()?.file?.basename; }
+  /** The target sheet's campaign (its source switches dim sources in the browser). */
+  targetCampaign(): CampaignData | undefined { return this.targetSheet()?.sheet?.host.campaign; }
+  addToSheet(e: Entry, kind: CompanionKind): string {
+    const v = this.targetSheet(), ctl = v?.sheet;
+    const msg = ctl && v ? addToSheet(ctl, e, kind, v.file?.basename ?? "the sheet") : "Open a character sheet first";
+    this.notice(msg); return msg;
+  }
+  async openNote(path: string) {
+    const f = this.app.vault.getAbstractFileByPath(path);
+    if (f instanceof TFile) await this.app.workspace.getLeaf("tab").openFile(f);
+  }
+  /** Source switches of the campaign a note links to (`[[Name]]` or a plain name), resolved from `from`. */
+  private campaignSources(link: string, from: string): SourceSwitches {
+    const name = campaignLink(link); if (!name) return undefined;
+    const target = this.app.metadataCache.getFirstLinkpathDest(name, from); if (!target) return undefined;
+    const fm = this.app.metadataCache.getFileCache(target)?.frontmatter;
+    return fm ? campaignType.validate(fm as Record<string, unknown>).value?.sources : undefined;
+  }
 
   private forViews(match: (v: CharacterView) => boolean, fn: (v: CharacterView) => void | Promise<void>) {
     for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE)) { const v = leaf.view as CharacterView; if (match(v)) void fn(v); }
@@ -123,10 +170,15 @@ export default class FiveESheetPlugin extends Plugin {
     const modal: { close(): void } = { close: () => { /* replaced below */ } };
     const ctl = new BuilderController({
       registry: this.registry, notify: m => this.notice(m), folder: folder === "/" ? "" : folder,
+      campaignSources: link => this.campaignSources(link, this.app.workspace.getActiveFile()?.path ?? ""),
       exists: p => this.app.vault.getAbstractFileByPath(p) !== null,
       createNote: obsidianCreateNote(this.app),
       open: path => this.openCreated(path), close: () => modal.close(),
     });
+    // Started from a campaign note (or a character in one): name the campaign up front so the pickers honour its source switches.
+    const active = this.app.workspace.getActiveFile(), fm = active && this.app.metadataCache.getFileCache(active)?.frontmatter;
+    if (active && fm?.type === "5e-campaign") ctl.setCampaign(`[[${active.basename}]]`);
+    else if (typeof fm?.campaign === "string") ctl.setCampaign(fm.campaign);
     const m = new BuilderModal(this.app, ctl);
     modal.close = () => m.close();
     m.open();

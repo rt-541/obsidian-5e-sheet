@@ -46,6 +46,18 @@
 - **Stage B (UI):** compendium browser view + command + ribbon; source badges everywhere; pickers respect campaign source switches; parity tests.
 - **Stage C (vault migration):** move the plugin's vault content from `C:/obsidian/dnd/5e-sheet/Compendium/` into the new layout (Blood Hunter + 4 Orders -> `compendium/5e/Critical Role/Classes/Blood Hunter/...`; Tactician + Grandmaster/Mentalist/Scholar/War Mind -> `compendium/5e/Roll20/Classes/Tactician/...`; Chromatic Dragonborn + Lightning Ancestry, Savage Attacker, Stormweave Voidblade, Emberheart Warhammer, Frostbitten -> `compendium/5e/Homebrew/<Type>/`), add tags, write the four new homebrew Tactician subclasses (Arbiter, Field Marshal, Spymaster, Wyrm Strategist) as op-format subclass notes in `compendium/5e/Homebrew/Classes/Tactician/Subclasses/` from the approved design at `C:/obsidian/dnd/5e-sheet/Homebrew/Tactician Strategic Focuses (design).md` (local copy: `/home/aschneider/.claude/jobs/e6629327/tmp/sources/Tactician Strategic Focuses (design).md`), set `data.json` compendiumFolder to `compendium/5e`, verify Azur (`5e-sheet/Characters/Azur.md`) still derives the same numbers (AC 19, Int save +7, Investigation +10, 7 plan dice, Analysis DC 15) and that ids referenced by Azur and the examples still resolve. Validate every note locally with the plugin's parser before upload; then remove the old `5e-sheet/Compendium` folder only after the new layout validates and is uploaded. Leave `5e-sheet/Characters`, `5e-sheet/Examples`, `5e-sheet/Homebrew` in place.
 
+## Status (for other agents)
+
+- **Stage A: done** (commit 9fc05d5 on `feat/compendium`).
+- **Stage B: done on `feat/compendium`** (2026-10-17). What exists now, so Stage C and the vault work can rely on it:
+  - Command "Open 5e compendium" and ribbon icon `book-open` open the browser view (`dnd-5e-compendium`, `src/obsidian/compendium-view.ts`, UI in `src/ui/compendium.ts`). Source tabs: All, WotC (SRD), WotC, then user sources (Homebrew first). Type tabs: Classes, Subclasses, Races (with subraces), Backgrounds, Feats, Spells, Items, Creatures, Conditions (with injuries). Name search, 100 rows per page.
+  - Badges: source (`WotC · PHB` for library notes), `needs review` (library creatures), `reference only` (library notes the sheet cannot use, listed with a count, never a problem). Sources switched off in the target sheet's campaign are dimmed with "off in this campaign" and cannot be added.
+  - "Open note" for vault entries; "Add to character" (items, spells, creatures as companions of a chosen kind) goes to the most recently active character sheet.
+  - Source badges now appear in the level-up wizard (class, subclass, spells, feats), the builder (race, subrace, background, class), add spell, add item, add companion, the conditions panel and every hover/detail card.
+  - Pickers honour campaign `sources` switches through `Registry.scoped(switches)` (list only; `get` stays unfiltered so characters that already use an entry from a switched-off source keep working). The builder applies the switches of the campaign named in the draft; opening it from a campaign note (or a character with a campaign) pre-fills that campaign.
+  - Not changed: nothing under `compendium/5e/WotC` or `campaigns/` is written; no book text is committed (browser tests use invented bodies).
+- **Stage C (vault migration): not started.** Stage C only touches vault files and `data.json`, not plugin code. Use `npm run build` output (`main.js`) from this branch if the vault plugin needs refreshing.
+
 ## Review focus
 
 1. Nothing under `compendium/5e/WotC` or `campaigns/` is written.

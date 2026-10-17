@@ -2,7 +2,11 @@
 import { Registry, type Entry } from "../../src/content/registry";
 import { registerBuiltinTypes } from "../../src/content/types";
 import { loadSrd } from "../../src/content/srd";
-import { BROWSER_ROWS, CompendiumController, mountCompendium, type CompendiumHost } from "../../src/ui/compendium";
+import { parseNote } from "../../src/core/character";
+import { seeded } from "../../src/core/dice";
+import { SheetController, type SheetHost } from "../../src/ui/controller";
+import { addToSheet, BROWSER_ROWS, CompendiumController, mountCompendium, type CompendiumHost } from "../../src/ui/compendium";
+import { thalia } from "../fixtures/notes";
 
 const spell = (name: string, extra: object = {}) => ({ name, level: 1, school: "Evocation", castingTime: "1 action", range: "30 feet", components: ["V"], duration: "Instantaneous", classes: ["wizard"], ...extra });
 const creature = { name: "Dune Wyrmling", size: "Large", ctype: "dragon", ac: 14, hp: { average: 30, formula: "4d10+8" }, speed: { walk: 30 }, abilities: { str: 14, dex: 10, con: 14, int: 8, wis: 10, cha: 8 }, cr: "1" };
@@ -194,5 +198,42 @@ describe("large libraries", () => {
     expect(s.q('[data-note="count"]').textContent).toMatch(/^3\d{3} entries$/);
     expect(performance.now() - t0).toBeLessThan(2000);
     expect(reads).toBe(0);
+  });
+});
+
+describe("add to character", () => {
+  const sheet = (r: Registry, note: object = thalia) => {
+    const saved: unknown[] = [];
+    const host: SheetHost = { registry: r, ruleDefaults: {}, save: v => saved.push(structuredClone(v)), notify: () => {}, log: [], rng: seeded(2) };
+    const p = parseNote(note); if (p.kind === "none") throw new Error("x");
+    return { ctl: new SheetController(host, p), saved };
+  };
+  const entry = (r: Registry, type: string, id: string, source: string) => r.getAll(type, id).find(e => e.sourceName === source)!;
+
+  it("puts a spell in the spell list, an item in the inventory and a creature in the companions of the chosen kind", () => {
+    const { r } = world(); r.add("vault", "item", { name: "Roll Rod", kind: "wondrous" }, { path: "compendium/5e/Roll20/Items/Roll Rod.md", sourceName: "Roll20" });
+    const { ctl } = sheet(r);
+    expect(addToSheet(ctl, entry(r, "spell", "home-bolt", "Homebrew"), "familiar", "Thalia")).toBe("Added Home Bolt to Thalia.");
+    expect(ctl.character!.spells.map(x => x.id)).toContain("home-bolt");
+    expect(addToSheet(ctl, entry(r, "item", "roll-rod", "Roll20"), "familiar", "Thalia")).toContain("Added Roll Rod");
+    expect(ctl.character!.inventory.map(x => x.id)).toContain("roll-rod");
+    expect(addToSheet(ctl, entry(r, "creature", "dune-wyrmling", "WotC"), "steed", "Thalia")).toContain("Added Dune Wyrmling");
+    expect(ctl.character!.companions.at(-1)).toMatchObject({ creature: "dune-wyrmling", name: "Dune Wyrmling", kind: "steed" });
+  });
+
+  it("says which version the sheet uses when another source outranks the one browsed", () => {
+    const { r } = world();
+    r.add("vault", "spell", spell("Cure Wounds"), { path: "compendium/5e/Homebrew/Spells/Cure Wounds.md", sourceName: "Homebrew", body: "Mine." });
+    const { ctl } = sheet(r);
+    expect(addToSheet(ctl, entry(r, "spell", "cure-wounds", "WotC (SRD)"), "familiar", "Thalia")).toContain("The sheet uses the Homebrew version");
+  });
+
+  it("refuses a read-only sheet and types that cannot be added", () => {
+    const { r } = world();
+    const { ctl } = sheet(r, { ...thalia, hp: "not a hp" });
+    expect(ctl.writable).toBe(false);
+    expect(addToSheet(ctl, entry(r, "spell", "home-bolt", "Homebrew"), "familiar", "Thalia")).toBe("Could not add Home Bolt to Thalia.");
+    const ok = sheet(r).ctl;
+    expect(addToSheet(ok, entry(r, "class", "rollmancer", "Roll20"), "familiar", "Thalia")).toBe("Only items, spells and creatures can be added");
   });
 });

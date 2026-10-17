@@ -36,6 +36,9 @@ export class CharacterView extends FileView {
     await this.build(file);
   }
 
+  /** The sheet being shown (the compendium browser adds items, spells and companions to it). */
+  get sheet(): SheetController | undefined { return this.ctl; }
+
   private mobile(): boolean {
     const l = this.plugin.data.settings.layout;
     return l === "mobile" || (l === "auto" && (Platform.isMobile || this.narrow));

@@ -12,3 +12,7 @@ No other published content is included; add your own as notes under `Compendium/
 - Homebrew lives in the compendium folder (default `Compendium/`): notes with `type: 5e-item`, `5e-condition`, `5e-injury`, `5e-creature`, `5e-class`. A DM can send one of these files; copy it in and it appears immediately.
 - Link a campaign note (`type: 5e-campaign`) with `campaign: "[[Name]]"` to set rules, hidden sections and weather for the whole party.
 - Deploy: `scripts/deploy.sh` (builds and copies to azure-dragon's dnd vault).
+
+## Compendium browser
+
+Run "Open 5e compendium" (or use the book icon in the ribbon) to browse every source in one place: source tabs (All, WotC (SRD), WotC, Critical Role, Roll20, Homebrew, any other folder under the compendium root), type tabs, name search, detail cards, "Open note" and "Add to character" (items, spells and creatures as companions, to the most recently active sheet). A campaign note can switch sources off with `sources: { Roll20: false }`: those sources disappear from the level-up wizard, builder and add pickers, and show dimmed in the browser.
