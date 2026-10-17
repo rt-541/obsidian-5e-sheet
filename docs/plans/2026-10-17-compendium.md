@@ -56,7 +56,13 @@
   - Source badges now appear in the level-up wizard (class, subclass, spells, feats), the builder (race, subrace, background, class), add spell, add item, add companion, the conditions panel and every hover/detail card.
   - Pickers honour campaign `sources` switches through `Registry.scoped(switches)` (list only; `get` stays unfiltered so characters that already use an entry from a switched-off source keep working). The builder applies the switches of the campaign named in the draft; opening it from a campaign note (or a character with a campaign) pre-fills that campaign.
   - Not changed: nothing under `compendium/5e/WotC` or `campaigns/` is written; no book text is committed (browser tests use invented bodies).
-- **Stage C (vault migration): not started.** Stage C only touches vault files and `data.json`, not plugin code. Use `npm run build` output (`main.js`) from this branch if the vault plugin needs refreshing.
+- **Stage C (vault migration): done 2026-10-17.** Vault state now (host `azure-dragon-vpn`, vault `C:/obsidian/dnd`):
+  - `compendium/5e/Critical Role/Classes/Blood Hunter/` (class + 4 Orders), `compendium/5e/Roll20/Classes/Tactician/` (class + Grandmaster, Mentalist, Scholar, War Mind), `compendium/5e/Homebrew/{Races,Feats,Items,Conditions}/` (Chromatic Dragonborn, Lightning Ancestry, Savage Attacker, Stormweave Voidblade, Emberheart Warhammer, Frostbitten) and `compendium/5e/Homebrew/Classes/Tactician/Subclasses/` with the four new homebrew focuses Arbiter, Field Marshal, Spymaster, Wyrm Strategist (op format, features at 3/6/10/15/18). All carry `tags` in the library scheme (`5e/<type>`, `5e/source/<slug>`, `5e/class/<class>` on classes and subclasses).
+  - `data.json` `compendiumFolder` is `compendium/5e`; the vault plugin (`main.js`, `manifest.json`, `styles.css`) was refreshed from this branch's build because the old build cannot read the new layout. Obsidian needs "Reload app without saving" (or a plugin toggle) to pick it up.
+  - `5e-sheet/Compendium` is removed. `5e-sheet/Characters`, `Examples`, `Homebrew` stay. `compendium/5e/WotC` and `campaigns/` were not touched.
+  - Verified with the plugin's own parser (`tests/content/vault-validate.test.ts`, run with `VAULT_JSON` from `scripts/vault-to-json.py`): zero problems, subclasses attach by folder, Azur unchanged (AC 19, Int save +7, Investigation +10, 7 Perfect Plan dice, Analysis DC 15), each homebrew subclass levels 3 to 18 without problems. The check ran on a copy pulled back from the vault, byte-identical to what was validated before upload.
+  - Pre-existing and unrelated: Thalia Ironbrook (example) references `race:hill-dwarf` and `subclass:life-domain`, which the bundled SRD does not contain; it was the same before the migration.
+  - Wyrm Doctrine element, Formations stance and Scales of Command resistance are text plus a doctrine option list, not automatic effects.
 
 ## Review focus
 
