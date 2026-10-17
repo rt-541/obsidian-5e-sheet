@@ -12,7 +12,7 @@ export type { CreatureData, CreatureAttack } from "./creature";
 export type { ClassData, AbilReq } from "./class";
 export type { SubclassData, GrantsData, SubraceData, FeatData } from "./origin";
 export type { Op, OpName, ActionDef, OptionDef, TableRow, Progression, Reset } from "./ops";
-export type { CampaignData } from "./campaign";
+export type { CampaignData, LevelingMode } from "./campaign";
 export type { SpellData } from "./spell";
 
 export function registerBuiltinTypes(r: Registry): void {

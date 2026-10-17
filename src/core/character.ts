@@ -7,8 +7,12 @@ export interface CompanionEntry { creature: string; name: string; kind: Companio
 export interface Resource { name: string; max: number; used: number; reset: "short" | "long" | "dawn" | "none"; }
 export type HpMethod = "roll" | "average" | "first" | "recorded";
 const HP_METHODS: HpMethod[] = ["roll", "average", "first", "recorded"];
-/** What one applied level added: the HP method and amount (before CON) and every pick made, keyed `<source>:<level>:<op id>`. */
-export interface LevelEntry { class: string; level: number; hp: { method: HpMethod; die?: number; gained: number }; choices: Record<string, unknown>; }
+/**
+ * What one applied level added: the HP method and amount (before CON) and every pick made, keyed `<source>:<level>:<op id>`.
+ * `hp.added` is the HP actually added to the maximum (CON included), so undo reverses exactly that; `recorded` entries are the whole amount.
+ * Keys starting with `+` are written by the level-up and read by undo (`+subclass`, `+items`, `+spells`, `+swaps`).
+ */
+export interface LevelEntry { class: string; level: number; hp: { method: HpMethod; die?: number; gained: number; added?: number }; choices: Record<string, unknown>; }
 export interface SheetToggles { hide: string[]; show: string[]; }
 export interface Character {
   type: "5e-character"; schema: 1; name: string; campaign?: string; race?: string; subrace?: string; background?: string;
@@ -201,6 +205,7 @@ function parseCharacter(fm: R): Parsed {
     if (!HP_METHODS.includes(hp.method as HpMethod)) r.errors.push(`${at}.hp.method: must be ${HP_METHODS.join(", ")}`);
     const entryHp: LevelEntry["hp"] = { ...hp, method: HP_METHODS.includes(hp.method as HpMethod) ? hp.method as HpMethod : "recorded", gained: r.whole(hp.gained, `${at}.hp.gained`) };
     if (hp.die !== undefined) entryHp.die = r.whole(hp.die, `${at}.hp.die`);
+    if (hp.added !== undefined) entryHp.added = r.whole(hp.added, `${at}.hp.added`);
     return [{ ...x, class: x.class, level: r.whole(x.level, `${at}.level`, 1) || (r.errors.push(`${at}.level: must be from 1`), 1), hp: entryHp, choices: r.obj(x.choices, `${at}.choices`) }];
   });
   c.feats = r.strs(fm.feats, "feats");

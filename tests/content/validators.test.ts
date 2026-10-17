@@ -51,5 +51,12 @@ describe("validators", () => {
     const r = reg(); r.add("vault", "campaign", { name: "Ekron Campaign", rules: { "rest-excursion": true } });
     const d = r.get<any>("campaign", "ekron-campaign")!.data;
     expect(d.rules).toEqual({ "rest-excursion": true }); expect(d.calendar.holyDay).toBe("Sunday"); expect(d.sections).toEqual({ hide: [], show: [] });
+    expect(d.leveling).toBeUndefined();                                   // absent means milestone
+  });
+  it("campaign leveling is xp or milestone, anything else is an error", () => {
+    const r = reg();
+    expect(r.add("vault", "campaign", { name: "A", leveling: "xp" })).toBeNull(); expect(r.get<any>("campaign", "a")!.data.leveling).toBe("xp");
+    expect(r.add("vault", "campaign", { name: "B", leveling: "milestone" })).toBeNull();
+    expect(r.add("vault", "campaign", { name: "C", leveling: "story" }, { path: "c.md" })!.errors).toEqual(["leveling: must be one of xp, milestone"]);
   });
 });
