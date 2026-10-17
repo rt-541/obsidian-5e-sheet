@@ -1,5 +1,5 @@
 import { libraryBody, type Raw as LibRaw } from "./library";
-import { compareSources, HOMEBREW_SOURCE, SRD_SOURCE, sourceOn, type SourceSwitches } from "./sources";
+import { compareSources, HOMEBREW_SOURCE, LIBRARY_SOURCE, SRD_SOURCE, sourceOn, type SourceSwitches } from "./sources";
 
 /** Where an entry came from: bundled data or a vault note. `sourceName` is the user-facing source (folder name). */
 export type Source = "srd" | "vault";
@@ -9,8 +9,10 @@ export interface Entry<T = unknown> {
   sourceName: string;
   /** Book abbreviation of a generated library note (frontmatter `source`, e.g. PHB). */
   book?: string;
-  /** True for notes under the generated WotC library folder. */
+  /** True for notes under a generated library folder (WotC, or any folder carrying the generator's marker). */
   library?: boolean;
+  /** Library entry whose mechanics are complete for the sheet even though an SRD entry shares the id (conditions with the SRD effects merged in). */
+  mapped?: boolean;
   /** Library note the sheet cannot use (mapping failed): shown by the browser and hover only. Holds the reason. */
   referenceOnly?: string;
   /** Library creature flagged by the generator for review: usable, but show a badge. */
@@ -19,7 +21,7 @@ export interface Entry<T = unknown> {
 }
 export interface Problem { path: string; errors: string[]; }
 export interface TypeDef<T> { type: string; validate(raw: Record<string, unknown>): { value?: T; errors: string[] }; }
-export interface AddMeta { path?: string; body?: string; sourceName?: string; library?: boolean; book?: string; needsReview?: string[]; }
+export interface AddMeta { path?: string; body?: string; sourceName?: string; library?: boolean; book?: string; needsReview?: string[]; mapped?: boolean; }
 export interface ListOpts { /** Campaign source switches: entries of sources set to false are left out. */ sources?: SourceSwitches; }
 
 /** User-facing source badge text: `WotC · PHB` for a library note with a book, else the source name. */
@@ -40,6 +42,8 @@ export class Registry {
   private probs = new Map<string, Problem>();
   private subs = new Set<() => void>();
   private refOnly = 0;
+  private libs = new Set<string>([LIBRARY_SOURCE]);   // generated library source names seen so far (precedence group)
+  private cmp = (a: string, b: string) => compareSources(a, b, this.libs);
 
   register(def: TypeDef<unknown>) { this.defs.set(def.type, def); }
   onChange(fn: () => void) { this.subs.add(fn); return () => { this.subs.delete(fn); }; }
@@ -59,6 +63,7 @@ export class Registry {
     if (meta.path) this.dropPath(meta.path);
     const sourceName = meta.sourceName ?? (source === "srd" ? SRD_SOURCE : HOMEBREW_SOURCE);
     const library = meta.library === true;
+    if (library) this.libs.add(sourceName);
     const def = this.defs.get(type);
     const fail = (errors: string[]): Problem | null => {
       if (library && source === "vault") { this.addReference(type, raw, path, sourceName, meta, errors.join("; ")); this.emit(); return null; }
@@ -71,7 +76,7 @@ export class Registry {
     const name = String((value as { name: string }).name);
     const id = typeof raw.id === "string" && raw.id ? raw.id : slug(name);
     const entry: Entry = { type, id, name, source, sourceName, data: value, ...(meta.path ? { path: meta.path } : {}), ...(meta.body ? { body: meta.body } : {}),
-      ...(library ? { library: true } : {}), ...(meta.book ? { book: meta.book } : {}), ...(meta.needsReview ? { needsReview: meta.needsReview } : {}) };
+      ...(library ? { library: true } : {}), ...(meta.mapped ? { mapped: true } : {}), ...(meta.book ? { book: meta.book } : {}), ...(meta.needsReview ? { needsReview: meta.needsReview } : {}) };
     if (library) this.raws.set(entry, raw);
     this.put(entry, meta.path);
     this.emit();
@@ -125,12 +130,18 @@ export class Registry {
     let best: Entry | undefined;
     for (const e of list ?? []) {
       if (e.referenceOnly || !sourceOn(o?.sources, e.sourceName)) continue;
-      if (!best || compareSources(e.sourceName, best.sourceName) <= 0) best = e;   // ties: the later one wins
+      if (!best || this.cmp(e.sourceName, best.sourceName) <= 0) best = e;   // ties: the later one wins
+    }
+    // A library entry carries only what its frontmatter maps (no effects, dice or attacks), so the bundled SRD entry of the same id
+    // keeps the sheet numbers unless the library entry says its mechanics are complete. The library text still shows in the browser.
+    if (best?.library && !best.mapped) {
+      const srd = (list ?? []).find(e => e.source === "srd" && !e.referenceOnly && sourceOn(o?.sources, e.sourceName));
+      if (srd) return srd;
     }
     return best;
   }
 
-  /** The entry the sheet uses for this id: user sources (Homebrew first) > WotC library > WotC (SRD). */
+  /** The entry the sheet uses for this id: user sources (Homebrew first) > library > WotC (SRD); a library entry with no mapped mechanics yields to the SRD one. */
   get<T>(type: string, id: string, o?: ListOpts): Entry<T> | undefined { return this.winner(this.all.get(`${type}/${id}`), o) as Entry<T> | undefined; }
   /** Usable entries of a type, one per id (the winner), sorted by name. */
   list<T>(type: string, o?: ListOpts): Entry<T>[] {
@@ -142,11 +153,11 @@ export class Registry {
   listAll<T>(type?: string): Entry<T>[] {
     const out: Entry[] = [];
     for (const l of this.all.values()) for (const e of l) if (!type || e.type === type) out.push(e);
-    return out.sort((a, b) => a.name.localeCompare(b.name) || compareSources(a.sourceName, b.sourceName)) as Entry<T>[];
+    return out.sort((a, b) => a.name.localeCompare(b.name) || this.cmp(a.sourceName, b.sourceName)) as Entry<T>[];
   }
   /** Every source's entry for one id, by precedence. */
   getAll<T>(type: string, id: string): Entry<T>[] {
-    return [...(this.all.get(`${type}/${id}`) ?? [])].sort((a, b) => compareSources(a.sourceName, b.sourceName)) as Entry<T>[];
+    return [...(this.all.get(`${type}/${id}`) ?? [])].sort((a, b) => this.cmp(a.sourceName, b.sourceName)) as Entry<T>[];
   }
   /** The bundled SRD entry for an id, even when something else outranks it. */
   srdEntry<T>(type: string, id: string): Entry<T> | undefined { return this.all.get(`${type}/${id}`)?.find(e => e.source === "srd") as Entry<T> | undefined; }
@@ -154,7 +165,7 @@ export class Registry {
   sources(): string[] {
     const s = new Set<string>();
     for (const l of this.all.values()) for (const e of l) s.add(e.sourceName);
-    return [...s].sort(compareSources);
+    return [...s].sort(this.cmp);
   }
   /** User-authored note problems only; library notes that cannot be mapped are counted by referenceOnlyCount. */
   problems(): Problem[] { return [...this.probs.values()]; }

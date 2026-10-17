@@ -64,6 +64,10 @@
   - Pre-existing and unrelated: Thalia Ironbrook (example) references `race:hill-dwarf` and `subclass:life-domain`, which the bundled SRD does not contain; it was the same before the migration.
   - Wyrm Doctrine element, Formations stance and Scales of Command resistance are text plus a doctrine option list, not automatic effects.
 
+- **Review fixes (2026-10-17, for other agents):**
+  - A source folder is generated library content when it contains `.dnd-compendium-generated` (checked once per first-level folder through `VaultAdapter.exists`; `WotC` always counts). Such folders (WotC, Kobold Press, Necromancer Games, ...) go through the library adapter: frontmatter only, `Books/` and `Index/` skipped, unmappable notes are reference-only (never problems), badge `<Source> · <book>`. Precedence: user sources > library (WotC first, then alphabetical) > WotC (SRD).
+  - The "precedence refinement" is in: a library entry yields to the bundled SRD entry of the same id for sheet mechanics (`Registry.get`/`list`) unless it is `mapped` (conditions with the SRD effects merged in). The browser still lists both, and the library wins when the SRD source is switched off or no SRD entry exists. Ring of Protection, Fireball and the familiar creatures keep their SRD numbers without opening the browser card.
+
 ## Review focus
 
 1. Nothing under `compendium/5e/WotC` or `campaigns/` is written.

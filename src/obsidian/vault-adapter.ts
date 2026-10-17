@@ -6,6 +6,7 @@ export class ObsidianVaultAdapter implements VaultAdapter {
   listMarkdown(folder: string): string[] {
     return this.app.vault.getMarkdownFiles().map(f => f.path).filter(p => p.startsWith(folder + "/"));
   }
+  exists(path: string): Promise<boolean> { return this.app.vault.adapter.exists(path); }
   frontmatter(path: string): Record<string, unknown> | undefined {
     const f = this.app.vault.getAbstractFileByPath(path);
     return f instanceof TFile ? this.app.metadataCache.getFileCache(f)?.frontmatter as Record<string, unknown> | undefined : undefined;

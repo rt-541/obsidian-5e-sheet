@@ -9,13 +9,21 @@ export const HOMEBREW_SOURCE = "Homebrew";
 export type SourceSwitches = Record<string, boolean> | undefined;
 export const sourceOn = (sw: SourceSwitches, source: string): boolean => sw?.[source] !== false;
 
-/** Precedence group: user sources win over the WotC library, which wins over the bundled SRD. */
-const group = (s: string) => (s === SRD_SOURCE ? 2 : s === LIBRARY_SOURCE ? 1 : 0);
-/** Negative when `a` outranks `b`: Homebrew, then other user sources alphabetically, then WotC, then WotC (SRD). */
-export function compareSources(a: string, b: string): number {
-  const d = group(a) - group(b);
+/** Name of the marker file inside a generated library folder (written by the dnd-compendium sync). */
+export const LIBRARY_MARKER = ".dnd-compendium-generated";
+
+/**
+ * Precedence group: user sources win over generated library sources (WotC and any folder with the marker), which win over
+ * the bundled SRD. `lib` is the set of library source names the registry has seen; WotC always counts.
+ */
+const group = (s: string, lib?: ReadonlySet<string>) => (s === SRD_SOURCE ? 2 : s === LIBRARY_SOURCE || lib?.has(s) ? 1 : 0);
+/** Negative when `a` outranks `b`: Homebrew, then other user sources alphabetically, then the library (WotC first), then WotC (SRD). */
+export function compareSources(a: string, b: string, lib?: ReadonlySet<string>): number {
+  const d = group(a, lib) - group(b, lib);
   if (d) return d;
-  if (group(a) !== 0 || a === b) return 0;
+  if (a === b) return 0;
+  if (group(a, lib) === 1) return a === LIBRARY_SOURCE ? -1 : b === LIBRARY_SOURCE ? 1 : a.localeCompare(b);
+  if (group(a, lib) !== 0) return 0;
   if (a === HOMEBREW_SOURCE) return -1;
   if (b === HOMEBREW_SOURCE) return 1;
   return a.localeCompare(b);
@@ -35,8 +43,8 @@ export function locate(root: string, path: string): Located | null {
   if (parts.length === 1) return { source: HOMEBREW_SOURCE, rest: parts };
   return { source: parts[0], rest: parts.slice(1) };
 }
-/** Book text and index pages inside the library are never content entries. */
-export const isLibrarySkip = (loc: Located): boolean => loc.source === LIBRARY_SOURCE && (loc.rest[0] === "Books" || loc.rest[0] === "Index");
+/** Book text and index pages inside a generated library folder are never content entries (the caller checks the folder is a library one). */
+export const isLibrarySkip = (loc: Located): boolean => loc.rest[0] === "Books" || loc.rest[0] === "Index";
 
 /** `Classes/<Class>/<file>` is a class note; `Classes/<Class>/Subclasses/<file>` a subclass. Returns the class folder name. */
 export function classFolder(loc: Located): { folder: string; kind: "class" | "subclass" } | null {

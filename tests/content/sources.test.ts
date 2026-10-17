@@ -69,7 +69,9 @@ describe("precedence", () => {
     r.removePath(`${R}/Homebrew/Hex.md`);
     expect(r.get("condition", "hex")!.sourceName).toBe("Critical Role");
     r.removePath(`${R}/Critical Role/Hex.md`); r.removePath(`${R}/Roll20/Hex.md`);
-    expect(r.get("condition", "hex")!.sourceName).toBe("WotC");
+    // The library note maps no mechanics here (the SRD entry was added after indexing), so the SRD entry keeps the sheet (see precedence.test.ts).
+    expect(r.get("condition", "hex")!.sourceName).toBe("WotC (SRD)");
+    expect(r.getAll("condition", "hex").map(e => e.sourceName)).toEqual(["WotC", "WotC (SRD)"]);
     r.removePath(`${R}/WotC/Conditions/Hex.md`);
     expect(r.get("condition", "hex")!.sourceName).toBe("WotC (SRD)");
   });

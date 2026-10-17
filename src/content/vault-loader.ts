@@ -1,6 +1,6 @@
 import { libraryMeta } from "./library";
 import { slug, type Registry } from "./registry";
-import { classFolder, isLibrarySkip, LIBRARY_SOURCE, locate, type Located } from "./sources";
+import { classFolder, isLibrarySkip, LIBRARY_MARKER, LIBRARY_SOURCE, locate, type Located } from "./sources";
 
 export interface VaultNote { path: string; frontmatter: Record<string, unknown> | undefined; body: string; }
 export interface VaultAdapter {
@@ -8,6 +8,8 @@ export interface VaultAdapter {
   read(path: string): Promise<VaultNote>;
   /** Frontmatter from the metadata cache without reading the file. Library notes are indexed from this alone. */
   frontmatter?(path: string): Record<string, unknown> | undefined;
+  /** Whether a path exists, dot-files included (Obsidian does not index them). Used to find the generated-library marker. */
+  exists?(path: string): Promise<boolean> | boolean;
 }
 
 const NOT_CONTENT = new Set(["character", "npc"]);
@@ -29,6 +31,8 @@ export class VaultLoader {
   private classIds = new Map<string, Map<string, string>>();
   private classPaths = new Map<string, { folder: string; source: string }>();
   private subs = new Map<string, SubNote>();
+  /** source folder -> is it generated library content (has the marker, or is the WotC folder). Cached per folder; cleared on re-index. */
+  private libFolders = new Map<string, Promise<boolean>>();
 
   constructor(private registry: Registry, private adapter: VaultAdapter, folder: string) {
     this.folder = norm(folder);
@@ -48,10 +52,21 @@ export class VaultLoader {
     });
   }
 
+  /** A first-level folder is generated library content when it holds the marker (the WotC folder always counts). */
+  private isLibrary(source: string): Promise<boolean> {
+    let p = this.libFolders.get(source);
+    if (!p) {
+      p = source === LIBRARY_SOURCE || !this.adapter.exists ? Promise.resolve(source === LIBRARY_SOURCE)
+        : Promise.resolve(this.adapter.exists(`${this.folder}/${source}/${LIBRARY_MARKER}`)).catch(() => false);
+      this.libFolders.set(source, p);
+    }
+    return p;
+  }
+
   private async load(path: string): Promise<boolean> {
     const loc = locate(this.folder, path);
-    if (!loc || isLibrarySkip(loc)) { this.forget(path); return false; }
-    const lib = loc.source === LIBRARY_SOURCE;
+    const lib = !!loc && await this.isLibrary(loc.source);
+    if (!loc || (lib && isLibrarySkip(loc))) { this.forget(path); return false; }
     let fm: Record<string, unknown> | undefined, body = "";
     if (lib && this.adapter.frontmatter) fm = this.adapter.frontmatter(path);
     else { const note = await this.adapter.read(path); fm = note.frontmatter; body = note.body.trim(); }
@@ -59,7 +74,7 @@ export class VaultLoader {
     if (typeof t !== "string" || !t.startsWith("5e-") || NOT_CONTENT.has(t.slice(3))) { this.forget(path); return false; }
     this.known.add(path);
     const type = t.slice(3);
-    if (lib) return this.loadLibrary(path, type, fm!);
+    if (lib) return this.loadLibrary(path, type, fm!, loc.source);
     const cf = classFolder(loc);
     if (cf?.kind === "class" && type === "class") this.noteClass(path, cf.folder, loc.source, fm!);
     if (cf?.kind === "subclass" && type === "subclass") {
@@ -69,14 +84,15 @@ export class VaultLoader {
     return this.registry.add("vault", type, fm!, { path, body, sourceName: loc.source }) === null;
   }
 
-  private loadLibrary(path: string, type: string, fm: Record<string, unknown>): boolean {
+  private loadLibrary(path: string, type: string, fm: Record<string, unknown>, sourceName: string): boolean {
     const m = libraryMeta(type, fm);
+    let mapped = false;
     if ((type === "condition" || type === "injury") && typeof m.raw.name === "string") {
       const id = typeof m.raw.id === "string" ? m.raw.id : slug(m.raw.name);
       const srd = this.registry.srdEntry<{ effects?: unknown; levels?: unknown; levelEffects?: unknown }>(type, id);
-      if (srd) for (const k of ["effects", "levels", "levelEffects"] as const) if (srd.data[k] !== undefined) m.raw[k] = srd.data[k];
+      if (srd) { mapped = true; for (const k of ["effects", "levels", "levelEffects"] as const) if (srd.data[k] !== undefined) m.raw[k] = srd.data[k]; }
     }
-    return this.registry.add("vault", type, m.raw, { path, sourceName: LIBRARY_SOURCE, library: true,
+    return this.registry.add("vault", type, m.raw, { path, sourceName, library: true, ...(mapped ? { mapped } : {}),
       ...(m.book ? { book: m.book } : {}), ...(m.needsReview ? { needsReview: m.needsReview } : {}) }) === null;
   }
 
@@ -121,6 +137,7 @@ export class VaultLoader {
   async setFolder(folder: string): Promise<void> {
     await this.registry.batch(async () => {
       for (const p of [...this.known]) this.forget(p);
+      this.libFolders.clear();
       this.folder = norm(folder); await this.indexAll();
     });
   }
