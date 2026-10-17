@@ -1,0 +1,179 @@
+import type { FeatData } from "../content/types";
+import { levelOptions, type Step } from "../core/levelup";
+import { ABILS, type Abil } from "../core/types";
+import type { LevelUpState, SheetController } from "./controller";
+import { clear, h } from "./h";
+import { btn, titleCase } from "./widgets";
+
+const ABIL_NAME: Record<Abil, string> = { str: "STR", dex: "DEX", con: "CON", int: "INT", wis: "WIS", cha: "CHA" };
+const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
+const isStrs = (v: unknown): v is string[] => Array.isArray(v) && v.every(x => typeof x === "string");
+const sgn = (n: number) => (n >= 0 ? "+" : "") + n;
+type Pick<K extends Step["kind"]> = Extract<Step, { kind: K }>;
+
+/** Has this step got a complete answer? */
+export function answered(s: Step, st: LevelUpState): boolean {
+  const v = st.choices[s.key];
+  switch (s.kind) {
+    case "hp": return s.first || !!st.hp;
+    case "subclass": return typeof v === "string";
+    case "asi": return isObj(v) && (typeof v.feat === "string" || (isObj(v.abilities) && Object.values(v.abilities).reduce<number>((a, n) => a + (typeof n === "number" ? n : 0), 0) === 2));
+    case "pick": return isStrs(v) && v.length === s.count && v.every(x => x.trim() !== "");
+    case "spells": return isStrs(v) && v.length === s.cantrips + s.count;
+  }
+}
+
+const row = (cls: string, ...kids: (Node | null)[]) => h("div", { cls }, ...kids);
+const choiceButton = (name: string, detail: string | undefined, on: boolean, disabled: string | undefined, click: () => void, data: Record<string, string>) => {
+  const b = h("button", { cls: `fe-btn fe-choice ${on ? "is-on" : ""}`.trim(), data, on: { click } },
+    h("span", { cls: "fe-name", text: name }), detail ? h("span", { cls: "fe-faint", text: ` ${detail}` }) : null, disabled ? h("span", { cls: "fe-faint", text: ` (${disabled.toLowerCase()})` }) : null);
+  if (disabled) b.disabled = true;
+  b.setAttribute("aria-pressed", String(on));
+  return b;
+};
+
+function classPage(ctl: SheetController, st: LevelUpState): HTMLElement {
+  const c = ctl.character!;
+  return h("div", { cls: "fe-lu-body", data: { step: "class" } }, h("div", { cls: "fe-muted", text: c.classes.length ? "Which class takes this level?" : "Pick the first class." }),
+    ...levelOptions(c, ctl.host.registry).map(o => h("div", {},
+      choiceButton(`${o.name} ${o.current ? `${o.level - 1} to ${o.level}` : `(new) ${o.level}`}`, undefined, st.classId === o.class, o.allowed ? undefined : o.reasons[0], () => ctl.setLevelUp({ classId: o.class, page: st.page }), { class: o.class }),
+      ...(o.allowed ? [] : o.reasons.slice(0, 3).map(r => h("div", { cls: "fe-warn", text: r }))))));
+}
+
+function hpPage(ctl: SheetController, s: Pick<"hp">, st: LevelUpState): HTMLElement {
+  const gain = (g: number) => Math.max(1, g + s.conMod);
+  if (s.first) return h("div", { cls: "fe-lu-body", data: { step: "hp" } }, h("div", { cls: "fe-name", text: "First level" }),
+    h("div", { text: `Full hit die: d${s.die} (${s.die}) ${sgn(s.conMod)} CON = ${gain(s.die)} HP` }));
+  return h("div", { cls: "fe-lu-body", data: { step: "hp" } }, h("div", { cls: "fe-muted", text: `Hit die d${s.die}, CON ${sgn(s.conMod)}` }),
+    h("div", { cls: "fe-filters" },
+      choiceButton("Roll", `1d${s.die}`, st.hp?.method === "roll", undefined, () => ctl.rollLevelHp(s.die), { hp: "roll" }),
+      choiceButton("Average", `${s.average}`, st.hp?.method === "average", undefined, () => ctl.setLevelUp({ hp: { method: "average" } }), { hp: "average" })),
+    st.hp ? h("div", { cls: "fe-name", data: { result: "hp" }, text: st.hp.method === "roll" ? `Rolled ${st.hp.roll} ${sgn(s.conMod)} CON = ${gain(st.hp.roll ?? 1)} HP` : `Average ${s.average} ${sgn(s.conMod)} CON = ${gain(s.average)} HP` }) : null);
+}
+
+function subclassPage(ctl: SheetController, s: Pick<"subclass">, st: LevelUpState): HTMLElement {
+  return h("div", { cls: "fe-lu-body", data: { step: s.key } }, h("div", { cls: "fe-muted", text: s.label }),
+    ...s.options.map(o => h("div", { cls: "fe-subclass" },
+      choiceButton(o.name, undefined, st.choices[s.key] === o.id, o.disabled, () => ctl.pick(s.key, o.id), { opt: o.id }),
+      h("span", { cls: "fe-faint fe-detail-link", text: "details", data: { ref: `subclass:${o.id}`, noclick: "" } }))));
+}
+
+function abilityRows(ctl: SheetController, s: Pick<"asi">, st: LevelUpState): HTMLElement {
+  const c = ctl.character!, v = st.choices[s.key];
+  const pts: Record<string, number> = isObj(v) && isObj(v.abilities) ? Object.fromEntries(Object.entries(v.abilities).filter(([, n]) => typeof n === "number")) as Record<string, number> : {};
+  const total = Object.values(pts).reduce((a, n) => a + n, 0);
+  const set = (a: Abil, n: number) => { const next = { ...pts, [a]: n }; if (!n) delete next[a]; ctl.pick(s.key, { abilities: next }); };
+  return h("div", {}, h("div", { cls: "fe-muted", text: `${2 - total} point${2 - total === 1 ? "" : "s"} left: +2 to one ability or +1 to two` }),
+    ...ABILS.map(a => {
+      const cur = c.abilities[a], add = pts[a] ?? 0, cap = s.maxScores[a];
+      const minus = btn("-", () => set(a, add - 1), "", ); minus.disabled = add <= 0; minus.setAttribute("aria-label", `Less ${ABIL_NAME[a]}`);
+      const plus = btn("+", () => set(a, add + 1), ""); plus.disabled = total >= 2 || add >= 2 || cur + add + 1 > cap; plus.setAttribute("aria-label", `More ${ABIL_NAME[a]}`);
+      return h("div", { cls: "fe-kv", data: { abil: a } }, h("span", { cls: "fe-grow", text: `${ABIL_NAME[a]} ${cur}${add ? ` to ${cur + add}` : ""}${cap > 20 ? ` (max ${cap})` : ""}` }), minus, plus);
+    }));
+}
+
+function featList(ctl: SheetController, s: Pick<"asi">, st: LevelUpState): HTMLElement {
+  const view = st.view, picked = isObj(st.choices[s.key]) ? (st.choices[s.key] as Record<string, unknown>).feat : undefined, owned = new Set(ctl.character!.feats);
+  const list = h("div", {});
+  const fill = () => {
+    clear(list);
+    const q = view.featQuery.toLowerCase();
+    const feats = ctl.host.registry.list<FeatData>("feat").filter(e => e.name.toLowerCase().includes(q));
+    for (const e of feats.slice(0, 60)) list.append(h("div", { cls: "fe-inv" },
+      h("div", { cls: "fe-grow" }, h("span", { cls: "fe-inv-name", text: e.name, data: { ref: `feat:${e.id}`, noclick: "" } }), e.data.prerequisite ? h("div", { cls: "fe-faint", text: `Prerequisite: ${e.data.prerequisite}` }) : null),
+      owned.has(e.id) ? h("span", { cls: "fe-faint", text: "taken" }) : btn(picked === e.id ? "Picked" : "Pick", () => ctl.pick(s.key, { feat: e.id }), picked === e.id ? "is-on" : "")));
+    if (!feats.length) list.append(h("div", { cls: "fe-faint", text: "No feats match." }));
+  };
+  fill();
+  return h("div", {}, h("input", { cls: "fe-search", attrs: { placeholder: "Search feats", value: view.featQuery }, on: { input: (e: Event) => { view.featQuery = (e.target as HTMLInputElement).value; fill(); } } }), list);
+}
+
+function asiPage(ctl: SheetController, s: Pick<"asi">, st: LevelUpState): HTMLElement {
+  const v = st.choices[s.key], feat = (isObj(v) && typeof v.feat === "string") || st.view.featOpen.has(s.key);
+  return h("div", { cls: "fe-lu-body", data: { step: s.key } }, h("div", { cls: "fe-muted", text: s.label }),
+    h("div", { cls: "fe-filters" },
+      choiceButton("Ability scores", undefined, !feat, undefined, () => { st.view.featOpen.delete(s.key); ctl.pick(s.key, { abilities: {} }); }, { mode: "abilities" }),
+      choiceButton("Feat", undefined, feat, undefined, () => { st.view.featOpen.add(s.key); ctl.pick(s.key, { abilities: {} }); }, { mode: "feat" })),
+    feat ? featList(ctl, s, st) : abilityRows(ctl, s, st));
+}
+
+function pickPage(ctl: SheetController, s: Pick<"pick">, st: LevelUpState): HTMLElement {
+  const v = st.choices[s.key], cur = isStrs(v) ? v : [];
+  const toggle = (id: string) => ctl.pick(s.key, cur.includes(id) ? cur.filter(x => x !== id) : cur.length >= s.count ? [...cur.slice(1), id] : [...cur, id]);
+  const body = s.free
+    ? Array.from({ length: s.count }, (_, i) => h("input", { cls: "fe-search", attrs: { placeholder: `${titleCase(s.what)} ${i + 1}`, value: cur[i] ?? "", "aria-label": `${titleCase(s.what)} ${i + 1}` },
+        on: { change: (e: Event) => { const next = [...cur]; next[i] = (e.target as HTMLInputElement).value.trim(); ctl.pick(s.key, next.filter(x => x !== "" || next.length > i).slice(0, s.count)); } } }))
+    : s.options.map(o => choiceButton(o.name, o.text, cur.includes(o.id), o.disabled, () => toggle(o.id), { opt: o.id }));
+  return h("div", { cls: "fe-lu-body", data: { step: s.key } }, h("div", { cls: "fe-muted", text: `${s.label} (${cur.length} of ${s.count})` }), ...body);
+}
+
+function spellsPage(ctl: SheetController, s: Pick<"spells">, st: LevelUpState): HTMLElement {
+  const v = st.choices[s.key], cur = isStrs(v) ? v : [];
+  const level = (id: string) => s.options.find(o => o.id === id)?.level ?? 1;
+  const nCantrips = cur.filter(id => level(id) === 0).length, nSpells = cur.length - nCantrips;
+  const toggle = (id: string) => {
+    if (cur.includes(id)) { ctl.pick(s.key, cur.filter(x => x !== id)); return; }
+    const cantrip = level(id) === 0;
+    if (cantrip ? nCantrips >= s.cantrips : nSpells >= s.count) { ctl.host.notify(cantrip ? `Only ${s.cantrips} cantrip${s.cantrips === 1 ? "" : "s"} here` : `Only ${s.count} spell${s.count === 1 ? "" : "s"} here`); return; }
+    ctl.pick(s.key, [...cur, id]);
+  };
+  const list = h("div", {});
+  const fill = () => {
+    clear(list);
+    const q = st.view.spellQuery.toLowerCase(), rows = s.options.filter(o => o.name.toLowerCase().includes(q));
+    for (const o of rows.slice(0, 80)) list.append(h("div", { cls: "fe-inv", data: { spell: o.id } },
+      h("div", { cls: "fe-grow" }, h("span", { cls: "fe-spell-name", text: o.name, data: { ref: `spell:${o.id}`, noclick: "" } }), h("div", { cls: "fe-faint", text: o.text ?? "" })),
+      o.disabled ? h("span", { cls: "fe-faint", text: o.disabled.toLowerCase() }) : btn(cur.includes(o.id) ? "Chosen" : "Add", () => toggle(o.id), cur.includes(o.id) ? "is-on" : "", )));
+    if (rows.length > 80) list.append(h("div", { cls: "fe-faint", text: `${rows.length - 80} more: narrow the search.` }));
+    if (!rows.length) list.append(h("div", { cls: "fe-faint", text: "No spells match." }));
+  };
+  fill();
+  const swaps = Array.isArray(st.choices[`${s.key}:swap`]) ? st.choices[`${s.key}:swap`] as { out: string; in: string }[] : [];
+  const known = ctl.character!.spells.map(x => ({ id: x.id, name: ctl.host.registry.get<{ name: string }>("spell", x.id)?.name ?? x.id }));
+  const setSwap = (i: number, part: "out" | "in", value: string) => {
+    const next = [...swaps]; next[i] = { out: next[i]?.out ?? "", in: next[i]?.in ?? "", [part]: value };
+    ctl.pick(`${s.key}:swap`, next.filter(p => p.out || p.in));
+  };
+  const swapRows = Array.from({ length: s.swap }, (_, i) => h("div", { cls: "fe-kv", data: { swap: String(i) } },
+    h("select", { attrs: { "aria-label": "Spell to swap out" }, on: { change: (e: Event) => setSwap(i, "out", (e.target as HTMLSelectElement).value) } },
+      h("option", { text: "Swap out...", attrs: { value: "" } }), ...known.map(k => h("option", { text: k.name, attrs: { value: k.id, ...(swaps[i]?.out === k.id ? { selected: "" } : {}) } }))),
+    h("select", { attrs: { "aria-label": "Spell to swap in" }, on: { change: (e: Event) => setSwap(i, "in", (e.target as HTMLSelectElement).value) } },
+      h("option", { text: "Swap in...", attrs: { value: "" } }), ...s.options.filter(o => !o.disabled && o.level !== 0).map(o => h("option", { text: o.name, attrs: { value: o.id, ...(swaps[i]?.in === o.id ? { selected: "" } : {}) } })))));
+  return h("div", { cls: "fe-lu-body", data: { step: s.key } },
+    h("div", { cls: "fe-muted", text: `${s.label}: ${s.cantrips ? `cantrips ${nCantrips} of ${s.cantrips}, ` : ""}spells ${nSpells} of ${s.count}` }),
+    h("input", { cls: "fe-search", attrs: { placeholder: "Search spells", value: st.view.spellQuery }, on: { input: (e: Event) => { st.view.spellQuery = (e.target as HTMLInputElement).value; fill(); } } }),
+    list, s.swap ? h("div", {}, h("div", { cls: "fe-card-title", text: `Swap up to ${s.swap}` }), ...swapRows) : null);
+}
+
+function summaryPage(ctl: SheetController, st: LevelUpState): HTMLElement {
+  const pre = ctl.levelUpPreview();
+  return h("div", { cls: "fe-lu-body", data: { step: "summary" } }, h("div", { cls: "fe-muted", text: st.mode === "level" ? "This level will:" : "These choices will:" }),
+    "error" in pre ? h("div", { cls: "fe-warn", text: pre.error }) : h("ul", {}, ...pre.summary.map(l => h("li", { text: l }))),
+    st.error ? h("div", { cls: "fe-warn", text: st.error }) : null);
+}
+
+/** The step-by-step level-up (or choice-resolving) wizard: one page per screen, Back and Next at the bottom. */
+export function levelUpPanel(ctl: SheetController): HTMLElement {
+  const st = ctl.levelUp;
+  if (!st || !ctl.character) return h("div", { cls: "fe-faint", text: "Nothing to do." });
+  const { steps, plan, error } = ctl.levelUpSteps(), resolve = st.mode === "resolve", lead = resolve ? 0 : 1;
+  if (resolve && !steps.length) return h("div", {}, h("div", { cls: "fe-faint", text: "Nothing is waiting for a choice." }), btn("Close", () => ctl.cancelLevelUp()));
+  const pages = lead + steps.length + 1, page = Math.max(0, Math.min(st.page, pages - 1));
+  const last = page === pages - 1, step = page >= lead && !last ? steps[page - lead] : undefined;
+  let body: HTMLElement, ready: boolean;
+  if (!resolve && page === 0) { body = classPage(ctl, st); ready = !!st.classId && levelOptions(ctl.character, ctl.host.registry).find(o => o.class === st.classId)?.allowed === true; }
+  else if (last) { body = summaryPage(ctl, st); ready = !("error" in ctl.levelUpPreview()); }
+  else if (step) {
+    ready = answered(step, st);
+    body = step.kind === "hp" ? hpPage(ctl, step, st) : step.kind === "subclass" ? subclassPage(ctl, step, st) : step.kind === "asi" ? asiPage(ctl, step, st)
+      : step.kind === "pick" ? pickPage(ctl, step, st) : spellsPage(ctl, step, st);
+  } else { body = h("div", { cls: "fe-faint", text: error ?? "Pick a class first." }); ready = false; }
+  const back = btn(page === 0 ? "Cancel" : "Back", () => { if (page === 0) ctl.cancelLevelUp(); else ctl.setLevelUp({ page: page - 1 }); }, "", );
+  back.dataset.act = "lu-back";
+  const next = btn(last ? "Apply" : "Next", () => { if (last) ctl.applyLevelUp(); else ctl.setLevelUp({ page: page + 1 }); }, "mod-cta");
+  next.dataset.act = last ? "lu-apply" : "lu-next"; next.disabled = !ready;
+  const title = resolve ? "Choices" : plan ? `${plan.className} ${plan.level}${plan.first ? "" : ` (character level ${plan.total})`}` : "Level up";
+  return h("div", { cls: "fe-levelup", data: { page: String(page) } },
+    h("div", { cls: "fe-kv" }, h("span", { cls: "fe-name", text: title }), h("span", { cls: "fe-faint", text: `Step ${page + 1} of ${pages}` })),
+    body, h("div", { cls: "fe-kv fe-lu-nav" }, back, next));
+}

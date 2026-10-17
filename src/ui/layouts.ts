@@ -1,9 +1,9 @@
 /** Every feature a character sheet shows. Both layouts must place each one exactly once (parity test). */
 export const CHARACTER_FEATURES = [
-  "identity", "inspiration", "prof", "xp", "ac", "initiative", "speed", "passive-perception",
+  "identity", "inspiration", "prof", "xp", "level-up", "ac", "initiative", "speed", "passive-perception",
   "hp", "hp-controls", "hit-dice", "death-saves", "conditions", "concentration", "active-effects",
   "abilities", "saves", "skills", "attacks", "pinned-spells", "spell-dc", "spell-slots", "spells", "resources", "rests",
-  "inventory", "companions", "roll-mode", "roll-log", "play-edit", "notes",
+  "features", "inventory", "companions", "roll-mode", "roll-log", "play-edit", "notes",
 ] as const;
 export const NPC_FEATURES = [
   "identity", "ac", "initiative", "speed", "passive-perception", "hp", "hp-controls", "conditions",
@@ -13,27 +13,28 @@ export const NPC_FEATURES = [
 export interface LayoutSpec { pinned: string[]; tabs: { id: string; label: string; columns: string[][] }[]; }
 
 export const DESKTOP: LayoutSpec = {
-  pinned: ["identity", "inspiration", "prof", "xp", "roll-mode", "play-edit", "roll-log", "rests"],
+  pinned: ["identity", "inspiration", "prof", "xp", "level-up", "roll-mode", "play-edit", "roll-log", "rests"],
   tabs: [
     { id: "main", label: "Main", columns: [
       ["abilities", "saves", "skills"],
       ["ac", "initiative", "speed", "passive-perception", "hp", "hp-controls", "hit-dice", "death-saves", "conditions", "concentration", "active-effects"],
       ["attacks", "pinned-spells", "spell-dc", "spell-slots", "resources"]] },
     { id: "spells", label: "Spells", columns: [["spells"]] },
+    { id: "features", label: "Features", columns: [["features"]] },
     { id: "inventory", label: "Inventory", columns: [["inventory"]] },
     { id: "companions", label: "Companions", columns: [["companions"]] },
     { id: "notes", label: "Notes", columns: [["notes"]] },
   ],
 };
 export const MOBILE: LayoutSpec = {
-  pinned: ["identity", "hp", "ac", "initiative", "speed", "roll-mode", "conditions", "concentration", "roll-log"],
+  pinned: ["identity", "hp", "ac", "initiative", "speed", "level-up", "roll-mode", "conditions", "concentration", "roll-log"],
   tabs: [
     { id: "combat", label: "Combat", columns: [["hp-controls", "attacks", "pinned-spells", "spell-dc", "spell-slots", "resources", "hit-dice", "death-saves", "rests"]] },
     { id: "checks", label: "Checks", columns: [["abilities", "saves", "skills", "passive-perception"]] },
     { id: "spells", label: "Spells", columns: [["spells"]] },
     { id: "gear", label: "Gear", columns: [["inventory"]] },
     { id: "pets", label: "Pets", columns: [["companions"]] },
-    { id: "more", label: "More", columns: [["inspiration", "prof", "xp", "active-effects", "play-edit", "notes"]] },
+    { id: "more", label: "More", columns: [["inspiration", "prof", "xp", "features", "active-effects", "play-edit", "notes"]] },
   ],
 };
 export const NPC_DESKTOP: LayoutSpec = {

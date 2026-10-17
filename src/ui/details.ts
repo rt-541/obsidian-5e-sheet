@@ -1,8 +1,8 @@
-import type { ConditionData, CreatureData, ItemData, SpellData } from "../content/types";
+import type { ConditionData, CreatureData, FeatData, ItemData, SpellData, SubclassData } from "../content/types";
 import type { Effects } from "../core/types";
 import { diceAt } from "../core/spells";
 import type { SheetController } from "./controller";
-import { describeEffects } from "./components";
+import { describeEffects } from "./widgets";
 import { h, sgn } from "./h";
 
 const MOD_LABEL: Record<string, string> = { ac: "AC", speed: "speed", hpMax: "max HP", save: "saves", attack: "attack rolls", damage: "damage", spellDC: "spell DC",
@@ -67,6 +67,28 @@ function traitCard(creature: string, index: number, ctl: SheetController): HTMLE
   return e && t ? card(t.name, e.name, [], t.text, e.source === "vault" ? e.path : undefined) : null;
 }
 
+function featureCard(key: string, ctl: SheetController): HTMLElement | null {
+  const f = ctl.stats()?.progress.features.find(x => x.key === key); if (!f) return null;
+  const a = f.action, lines = effectLines(f.effects);
+  if (a) lines.push(`Action: ${a.name}${a.cost && "resource" in a.cost ? `, costs ${a.cost.amount ?? 1} ${a.cost.resource}` : a.cost && "selfDamage" in a.cost ? `, costs ${a.cost.selfDamage} damage to you` : ""}${a.damage ? `, ${a.damage}` : ""}${a.heal ? `, heals ${a.heal}` : ""}${a.save ? `, ${ABIL[a.save.abil]} save against ${a.save.dc}` : ""}${a.text ? `. ${a.text}` : ""}`);
+  return card(f.name, `${f.source}${f.sourceKind === "option" ? " (option)" : ""}`, lines, f.text);
+}
+
+/** Every feature a subclass or feat grants, by level, for the pick lists. */
+function opsCard(title: string, sub: string, byLevel: [string, import("../content/types").Op[]][], path?: string): HTMLElement {
+  const lines: string[] = [], text: string[] = [];
+  for (const [lvl, ops] of byLevel) for (const op of ops) if (op.op === "feature") { lines.push(lvl ? `Level ${lvl}: ${op.name}` : op.name); if (op.text) text.push(`${op.name}. ${op.text}`); }
+  return card(title, sub, lines, text.join("\n\n") || undefined, path);
+}
+function subclassCard(id: string, ctl: SheetController): HTMLElement | null {
+  const e = ctl.host.registry.get<SubclassData>("subclass", id); if (!e) return null;
+  return opsCard(e.name, `${cap(e.data.class)} subclass`, Object.entries(e.data.levels), e.source === "vault" ? e.path : undefined);
+}
+function featCard(id: string, ctl: SheetController): HTMLElement | null {
+  const e = ctl.host.registry.get<FeatData>("feat", id); if (!e) return null;
+  return opsCard(e.name, e.data.prerequisite ? `Prerequisite: ${e.data.prerequisite}` : "Feat", [["", e.data.grants]], e.source === "vault" ? e.path : undefined);
+}
+
 function effectCard(source: string, ctl: SheetController): HTMLElement | null {
   const hit = ctl.stats()?.effects.find(x => x.source === source); if (!hit) return null;
   return card(source, "Active effect", effectLines(hit.effects), undefined);
@@ -81,6 +103,9 @@ export function detailCard(ref: string, ctl: SheetController): HTMLElement | nul
     case "spell": return spellCard(rest, ctl);
     case "condition": return conditionCard(rest, ctl);
     case "effect": return effectCard(rest, ctl);
+    case "feature": return featureCard(rest, ctl);
+    case "subclass": return subclassCard(rest, ctl);
+    case "feat": return featCard(rest, ctl);
     case "trait": { const j = rest.lastIndexOf(":"); return j < 0 ? null : traitCard(rest.slice(0, j), Number(rest.slice(j + 1)), ctl); }
     default: return null;
   }

@@ -16,3 +16,10 @@ describe("styles.css", () => {
     expect(css.match(/#[0-9a-fA-F]{3,8}\b/g) ?? []).toEqual([]);
   });
 });
+
+describe("leveling styles", () => {
+  it("the wizard keeps 44px targets on mobile", () => {
+    expect(css).toMatch(/\.fe-mobile \.fe-lu-nav button\.fe-btn, \.fe-mobile \.fe-choice \{ min-height: 44px; \}/);
+    expect(css).toContain(".fe-sheet button.fe-choice { display: block; width: 100%;");
+  });
+});

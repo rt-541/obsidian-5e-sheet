@@ -4,31 +4,15 @@ import { ABILS, type Abil, type Effects } from "../core/types";
 import { activeRests } from "../rules";
 import type { SheetController } from "./controller";
 import { h, sgn } from "./h";
+import { btn, card, describeEffects, pips } from "./widgets";
+import { featuresFeature, levelUpFeature, xpFeature } from "./features-ui";
 import { concentrationFeature, pinnedSpellsFeature, spellsFeature } from "./spells-ui";
 
+export { describeEffects, pips };
 export type Render = (ctl: SheetController, st: ActorStats) => HTMLElement;
-const card = (title: string, ...kids: (Node | null | false)[]) => h("div", { cls: "fe-card" }, title ? h("div", { cls: "fe-card-title", text: title }) : null, ...kids);
 const stat = (label: string, value: Node | string, title?: string) => h("div", { cls: "fe-stat", ...(title ? { title } : {}) }, h("div", { cls: "fe-stat-v" }, value), h("div", { cls: "fe-stat-l", text: label }));
-const btn = (text: string, onClick: (e: MouseEvent) => void, cls = "") => h("button", { cls: `fe-btn ${cls}`.trim(), text, on: { click: onClick } });
 const ABIL_NAME: Record<Abil, string> = { str: "STR", dex: "DEX", con: "CON", int: "INT", wis: "WIS", cha: "CHA" };
 const titleCase = (s: string) => s.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase());
-
-export function describeEffects(e: Effects): string {
-  const out: string[] = [];
-  if (e.adv?.length) out.push("Adv: " + e.adv.join(", "));
-  if (e.dis?.length) out.push("Disadv: " + e.dis.join(", "));
-  if (e.autofail?.length) out.push("Auto-fail: " + e.autofail.join(", "));
-  for (const m of e.modifiers ?? []) out.push(`${m.target} ${typeof m.value === "number" ? sgn(m.value) : m.value}`);
-  if (e.resist?.length) out.push("Resist " + e.resist.join(", "));
-  if (e.note) out.push(e.note);
-  return out.join(" · ");
-}
-
-/** Pips: click pip i to set used = i+1, or i if it was the last used one. */
-export function pips(max: number, used: number, set: (n: number) => void, cls = "") {
-  return h("span", { cls: "fe-pips" }, ...Array.from({ length: max }, (_, i) =>
-    h("button", { cls: `fe-pip ${cls} ${i < used ? "is-used" : ""}`, attrs: { "aria-label": `${i + 1} of ${max}` }, on: { click: () => set(used === i + 1 ? i : i + 1) } })));
-}
 
 export function rollButton(ctl: SheetController, label: string, title: string, mod: number, target: Parameters<SheetController["roll"]>[2], who?: number) {
   return h("button", { cls: "fe-roll", text: label, on: { click: (e: MouseEvent) => ctl.roll(title, mod, target, e, who) } });
@@ -89,7 +73,9 @@ export const RENDER: Record<string, Render> = {
   identity: (ctl, st) => h("div", { cls: "fe-identity" }, h("span", { cls: "fe-name", text: st.name }), h("span", { cls: "fe-muted", text: st.label })),
   inspiration: ctl => btn("Inspiration", () => ctl.dispatch({ type: "inspiration", on: !ctl.character!.inspiration }), ctl.character?.inspiration ? "is-on" : ""),
   prof: (ctl, st) => h("span", { cls: "fe-kv" }, h("span", { cls: "fe-muted", text: "Prof " }), sgn(st.prof)),
-  xp: ctl => h("span", { cls: "fe-kv" }, h("span", { cls: "fe-muted", text: "XP " }), String(ctl.character?.xp ?? 0)),
+  xp: ctl => xpFeature(ctl),
+  "level-up": ctl => levelUpFeature(ctl),
+  features: (ctl, st) => featuresFeature(ctl, st),
   ac: (ctl, st) => stat("AC", String(st.ac.value), st.ac.sources.join(", ")),
   initiative: (ctl, st) => stat("Init", rollButton(ctl, sgn(st.initiative), "Initiative", st.initiative, { kind: "initiative", abil: "dex" })),
   speed: (ctl, st) => stat("Speed", `${st.speed.value}${st.speed.sources.length ? "*" : ""}${st.speed.other ? ` (${st.speed.other})` : ""}`, st.speed.sources.join(", ")),
