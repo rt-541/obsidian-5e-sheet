@@ -53,3 +53,13 @@
 3. Library notes never appear as compendium problems; user notes still do.
 4. Moving a note between source folders updates its source live; renaming a class folder keeps its subclasses attached.
 5. Desktop/mobile parity for the browser; no note text rendered as HTML.
+
+## Follow-up build (after this one; NOT in scope for stages A-C or this review)
+
+Announced by the compendium session on 2026-10-17 after stage A finished:
+- The library moves from OCR'd PDFs to the 5e.tools 2014 data (all 52 books + 80 adventures) inside `compendium/5e/WotC/`, including WotC-published Critical Role books (EGW, Call of the Netherdeep) tagged `5e/source/egw` etc. Our hand-made `compendium/5e/Critical Role/` stays ours; name overlaps with EGW are possible.
+- New generated, read-only folders beside ours: `compendium/5e/Kobold Press/` (Tome of Beasts 1+2, Strongholds & Followers) and `compendium/5e/Necromancer Games/` (Fifth Edition Foes), each with the `.dnd-compendium-generated` marker and replaced on sync.
+- **Rule change:** a source folder is generated library content iff it contains `.dnd-compendium-generated` (not "is named WotC"). Generated folders are read-only and go through the library adapter; book sub-labels come from frontmatter `source`.
+- New library entity types `5e-race`, `5e-class`, `5e-subclass`, `5e-feat`, `5e-background` (field lists to be sent by the compendium session). Requested: those notes use the plugin's operation format from `docs/plans/2026-10-17-leveling.md` section 2 so every WotC class is levelable; anything that does not map is reference-only (never a compendium problem).
+- Ids: slug(name); same name in two sources gets a source suffix (`goblin-mpmm`).
+- **Precedence refinement:** a library entry overrides bundled `WotC (SRD)` mechanics only when the adapter could map it to usable mechanics; otherwise the SRD mechanics stay and the library text is shown in cards.
