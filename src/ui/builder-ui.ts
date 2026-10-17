@@ -46,13 +46,14 @@ function scoresPage(ctl: BuilderController): HTMLElement {
             on: { change: (e: Event) => ctl.setScore(a, +(e.target as HTMLInputElement).value) } });
     const bLess = btn("-", () => ctl.nudgeBonus(a, -1)), bMore = btn("+", () => ctl.nudgeBonus(a, 1));
     bLess.setAttribute("aria-label", `Less ${ABIL_NAME[a]} bonus`); bMore.setAttribute("aria-label", `More ${ABIL_NAME[a]} bonus`);
-    const bonus = d.bonus[a] ?? 0, total = d.scores[a] + bonus;
+    const bonus = d.bonus[a] ?? 0, fromRace = ctl.originBonus()[a] ?? 0, total = ctl.character.abilities[a];
     return h("div", { cls: "fe-kv", data: { abil: a } }, h("span", { cls: "fe-grow", text: ABIL_NAME[a] }), base,
       h("span", { cls: "fe-kv" }, bLess, h("span", { cls: "fe-faint", text: bonus ? sgn(bonus) : "+0", data: { bonus: a } }), bMore),
+      fromRace ? h("span", { cls: "fe-faint", text: `race ${sgn(fromRace)}`, data: { origin: a } }) : null,
       h("span", { cls: "fe-name", text: `= ${total}`, data: { final: a } }));
   });
   return body("scores", h("div", { cls: "fe-filters" }, ...METHODS.map(([m, label]) => choiceButton(label, undefined, d.method === m, undefined, () => ctl.setMethod(m), { method: m }))),
-    hint(note), hint("Right-hand buttons add your race's bonuses."), ...rows);
+    hint(note), hint("Right-hand buttons add bonuses by hand; a race's own ability increases are added for you."), ...rows);
 }
 
 function classPage(ctl: BuilderController): HTMLElement {

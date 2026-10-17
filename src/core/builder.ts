@@ -1,5 +1,6 @@
 import type { Registry } from "../content/registry";
-import type { ClassData, SubraceData } from "../content/types";
+import type { ClassData, GrantsData, SubraceData } from "../content/types";
+import { abilityKey, describeDelta, increaseDelta, type AbilityDelta } from "./ability-increase";
 import { newCharacter, writeInto, type Character, type InventoryEntry } from "./character";
 import { applyLevel, applyResolve, planLevel, planResolve, type Step } from "./levelup";
 import { ABILS, type Abil, type Rng } from "./types";
@@ -51,7 +52,29 @@ export interface BuildDraft {
 }
 export const newDraft = (): BuildDraft => ({ name: "", method: "point-buy", scores: defaultScores("point-buy"), bonus: {}, choices: {} });
 
-export const finalScores = (d: BuildDraft): Scores => Object.fromEntries(ABILS.map(a => [a, d.scores[a] + (d.bonus[a] ?? 0)])) as Scores;
+/**
+ * Increases from the race's and subrace's `ability` field: fixed amounts plus the abilities picked in `choices` (`race:<id>:ability`).
+ * Groups still unanswered add nothing yet.
+ */
+export function originBonus(d: BuildDraft, r?: Registry): AbilityDelta {
+  const out: AbilityDelta = {};
+  if (!r) return out;
+  for (const [kind, id] of [["race", d.race], ["subrace", d.subrace]] as const) {
+    const inc = id ? r.get<GrantsData>(kind, id)?.data.ability : undefined;
+    const { delta } = increaseDelta(inc, (inc?.choose ?? []).map((_g, i) => d.choices[abilityKey(kind, id!, i)]));
+    for (const [a, n] of Object.entries(delta)) out[a as Abil] = (out[a as Abil] ?? 0) + (n as number);
+  }
+  return out;
+}
+
+/** Base scores plus the manual bonus and the race's own increases; the increases stop at 20 (a manual score already above stays as it is). */
+export const finalScores = (d: BuildDraft, r?: Registry): Scores => {
+  const origin = originBonus(d, r);
+  return Object.fromEntries(ABILS.map(a => {
+    const before = d.scores[a] + (d.bonus[a] ?? 0), add = origin[a] ?? 0;
+    return [a, add > 0 ? Math.max(before, Math.min(20, before + add)) : Math.max(1, before + add)];
+  })) as Scores;
+};
 
 /** Roll starting gold such as 5d4*10. */
 export function rollGold(dice: string, rng: Rng = Math.random): number {
@@ -98,13 +121,13 @@ export function draftProblems(d: BuildDraft, r: Registry): string[] {
 // ---------------------------------------------------------------- steps and the character
 
 /** The character with race, subrace, background and scores but no class: the starting point of the class-level steps. */
-export function baseCharacter(d: BuildDraft): Character {
+export function baseCharacter(d: BuildDraft, r?: Registry): Character {
   const c = newCharacter(d.name.trim() || "New character");
   if (d.campaign) c.campaign = d.campaign;
   if (d.race) c.race = d.race;
   if (d.subrace) c.subrace = d.subrace;
   if (d.background) c.background = d.background;
-  c.abilities = finalScores(d);
+  c.abilities = finalScores(d, r);
   return c;
 }
 
@@ -114,7 +137,7 @@ export function baseCharacter(d: BuildDraft): Character {
  */
 export function buildSteps(d: BuildDraft, r: Registry): { origin: Step[]; level: Step[]; error?: string } {
   if (!d.race && !d.classId) return { origin: [], level: [] };
-  const base = baseCharacter(d), origin = planResolve(base, r, d.choices);
+  const base = baseCharacter(d, r), origin = planResolve(base, r, d.choices);
   if (!d.classId) return { origin, level: [] };
   const p = planLevel(base, d.classId, r, d.choices);
   if ("error" in p) return { origin, level: [], error: p.error };
@@ -134,8 +157,12 @@ function addItems(c: Character, r: Registry, ids: string[]) {
 export function buildCharacter(d: BuildDraft, r: Registry, rng: Rng = Math.random): { value: Character; summary: string[] } | { error: string } {
   const problems = draftProblems(d, r);
   if (problems.length) return { error: problems[0] };
-  let c = baseCharacter(d);
+  const open = buildSteps(d, r).origin.find((s): s is Extract<Step, { kind: "pick" }> => s.kind === "pick" && s.what === "abilities" && !(s.key in d.choices));
+  if (open) return { error: `${open.source}: ${open.label} still needs an answer` };
+  let c = baseCharacter(d, r);
   const summary: string[] = [];
+  const gained = originBonus(d, r);
+  if (Object.keys(gained).length) summary.push(`Ability scores from race: ${describeDelta(gained)}`);
   if (planResolve(c, r, d.choices).length) {
     const o = applyResolve(c, { choices: d.choices }, r);
     if ("error" in o) return o;

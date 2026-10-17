@@ -1,6 +1,7 @@
 import { sourceLabel, type Registry } from "../content/registry";
-import type { AbilReq, ClassData, FeatData, Op, OptionDef, SpellData, SubclassData } from "../content/types";
+import type { AbilReq, ClassData, FeatData, GrantsData, Op, OptionDef, SpellData, SubclassData, SubraceData } from "../content/types";
 import { abilityMod } from "./abilities";
+import { abilityKey, describeDelta, increaseDelta } from "./ability-increase";
 import type { Character, HpMethod, LevelEntry } from "./character";
 import { deriveCharacter } from "./derive";
 import { progress, type PendingChoice, type Progress } from "./progression";
@@ -70,7 +71,7 @@ export type Step =
   | { kind: "hp"; key: "hp"; label: string; die: number; conMod: number; average: number; first: boolean }
   | { kind: "subclass"; key: string; label: string; source: string; options: StepOption[] }
   | { kind: "asi"; key: string; label: string; source: string; maxScores: Record<Abil, number> }
-  | { kind: "pick"; key: string; label: string; source: string; what: "skills" | "expertise" | "tools" | "languages" | "option"; count: number; /** Option list name when `what` is option. */ list?: string; options: StepOption[]; /** No list to choose from: type the names. */ free: boolean }
+  | { kind: "pick"; key: string; label: string; source: string; what: "skills" | "expertise" | "tools" | "languages" | "option" | "abilities"; count: number; /** Option list name when `what` is option. */ list?: string; options: StepOption[]; /** No list to choose from: type the names. */ free: boolean }
   | { kind: "spells"; key: string; label: string; source: string; count: number; cantrips: number; swap: number; maxLevel: number; options: StepOption[] };
 export interface LevelPlan { class: string; className: string; /** Class level after this level. */ level: number; total: number; first: boolean; steps: Step[]; }
 export interface LevelAnswers {
@@ -153,6 +154,23 @@ function stepOf(p: PendingChoice, env: Env, maxScores: () => Record<Abil, number
   }
 }
 
+/**
+ * Picks owed by `ability` fields with a choose group: the race and subrace of a character that has no class yet (the builder), and the feats
+ * taken in this level. Existing notes already carry their scores, so a character with class levels is never asked about its race.
+ */
+function abilityPicks(env: Env, c: Character, addedFeats: string[]): Step[] {
+  const out: Step[] = [], reg = env.registry;
+  const add = (kind: "race" | "subrace" | "feat", id: string | undefined) => {
+    const e = id ? reg.get<GrantsData | SubraceData | FeatData>(kind, id) : undefined;
+    e?.data.ability?.choose.forEach((g, i) => out.push({ kind: "pick", key: abilityKey(kind, id!, i), what: "abilities", count: g.count, free: false,
+      label: `Ability score increase: +${g.amount} to ${g.count === 1 ? "one ability" : `${g.count} abilities`}`, source: `${titleCase(kind)}: ${e.name}`,
+      options: g.from.map(a => ({ id: a, name: ABIL_NAME[a] })) }));
+  };
+  if (env.mode.kind === "resolve" && c.classes.length === 0) { add("race", c.race); add("subrace", c.subrace); }
+  if (env.mode.kind === "level") for (const f of addedFeats) add("feat", f);
+  return out;
+}
+
 interface Planned { env: Env; steps: Step[]; ops: Map<string, PendingChoice>; first: boolean; className: string; level: number; die: number; }
 
 /** Build the candidate (class level raised, subclass and feat answers applied so their follow-up steps appear) and its steps. */
@@ -198,6 +216,7 @@ function plan(c: Character, mode: Mode, registry: Registry, choices: Record<stri
     steps.push({ kind: "hp", key: "hp", label: first ? "Hit points (first level)" : "Hit points", die, conMod, average: averageHp(die), first });
   }
   for (const p of mine.values()) { const s = stepOf(p, env, maxScores); if (s) steps.push(s); }
+  steps.push(...abilityPicks(env, c, addedFeats));
   return { env, steps, ops: mine, first, className, level, die };
 }
 
@@ -310,7 +329,15 @@ function commitSteps(steps: Step[], choices: Record<string, unknown>, env: Env, 
     else if (s.kind === "pick") summary.push(`${s.what === "option" ? titleCase(s.list ?? "choice") : titleCase(s.what)}: ${(r.ok as string[]).map(id => optionName(s, id)).join(", ")}`);
     else if (s.kind === "asi") {
       const a = r.ok as { feat?: string; abilities?: Record<string, number> };
-      if (a.feat) summary.push(`Feat: ${env.registry.get<FeatData>("feat", a.feat)?.name ?? a.feat}`);
+      if (a.feat) {
+        const inc = env.registry.get<FeatData>("feat", a.feat)?.data.ability;
+        const picks = (inc?.choose ?? []).map((_g, i) => choices[abilityKey("feat", a.feat!, i)]);
+        const { delta, missing } = increaseDelta(inc, picks, env.cand.abilities, s.maxScores);
+        if (missing.length) return { error: `${s.source}: ${s.label}: choose the abilities ${env.registry.get<FeatData>("feat", a.feat)?.name ?? a.feat} raises` };
+        if (env.mode.kind === "level") for (const [k, n] of Object.entries(delta)) value.abilities[k as Abil] += n as number;
+        if (env.mode.kind === "level" && Object.keys(delta).length) record[s.key] = { feat: a.feat, abilities: delta };
+        summary.push(`Feat: ${env.registry.get<FeatData>("feat", a.feat)?.name ?? a.feat}${env.mode.kind === "level" && Object.keys(delta).length ? ` (${describeDelta(delta)})` : ""}`);
+      }
       else { if (env.mode.kind === "level") for (const [k, n] of Object.entries(a.abilities ?? {})) value.abilities[k as Abil] += n; summary.push(Object.entries(a.abilities ?? {}).map(([k, n]) => `${sgn(n)} ${ABIL_NAME[k as Abil]}`).join(", ")); }
     } else if (s.kind === "spells") {
       const ids = r.ok as string[], sw = checkSwaps(s, choices[`${s.key}:swap`], env);
@@ -420,7 +447,7 @@ export function undoLevel(c: Character, registry: Registry): { value: Character;
   for (const val of Object.values(ch)) {
     if (!isObj(val)) continue;
     if (typeof val.feat === "string") { const j = v.feats.lastIndexOf(val.feat); if (j >= 0) v.feats.splice(j, 1); }
-    else if (isObj(val.abilities)) for (const [a, n] of Object.entries(val.abilities)) if (ABILS.includes(a as Abil) && typeof n === "number") v.abilities[a as Abil] = Math.max(1, v.abilities[a as Abil] - n);
+    if (isObj(val.abilities)) for (const [a, n] of Object.entries(val.abilities)) if (ABILS.includes(a as Abil) && typeof n === "number") v.abilities[a as Abil] = Math.max(1, v.abilities[a as Abil] - n);
   }
   // HP: entries from applyLevel know what they added; hand-written ones fall back to gained + CON (recorded = the whole amount)
   const added = entry.hp.added ?? (entry.hp.method === "recorded" ? entry.hp.gained : Math.max(1, entry.hp.gained + abilityMod(c.abilities.con)));

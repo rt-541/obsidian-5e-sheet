@@ -1,7 +1,7 @@
 import type { Registry } from "../content/registry";
 import type { SourceSwitches } from "../content/sources";
 import type { ClassData } from "../content/types";
-import { baseCharacter, buildCharacter, buildSteps, characterFrontmatter, defaultScores, draftProblems, newDraft, notePath, pointBuyCost, rollGold, scoreProblems, POINT_BUY_BUDGET, POINT_BUY_COST,
+import { baseCharacter, buildCharacter, originBonus, buildSteps, characterFrontmatter, defaultScores, draftProblems, newDraft, notePath, pointBuyCost, rollGold, scoreProblems, POINT_BUY_BUDGET, POINT_BUY_COST,
   type BuildDraft, type EquipmentChoice, type ScoreMethod } from "../core/builder";
 import type { Character } from "../core/character";
 import type { Step } from "../core/levelup";
@@ -44,7 +44,9 @@ export class BuilderController {
   emit() { this.subs.forEach(f => f()); }
 
   // The same shape the level-up pages use.
-  get character(): Character { return baseCharacter(this.draft); }
+  get character(): Character { return baseCharacter(this.draft, this.host.registry); }
+  /** Increases the race and subrace give on their own (shown next to the manual bonus). */
+  originBonus() { return originBonus(this.draft, this.host.registry); }
   pick(key: string, value: unknown) { this.draft = { ...this.draft, choices: { ...this.draft.choices, [key]: value } }; this.touch(); }
 
   private touch() { delete this.error; this.emit(); }

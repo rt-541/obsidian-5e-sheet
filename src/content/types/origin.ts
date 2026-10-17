@@ -1,13 +1,47 @@
-import { str, type Raw } from "../check";
+import { ABILS, type Abil } from "../../core/types";
+import { isObj, str, type Errs, type Raw } from "../check";
 import type { TypeDef } from "../registry";
 import { validateLevels, validateOps, validateOptions, type Op, type OptionDef } from "./ops";
 
 /** Subclass: picked inside a class; its `levels` are keyed by the CLASS level at which they apply. */
 export interface SubclassData { name: string; class: string; options?: Record<string, OptionDef[]>; levels: Record<number, Op[]>; }
+/** Ability score increase of a race, subrace or feat: fixed amounts plus "pick `count` of `from`, +`amount` each" groups. */
+export interface AbilityChoose { from: Abil[]; count: number; amount: number; }
+export interface AbilityIncrease { fixed: Partial<Record<Abil, number>>; choose: AbilityChoose[]; }
 /** Race, subrace, background and feat: a flat list of grants. */
-export interface GrantsData { name: string; grants: Op[]; }
+export interface GrantsData { name: string; grants: Op[]; ability?: AbilityIncrease; }
 export interface SubraceData extends GrantsData { race: string; }
 export interface FeatData extends GrantsData { prerequisite?: string; }
+
+/**
+ * The raw 5e.tools `ability` field: a list (or one mapping) of `{ con: 2 }` and `{ choose: { from, count, amount } }`, which may share a mapping
+ * (`{ cha: 2, choose: {...} }`). All entries of the list add up. `choose.from` defaults to all six abilities, `count` and `amount` to 1.
+ */
+export function parseAbilityIncrease(v: unknown, at: string, e: Errs): AbilityIncrease | undefined {
+  if (v === undefined) return undefined;
+  const list = Array.isArray(v) ? v : [v], fixed: Partial<Record<Abil, number>> = {}, choose: AbilityChoose[] = [], before = e.length;
+  list.forEach((entry: unknown, i: number) => {
+    const here = Array.isArray(v) ? `${at}[${i}]` : at;
+    if (!isObj(entry)) { e.push(`${here}: must be a mapping such as { con: 2 }`); return; }
+    for (const [k, x] of Object.entries(entry)) {
+      if (k === "choose") {
+        if (!isObj(x)) { e.push(`${here}.choose: must be a mapping with from, count and amount`); continue; }
+        if (x.weighted !== undefined) { e.push(`${here}.choose.weighted: not supported, use from, count and amount`); continue; }
+        const from = x.from === undefined ? [...ABILS] : Array.isArray(x.from) && x.from.every(a => ABILS.includes(a as Abil)) && x.from.length ? [...new Set(x.from as Abil[])] : undefined;
+        const count = x.count === undefined ? 1 : x.count, amount = x.amount === undefined ? 1 : x.amount;
+        if (!from) e.push(`${here}.choose.from: must be a list of abilities (${ABILS.join(", ")})`);
+        else if (typeof count !== "number" || !Number.isInteger(count) || count < 1 || count > from.length) e.push(`${here}.choose.count: must be a whole number from 1 to ${from.length}`);
+        else if (typeof amount !== "number" || !Number.isInteger(amount) || amount < 1 || amount > 4) e.push(`${here}.choose.amount: must be a whole number from 1 to 4`);
+        else choose.push({ from, count, amount });
+      } else if (ABILS.includes(k as Abil)) {
+        if (typeof x !== "number" || !Number.isInteger(x) || x < -4 || x > 4 || x === 0) e.push(`${here}.${k}: must be a whole number from -4 to 4, not 0`);
+        else fixed[k as Abil] = (fixed[k as Abil] ?? 0) + x;
+      } else e.push(`${here}.${k}: unknown ability (use ${ABILS.join(", ")} or choose)`);
+    }
+  });
+  if (e.length > before) return undefined;
+  return Object.keys(fixed).length || choose.length ? { fixed, choose } : undefined;
+}
 
 const sizes = (o: Record<string, OptionDef[]>) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, v.length]));
 
@@ -23,23 +57,24 @@ export const subclassType: TypeDef<SubclassData> = {
   },
 };
 
-function grantsType<T extends GrantsData>(type: string, more: (raw: Raw, e: string[]) => Partial<T>): TypeDef<T> {
+function grantsType<T extends GrantsData>(type: string, more: (raw: Raw, e: string[]) => Partial<T>, withAbility = false): TypeDef<T> {
   return {
     type,
     validate(raw: Raw) {
       const e: string[] = [];
       const name = str(raw.name, "name", e), extra = more(raw, e);
       const grants = validateOps(raw.grants, "grants", { kind: "grants", options: {} }, e);
+      const ability = withAbility ? parseAbilityIncrease(raw.ability, "ability", e) : undefined;
       if (e.length || !name) return { errors: e };
-      return { errors: e, value: { name, grants, ...extra } as T };
+      return { errors: e, value: { name, grants, ...extra, ...(ability ? { ability } : {}) } as T };
     },
   };
 }
 
-export const raceType = grantsType<GrantsData>("race", () => ({}));
+export const raceType = grantsType<GrantsData>("race", () => ({}), true);
 export const backgroundType = grantsType<GrantsData>("background", () => ({}));
-export const subraceType = grantsType<SubraceData>("subrace", (raw, e) => ({ race: str(raw.race, "race", e) ?? "" }));
+export const subraceType = grantsType<SubraceData>("subrace", (raw, e) => ({ race: str(raw.race, "race", e) ?? "" }), true);
 export const featType = grantsType<FeatData>("feat", (raw, e) => {
   const p = str(raw.prerequisite, "prerequisite", e, true);
   return p ? { prerequisite: p } : {};
-});
+}, true);
