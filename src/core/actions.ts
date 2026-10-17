@@ -1,5 +1,7 @@
 import type { Character, CompanionEntry, Npc } from "./character";
 import type { ActorStats } from "./derive";
+import type { ItemData, SpellData } from "../content/types";
+import { itemWorks, type EffectContext } from "./effects";
 import type { Abil } from "./types";
 
 export type Who = { companion: number } | undefined;
@@ -13,12 +15,15 @@ export type Action =
   | { type: "inspiration"; on: boolean }
   | { type: "addItem"; id: string } | { type: "removeItem"; index: number }
   | { type: "addCompanion"; creature: string; name: string; kind: CompanionEntry["kind"] } | { type: "removeCompanion"; index: number }
-  | { type: "ability"; abil: Abil; value: number };
+  | { type: "ability"; abil: Abil; value: number }
+  | { type: "cast"; spell: string; level?: number; item?: number } | { type: "endConcentration" };
 export interface Limits {
   self: ActorStats; companions: (ActorStats | undefined)[]; chargesMax: (index: number) => number;
   /** Re-derive after a condition change so stored HP can be clamped to the new effective max. */
   derive?: (c: Character) => ActorStats;
   deriveCompanion?: (e: CompanionEntry) => ActorStats | undefined;
+  /** Needed for casting: spell and item data come from the registry. */
+  ctx?: EffectContext;
 }
 export const MAX_ATTUNED = 3;
 
@@ -36,7 +41,44 @@ function setCondition(conds: Record<string, number>, id: string, level: number, 
 }
 const condMax = (s: ActorStats | undefined, id: string) => id === "exhaustion" ? 6 : 1;
 
-export function apply(c0: Character, a: Action, lim: Limits): { value: Character; error?: string } {
+function cast(c0: Character, c: Character, a: Extract<Action, { type: "cast" }>, lim: Limits): { value: Character; error?: string; note?: string } {
+  const fail = (error: string) => ({ value: c0, error });
+  const reg = lim.ctx?.registry, sp = reg?.get<SpellData>("spell", a.spell)?.data;
+  if (!sp) return fail("Spell missing from compendium");
+  if (a.item !== undefined) {
+    const e = c.inventory[a.item], it = e?.id ? reg!.get<ItemData>("item", e.id)?.data : undefined;
+    if (!e || !it || !itemWorks(e, it)) return fail("That item isn't working");
+    const g = it.grants?.spells.find(x => x.id === a.spell);
+    if (!g) return fail("That item doesn't grant this spell");
+    if (g.cost.kind === "charges") {
+      const used = e.charges?.used ?? 0;
+      if (used + g.cost.amount > (it.charges?.max ?? 0)) return fail("Not enough charges");
+      e.charges = { ...e.charges, used: used + g.cost.amount };
+    } else if (g.cost.kind === "perDay") {
+      const used = e.spellUses?.[a.spell] ?? 0;
+      if (used >= g.cost.uses) return fail("No uses left today");
+      e.spellUses = { ...e.spellUses, [a.spell]: used + 1 };
+    }
+  } else {
+    if (!c.spells.some(x => x.id === a.spell)) return fail("Not one of your spells");
+    if (sp.level >= 1) {
+      const lvl = a.level ?? sp.level;
+      if (lvl < sp.level) return fail("Can't cast below the spell's level");
+      const slot = lim.self.slots.find(s => s.level === String(lvl) && s.used < s.max) ?? lim.self.slots.find(s => s.level === "pact" && s.pactLevel === lvl && s.used < s.max);
+      if (!slot) return fail(`No level ${lvl} slots left`);
+      c.spellSlots[slot.level] = { ...c.spellSlots[slot.level], used: slot.used + 1 };
+    }
+  }
+  let note: string | undefined;
+  if (sp.concentration) {
+    const prev = c.concentration;
+    if (prev && prev !== a.spell) note = `Concentration on ${reg!.get<SpellData>("spell", prev)?.data.name ?? prev} ends`;
+    c.concentration = a.spell;
+  }
+  return { value: c, ...(note ? { note } : {}) };
+}
+
+export function apply(c0: Character, a: Action, lim: Limits): { value: Character; error?: string; note?: string } {
   const c = structuredClone(c0);
   const who = "who" in a ? a.who : undefined;
   if (who) {
@@ -74,6 +116,8 @@ export function apply(c0: Character, a: Action, lim: Limits): { value: Character
     case "removeItem": c.inventory.splice(a.index, 1); break;
     case "addCompanion": c.companions.push({ creature: a.creature, name: a.name, kind: a.kind, hp: { temp: 0 }, conditions: {} }); break;
     case "removeCompanion": c.companions.splice(a.index, 1); break;
+    case "cast": return cast(c0, c, a, lim);
+    case "endConcentration": delete c.concentration; break;
     case "ability": c.abilities[a.abil] = clamp(a.value, 1, 30); break;
   }
   return { value: c };

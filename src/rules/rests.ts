@@ -23,6 +23,8 @@ function bigParts(ctx: RestCtx, c: Character | null, allHitDice: boolean): strin
   let regain = Math.min(used, allHitDice ? used : Math.max(1, Math.floor(total / 2)));
   if (regain) out.push(allHitDice ? "All Hit Dice" : `Regain ${regain} Hit Dice`);
   ctx.c.inventory.forEach(e => { const it = itemName(ctx, e.id);
+    if (it && Object.values(e.spellUses ?? {}).some(n => n > 0)) out.push(`${it.name}: daily spell uses restored`); });
+  ctx.c.inventory.forEach(e => { const it = itemName(ctx, e.id);
     if (it?.charges && e.charges?.used && (it.charges.reset === "long" || it.charges.reset === "short" || (it.charges.reset === "dawn" && !ctx.rules["holy-days"]))) out.push(`${it.name}: charges restored`); });
   if (c) {
     exhaustionDown(c);
@@ -32,6 +34,7 @@ function bigParts(ctx: RestCtx, c: Character | null, allHitDice: boolean): strin
     for (const h of [...ctx.stats.hitDice].sort((a, b) => +b.die.slice(1) - +a.die.slice(1))) {
       const back = Math.min(h.used, regain); regain -= back; c.hitDice[h.die] = { used: h.used - back };
     }
+    c.inventory.forEach(e => { delete e.spellUses; });   // per-day item spells come back on any long rest
     c.inventory.forEach((e, i) => { const it = itemName(ctx, e.id);
       if (it?.charges && e.charges && (it.charges.reset === "long" || it.charges.reset === "short" || (it.charges.reset === "dawn" && !ctx.rules["holy-days"]))) c.inventory[i].charges = { used: 0 }; });
   }

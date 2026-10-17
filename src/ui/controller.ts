@@ -61,6 +61,7 @@ export class SheetController {
     const c = this.character;
     return { self: this.stats()!, companions: this.companionStats(),
       derive: v => deriveCharacter(v, this.ctx()), deriveCompanion: e => deriveCompanion(e, this.ctx()),
+      ctx: this.ctx(),
       chargesMax: i => { const id = c?.inventory[i]?.id; return (id && this.host.registry.get<ItemData>("item", id)?.data.charges?.max) || 0; } };
   }
 
