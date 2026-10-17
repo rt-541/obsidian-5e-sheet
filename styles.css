@@ -1,6 +1,8 @@
 /* 5e Character Sheet. Obsidian theme variables only, so it follows the user's theme. */
 .fe-sheet { --fe-gap: 10px; position: relative; padding: 10px; font-size: var(--font-ui-small); color: var(--text-normal); }
 .fe-sheet button { cursor: pointer; }
+/* `hidden` must beat any display rule below (tab panes, toast, rules text) */
+.fe-sheet [hidden] { display: none !important; }
 .fe-pinned { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; padding-bottom: 8px; border-bottom: 1px solid var(--background-modifier-border); }
 .fe-identity .fe-name { font-size: var(--font-ui-large); font-weight: var(--font-bold); margin-right: 8px; }
 .fe-name { font-weight: var(--font-semibold); }
