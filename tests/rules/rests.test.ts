@@ -7,6 +7,7 @@ import { seeded } from "../../src/core/dice";
 import { activeRests } from "../../src/rules";
 import { spendHitDie, type RestCtx } from "../../src/rules/module";
 import { thalia } from "../fixtures/notes";
+import { homebrewRegistry } from "../fixtures/homebrew";
 
 const r = new Registry(); registerBuiltinTypes(r); loadSrd(r);
 r.add("vault", "item", { name: "Dawn wand", kind: "wondrous", charges: { max: 7, reset: "dawn" } }, { path: "w.md" });
@@ -65,5 +66,37 @@ describe("excursion rests", () => {
   it("a safe haven makes any night a good rest", () => {
     const v = rest("night", ex).apply(ctx(char({ rest: { nightsInPlace: 0 }, hp: { max: 43, current: 5, temp: 0 } }), ex), { samePlace: false, safeHaven: true }).value;
     expect(v.hp.current).toBe(43);
+  });
+});
+
+describe("rests and resources derived from class operations", () => {
+  const hb = homebrewRegistry();
+  const skirm = (o: object = {}, reg = hb): Character => {
+    const p = parseNote({ ...thalia, race: undefined, background: undefined, classes: [{ class: "skirmisher", subclass: "scholar", level: 6 }], levelLog: [], resources: [], ...o });
+    if (p.kind !== "character") throw new Error(); void reg; return p.value;
+  };
+  const mk = (c: Character, reg = hb): RestCtx => ({ c, stats: deriveCharacter(c, { registry: reg }), registry: reg, rules: { "rest-standard": true } });
+  it("a short rest clears short-reset resources and leaves the long ones", () => {
+    const c = skirm({ uses: { plans: 5, focus: 2 } });                    // Plans: long, Focus: short with refill 1 (max 3)
+    const S = rest("short", { "rest-standard": true });
+    expect(S.preview(mk(c))).toEqual(["Focus recharges", "Spend Hit Dice to heal"]);
+    expect(S.apply(mk(c)).value.uses).toEqual({ plans: 5 });
+  });
+  it("a refill with oncePer long regains uses on a short rest the first time only, and a long rest re-arms it", () => {
+    const hb2 = homebrewRegistry([{ type: "5e-class", name: "Planner", hitDie: 8, levels: { 1: [{ op: "resource", name: "Contingency", max: 3, reset: "long", refill: { on: "short", amount: 1, oncePer: "long" } }] } }]);
+    const c = skirm({ classes: [{ class: "planner", level: 1 }], uses: { contingency: 3 } });
+    const S = rest("short", { "rest-standard": true }), L = rest("long", { "rest-standard": true });
+    const once = S.apply(mk(c, hb2));
+    expect(once.value.uses).toEqual({ contingency: 2 }); expect(once.value.choices).toEqual({ "refill.contingency": true }); expect(once.summary).toEqual(["Contingency: regain 1"]);
+    const twice = S.apply(mk(once.value, hb2));
+    expect(twice.value.uses).toEqual({ contingency: 2 }); expect(twice.summary).toEqual([]);
+    const long = L.apply(mk(twice.value, hb2)).value;
+    expect(long.uses).toEqual({}); expect(long.choices).toEqual({});
+  });
+  it("a long rest clears long and short derived resources and says so", () => {
+    const c = skirm({ uses: { plans: 5, focus: 2, stale: 1 } });
+    const L = rest("long", { "rest-standard": true });
+    expect(L.preview(mk(c))).toEqual(expect.arrayContaining(["Plans recharges", "Focus recharges"]));
+    expect(L.apply(mk(c)).value.uses).toEqual({ stale: 1 });
   });
 });

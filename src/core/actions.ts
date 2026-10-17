@@ -18,7 +18,12 @@ export type Action =
   | { type: "ability"; abil: Abil; value: number }
   | { type: "cast"; spell: string; level?: number; item?: number } | { type: "endConcentration" }
   | { type: "addSpell"; id: string } | { type: "removeSpell"; index: number } | { type: "prepare"; index: number; on: boolean }
-  | { type: "pinSpell"; key: string; on: boolean };
+  | { type: "pinSpell"; key: string; on: boolean }
+  /** Used count of a resource derived from class operations (stored in character.uses). */
+  | { type: "uses"; id: string; used: number }
+  | { type: "xp"; value: number }
+  /** Switch a class DC to its alternate ability (stored as character.choices["dc.<id>.alt"]). */
+  | { type: "dcAlt"; id: string; on: boolean };
 export interface Limits {
   self: ActorStats; companions: (ActorStats | undefined)[]; chargesMax: (index: number) => number;
   /** Re-derive after a condition change so stored HP can be clamped to the new effective max. */
@@ -124,6 +129,19 @@ export function apply(c0: Character, a: Action, lim: Limits): { value: Character
     case "removeSpell": { const gone = c.spells.splice(a.index, 1)[0]; if (gone) c.mainSpells = c.mainSpells.filter(k => k !== gone.id); break; }
     case "pinSpell": c.mainSpells = c.mainSpells.filter(k => k !== a.key); if (a.on) c.mainSpells.push(a.key); break;
     case "prepare": { const s = c.spells[a.index]; if (s) s.prepared = a.on; break; }
+    case "xp": c.xp = Math.max(0, Math.round(a.value)); break;
+    case "dcAlt": {
+      if (!lim.self.progress.dcs.some(d => d.id === a.id && d.alt)) return { value: c0, error: "That class DC has no alternate ability" };
+      if (a.on) c.choices[`dc.${a.id}.alt`] = true; else delete c.choices[`dc.${a.id}.alt`];
+      break;
+    }
+    case "uses": {
+      const r = lim.self.resources.find(x => x.derived && x.id === a.id);
+      if (!r) return { value: c0, error: "Unknown resource" };
+      const n = clamp(a.used, 0, r.max);
+      if (n) c.uses[a.id] = n; else delete c.uses[a.id];
+      break;
+    }
     case "ability": c.abilities[a.abil] = clamp(a.value, 1, 30); break;
   }
   return { value: c };

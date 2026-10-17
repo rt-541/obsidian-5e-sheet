@@ -10,6 +10,16 @@ function shortParts(ctx: RestCtx, c: Character | null): string[] {
   const out: string[] = [];
   (c ?? ctx.c).resources.forEach(r => { if (r.reset === "short" && r.used) { out.push(`${r.name} recharges`); if (c) r.used = 0; } });
   ctx.c.inventory.forEach((e, i) => { const it = itemName(ctx, e.id); if (it?.charges?.reset === "short" && e.charges?.used) { out.push(`${it.name}: charges restored`); if (c) c.inventory[i].charges = { used: 0 }; } });
+  for (const r of ctx.stats.resources) {
+    if (!r.derived || !r.used) continue;
+    const flag = `refill.${r.id}`;
+    if (r.reset === "short") { out.push(`${r.name} recharges`); if (c) delete c.uses[r.id]; }
+    else if (r.refill && !(r.refill.oncePer === "long" && ctx.c.choices[flag])) {
+      const back = Math.min(r.used, r.refill.amount); if (!back) continue;
+      out.push(`${r.name}: regain ${back}`);
+      if (c) { if (r.used - back) c.uses[r.id] = r.used - back; else delete c.uses[r.id]; if (r.refill.oncePer === "long") c.choices[flag] = true; }
+    }
+  }
   return out;
 }
 
@@ -19,6 +29,7 @@ function bigParts(ctx: RestCtx, c: Character | null, allHitDice: boolean): strin
   if (ex) out.push(`Exhaustion ${ex} -> ${ex - 1}`);
   out.push(`HP to ${hpMaxAfterExhaustion(ctx)}`, "All spell slots");
   ctx.c.resources.forEach(r => { if (r.used && r.reset !== "none" && r.reset !== "dawn") out.push(`${r.name} recharges`); });
+  ctx.stats.resources.forEach(r => { if (r.derived && r.used && r.reset !== "none" && r.reset !== "dawn") out.push(`${r.name} recharges`); });
   const total = ctx.stats.hitDice.reduce((a, h) => a + h.max, 0), used = ctx.stats.hitDice.reduce((a, h) => a + h.used, 0);
   let regain = Math.min(used, allHitDice ? used : Math.max(1, Math.floor(total / 2)));
   if (regain) out.push(allHitDice ? "All Hit Dice" : `Regain ${regain} Hit Dice`);
@@ -31,6 +42,8 @@ function bigParts(ctx: RestCtx, c: Character | null, allHitDice: boolean): strin
     c.hp = { max: c.hp.max, current: hpMaxAfterExhaustion(ctx), temp: 0 };
     c.deathSaves = { successes: 0, failures: 0 }; c.spellSlots = {};
     c.resources.forEach(r => { if (r.reset === "short" || r.reset === "long") r.used = 0; });
+    for (const r of ctx.stats.resources) if (r.derived && (r.reset === "short" || r.reset === "long")) delete c.uses[r.id];
+    for (const k of Object.keys(c.choices)) if (k.startsWith("refill.")) delete c.choices[k];
     for (const h of [...ctx.stats.hitDice].sort((a, b) => +b.die.slice(1) - +a.die.slice(1))) {
       const back = Math.min(h.used, regain); regain -= back; c.hitDice[h.die] = { used: h.used - back };
     }
