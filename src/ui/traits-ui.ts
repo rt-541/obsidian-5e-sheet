@@ -6,7 +6,7 @@ import type { ActorStats } from "../core/derive";
 import type { FeatureRow } from "../core/progression";
 import type { SheetController } from "./controller";
 import { h } from "./h";
-import { btn, card, describeEffects, pips } from "./widgets";
+import { btn, card, describeEffects, usesPips } from "./widgets";
 
 /** One row of the traits card: a feature (or a whole feat) with the source it came from. */
 export interface TraitRow { ref: string; name: string; level: number; summary: string; rows: FeatureRow[]; }
@@ -73,7 +73,7 @@ function traitRow(ctl: SheetController, st: ActorStats, t: TraitRow, withLevel: 
       h("span", { cls: "fe-inv-name", text: t.name, data: { ref: t.ref } }),
       withLevel && t.level ? h("span", { cls: "fe-faint", text: ` Lv ${t.level}` }) : null,
       t.summary ? h("div", { cls: "fe-faint", text: t.summary }) : null),
-    ...[...shown.values()].map(r => h("span", { cls: "fe-trait-uses", data: { resource: r.id } }, pips(r.max, r.used, n => ctl.dispatch({ type: "uses", id: r.id, used: n })))),
+    ...[...shown.values()].map(r => h("span", { cls: "fe-trait-uses", data: { resource: r.id } }, usesPips(r, n => ctl.dispatch({ type: "uses", id: r.id, used: n })))),
     ...acts.map(f => btn(acts.length > 1 ? `Use ${f.action!.name}` : "Use", () => ctl.useAction(f))));
 }
 

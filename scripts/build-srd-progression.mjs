@@ -75,7 +75,7 @@ const fixed = (L, level, name, reset, max, extra = {}) => L.add(level, { id: `re
 const CLASS_NUMBERS = {
   barbarian: (L, r) => {
     scale(L, r, "Rage Damage", x => x.class_specific?.rage_damage_bonus);
-    counter(L, r, "Rage", "long", x => (x.class_specific?.rage_count >= 9999 ? 99 : x.class_specific?.rage_count));
+    counter(L, r, "Rage", "long", x => (x.class_specific?.rage_count >= 9999 ? "Unlimited" : x.class_specific?.rage_count));
     scale(L, r, "Brutal Critical Dice", x => (x.class_specific?.brutal_critical_dice > 0 ? x.class_specific.brutal_critical_dice : undefined));
   },
   bard: (L, r) => {

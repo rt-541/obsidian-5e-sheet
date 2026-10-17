@@ -256,7 +256,7 @@
      "id": "mod-rage",
      "op": "modify",
      "resource": "Rage",
-     "set": 99
+     "set": "Unlimited"
     }
    ]
   }

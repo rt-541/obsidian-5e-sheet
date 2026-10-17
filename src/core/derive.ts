@@ -8,7 +8,7 @@ import { slotTable } from "./slots";
 import { ABILS, SKILLS, type Abil, type Modifier, type RollTarget } from "./types";
 
 export interface AttackStat { name: string; toHit?: number; save?: { abil: Abil; dc: number }; damage?: string; note?: string; target: RollTarget; }
-export interface ResourceRow { id: string; name: string; max: number; used: number; reset: "short" | "long" | "dawn" | "none"; derived: boolean; source?: string; refill?: DerivedResource["refill"]; }
+export interface ResourceRow { id: string; name: string; max: number; used: number; reset: "short" | "long" | "dawn" | "none"; derived: boolean; source?: string; refill?: DerivedResource["refill"]; unlimited?: string; }
 export interface CasterStat { name: string; abil: Abil; dc: number; attack: number; progression: string; }
 export interface ActorStats {
   kind: "character" | "companion" | "npc"; name: string; label: string;

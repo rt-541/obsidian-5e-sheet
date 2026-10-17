@@ -22,6 +22,11 @@ export function describeEffects(e: Effects): string {
   return out.join(" · ");
 }
 
+/** Uses of a derived resource: pips, or the word for an unlimited one. */
+export function usesPips(r: { max: number; used: number; unlimited?: string }, set: (n: number) => void) {
+  return r.unlimited ? h("span", { cls: "fe-muted", text: r.unlimited }) : pips(r.max, r.used, set);
+}
+
 /** Pips: click pip i to set used = i+1, or i if it was the last used one. */
 export function pips(max: number, used: number, set: (n: number) => void, cls = "") {
   return h("span", { cls: "fe-pips" }, ...Array.from({ length: max }, (_, i) =>

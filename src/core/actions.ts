@@ -138,7 +138,7 @@ export function apply(c0: Character, a: Action, lim: Limits): { value: Character
     case "uses": {
       const r = lim.self.resources.find(x => x.derived && x.id === a.id);
       if (!r) return { value: c0, error: "Unknown resource" };
-      const n = clamp(a.used, 0, r.max);
+      const n = r.unlimited ? 0 : clamp(a.used, 0, r.max);
       if (n) c.uses[a.id] = n; else delete c.uses[a.id];
       break;
     }

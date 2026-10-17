@@ -4,7 +4,7 @@ import type { ActionDef, ClassData, FeatData, GrantsData, Op, OptionDef, Progres
 import { abilityMod, profBonus } from "./abilities";
 import type { Character } from "./character";
 import type { SourcedEffects } from "./effects";
-import { evalFormula, type Formula } from "./formula";
+import { evalFormula, isUnlimitedWord, UNLIMITED, type Formula } from "./formula";
 import { ABILS, SKILLS, type Abil, type Effects } from "./types";
 
 export interface FeatureRow {
@@ -15,6 +15,8 @@ export interface FeatureRow {
 export interface DerivedResource {
   id: string; name: string; max: number; used: number; reset: Reset; source: string;
   refill?: { on: "short"; amount: number; oncePer?: "long" };
+  /** Non-numeric max ("Unlimited"): no pips, never runs out. `max` is 0 and `used` stays 0. */
+  unlimited?: string;
 }
 export interface DcRow { id: string; name: string; base: Abil; alt?: Abil; abil: Abil; dc: number; attack: number; source: string; }
 export interface CasterEntry {
@@ -238,7 +240,8 @@ export function progress(c: Character, registry: Registry): Progress {
   // Evaluate scales in definition order, then resources, class DCs.
   for (const d of scaleDefs.values()) {
     try {
-      if (d.formula !== undefined) out.scales[d.id] = evalFormula(d.formula, formulaVars(c, out.scales, d.varLevel));
+      if (isUnlimitedWord(d.formula)) out.scales[d.id] = UNLIMITED;
+      else if (d.formula !== undefined) out.scales[d.id] = evalFormula(d.formula, formulaVars(c, out.scales, d.varLevel));
       else if (d.values) {
         let best = 0; for (const k of Object.keys(d.values)) { const n = Number(k); if (n <= d.varLevel && n > best) best = n; }
         if (best) out.scales[d.id] = d.values[best];
@@ -246,7 +249,17 @@ export function progress(c: Character, registry: Registry): Progress {
     } catch (x) { problem(`scale ${d.name}: ${(x as Error).message}`); }
   }
   const vars = (level: number) => formulaVars(c, out.scales, level);
+  /** A max that is the word Unlimited, or names a scale whose value is non-numeric text, makes the resource unlimited. */
+  const unlimitedOf = (f: Formula): string | undefined => {
+    if (isUnlimitedWord(f)) return UNLIMITED;
+    if (typeof f !== "string") return undefined;
+    const name = f.trim();
+    for (const [sid, v] of Object.entries(out.scales)) if (underscore(sid) === name && typeof v === "string" && v.trim() && !Number.isFinite(Number(v))) return v.trim();
+    return undefined;
+  };
   for (const d of resDefs.values()) {
+    const text = unlimitedOf(d.max);
+    if (text) { out.resources.push({ id: d.id, name: d.name, max: 0, used: 0, reset: d.reset, source: d.source, unlimited: text }); continue; }
     try {
       const max = Math.max(0, Math.floor(evalFormula(d.max, vars(d.varLevel))));
       const r: DerivedResource = { id: d.id, name: d.name, max, used: Math.min(Math.max(0, c.uses[d.id] ?? 0), max), reset: d.reset, source: d.source };

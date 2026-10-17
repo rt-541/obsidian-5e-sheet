@@ -234,9 +234,9 @@ export class SheetController {
         const id = slug(a.cost.resource), r = st.resources.find(x => x.derived && x.id === id);
         if (!r) { this.host.notify(`${a.name}: no resource called ${a.cost.resource}`); return; }
         const amount = a.cost.amount === undefined ? 1 : Math.max(0, Math.floor(evalFormula(a.cost.amount, vars)));
-        if (r.used + amount > r.max) { this.host.notify(`No ${r.name} left for ${a.name}`); return; }
-        if (!this.dispatch({ type: "uses", id, used: r.used + amount }).ok) return;
-        parts.push(`${r.name} -${amount}`);
+        if (!r.unlimited && r.used + amount > r.max) { this.host.notify(`No ${r.name} left for ${a.name}`); return; }
+        if (r.unlimited) parts.push(`${r.name} (${r.unlimited.toLowerCase()})`);
+        else { if (!this.dispatch({ type: "uses", id, used: r.used + amount }).ok) return; parts.push(`${r.name} -${amount}`); }
       }
       if (a.cost && "selfDamage" in a.cost) {
         const roll = this.damage(`${a.name} (self damage)`, fillDice(a.cost.selfDamage, scales));

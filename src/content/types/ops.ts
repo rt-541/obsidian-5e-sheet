@@ -1,4 +1,4 @@
-import { checkFormula, hasPlaceholder, type Formula } from "../../core/formula";
+import { checkFormula, hasPlaceholder, isUnlimitedWord, UNLIMITED, type Formula } from "../../core/formula";
 import { parseDice } from "../../core/dice";
 import { ABILS, SKILLS, type Abil, type Effects } from "../../core/types";
 import { isObj, type Errs, type Raw } from "../check";
@@ -60,7 +60,7 @@ const reqName = (v: unknown, at: string, e: Errs): string => {
 const formula = (v: unknown, at: string, e: Errs): Formula => {
   const err = checkFormula(v);
   if (err) { e.push(`${at}: ${err}`); return 0; }
-  return v as Formula;
+  return isUnlimitedWord(v) ? UNLIMITED : v as Formula;
 };
 const abil = (v: unknown, at: string, e: Errs): Abil => {
   if (ABILS.includes(v as Abil)) return v as Abil;

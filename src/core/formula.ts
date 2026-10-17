@@ -62,6 +62,7 @@ function parse(src: string): Node {
 }
 
 function compile(f: Formula): Node {
+  if (isUnlimitedWord(f)) throw new FormulaError("Unlimited is text, not a number");
   if (typeof f === "number") { if (!Number.isFinite(f)) throw new FormulaError("not a finite number"); return { t: "num", v: f }; }
   if (typeof f !== "string") throw new FormulaError("must be a number or a formula");
   const hit = cache.get(f);
@@ -71,9 +72,14 @@ function compile(f: Formula): Node {
   catch (x) { const m = x instanceof FormulaError ? x.message : "bad formula"; if (cache.size < 500) cache.set(f, m); throw new FormulaError(m); }
 }
 
+/** Non-numeric text a resource may use as its maximum: the resource is then unlimited. */
+export const UNLIMITED = "Unlimited";
+export const isUnlimitedWord = (f: unknown): boolean => typeof f === "string" && /^\s*unlimited\s*$/i.test(f);
+
 /** null when the formula is valid, otherwise a short reason. */
 export function checkFormula(f: unknown): string | null {
   if (typeof f !== "number" && typeof f !== "string") return "must be a number or a formula";
+  if (isUnlimitedWord(f)) return null;
   try { compile(f); return null; } catch (x) { return x instanceof FormulaError ? x.message : "bad formula"; }
 }
 

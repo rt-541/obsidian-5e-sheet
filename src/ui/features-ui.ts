@@ -4,7 +4,7 @@ import type { FeatureRow } from "../core/progression";
 import type { Abil } from "../core/types";
 import type { SheetController } from "./controller";
 import { h } from "./h";
-import { btn, card, describeEffects, pips } from "./widgets";
+import { btn, card, describeEffects, usesPips } from "./widgets";
 
 const ABIL_NAME: Record<Abil, string> = { str: "STR", dex: "DEX", con: "CON", int: "INT", wis: "WIS", cha: "CHA" };
 const sentence = (id: string) => { const t = id.replace(/-/g, " "); return t.charAt(0).toUpperCase() + t.slice(1); };
@@ -70,7 +70,7 @@ export function featuresFeature(ctl: SheetController, st: ActorStats): HTMLEleme
   const res = st.resources.filter(r => r.derived);
   if (res.length) cards.push(card("Class resources", ...res.map(r => h("div", { cls: "fe-kv", data: { resource: r.id } },
     h("span", {}, `${r.name} `, h("span", { cls: "fe-faint", text: `(${RESET_NAME[r.reset]}${r.refill ? `, short rest regains ${r.refill.amount}${r.refill.oncePer ? " once per long rest" : ""}` : ""})` })),
-    pips(r.max, r.used, n => ctl.dispatch({ type: "uses", id: r.id, used: n }))))));
+    usesPips(r, n => ctl.dispatch({ type: "uses", id: r.id, used: n }))))));
   const acts = p.features.filter(f => f.action);
   if (acts.length) cards.push(card("Actions", ...acts.map(f => actionRow(ctl, st, f))));
   const groups = new Map<string, FeatureRow[]>();
