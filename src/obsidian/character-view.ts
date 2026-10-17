@@ -14,6 +14,7 @@ export class CharacterView extends FileView {
   private mounted?: { destroy(): void; render(): void };
   private narrow = false;
   private resizeObs?: ResizeObserver;
+  private logPath?: string;
 
   constructor(leaf: WorkspaceLeaf, private plugin: FiveESheetPlugin) { super(leaf); }
   getViewType() { return VIEW_TYPE; }
@@ -28,6 +29,12 @@ export class CharacterView extends FileView {
   async onClose() { this.resizeObs?.disconnect(); await this.teardown(); }
   async onLoadFile(file: TFile) { await this.build(file); }
   async onUnloadFile() { await this.teardown(); }
+  /** A renamed note keeps its roll log, and the sheet is rebuilt so nothing points at the old path. */
+  async onRename(file: TFile) {
+    const old = this.logPath, logs = this.plugin.data.logs;
+    if (old && old !== file.path) { if (logs[old] && !logs[file.path]) logs[file.path] = logs[old]; delete logs[old]; this.plugin.saveLogsSoon(); }
+    await this.build(file);
+  }
 
   private mobile(): boolean {
     const l = this.plugin.data.settings.layout;
@@ -54,12 +61,13 @@ export class CharacterView extends FileView {
     if (parsed.kind === "none") { this.contentEl.createEl("p", { text: "This note is not a 5e character or NPC (frontmatter type: 5e-character or 5e-npc)." }); return; }
     const prev = this.ctl;
     const body = stripFrontmatter(await this.app.vault.cachedRead(file));
+    this.logPath = file.path;
     const log = (this.plugin.data.logs[file.path] ??= []);
     const ctl = new SheetController({
       registry: this.plugin.registry,
       campaign: this.campaignFor(file, parsed.value.campaign),
       ruleDefaults: this.plugin.data.settings.ruleDefaults,
-      save: v => this.plugin.store.queue(file.path, v),
+      save: v => { if (this.file) this.plugin.store.queue(this.file.path, v); },
       notify: m => this.plugin.notice(m),
       log, body,
       renderMarkdown: (md, el) => { void MarkdownRenderer.render(this.app, md, el, file.path, this); },

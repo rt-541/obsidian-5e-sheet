@@ -14,14 +14,19 @@ export type Action =
   | { type: "addItem"; id: string } | { type: "removeItem"; index: number }
   | { type: "addCompanion"; creature: string; name: string; kind: CompanionEntry["kind"] } | { type: "removeCompanion"; index: number }
   | { type: "ability"; abil: Abil; value: number };
-export interface Limits { self: ActorStats; companions: (ActorStats | undefined)[]; chargesMax: (index: number) => number; }
+export interface Limits {
+  self: ActorStats; companions: (ActorStats | undefined)[]; chargesMax: (index: number) => number;
+  /** Re-derive after a condition change so stored HP can be clamped to the new effective max. */
+  derive?: (c: Character) => ActorStats;
+  deriveCompanion?: (e: CompanionEntry) => ActorStats | undefined;
+}
 export const MAX_ATTUNED = 3;
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, Math.round(v)));
 type Hp = { current?: number; temp: number };
 
 function hpChange(hp: Hp, a: Action, max: number): void {
-  const cur = hp.current ?? max;
+  const cur = Math.min(hp.current ?? max, max);
   if (a.type === "damage") { const n = Math.max(0, a.amount), fromTemp = Math.min(hp.temp, n); hp.temp -= fromTemp; hp.current = Math.max(0, cur - (n - fromTemp)); }
   if (a.type === "heal") hp.current = Math.min(max, cur + Math.max(0, a.amount));
   if (a.type === "temp") hp.temp = Math.max(hp.temp, Math.max(0, a.amount));
@@ -38,7 +43,10 @@ export function apply(c0: Character, a: Action, lim: Limits): { value: Character
     const comp = c.companions[who.companion], st = lim.companions[who.companion];
     if (!comp) return { value: c0, error: "No such companion" };
     if (!st && a.type !== "condition") return { value: c0, error: "Unknown creature" };
-    if (a.type === "condition") setCondition(comp.conditions, a.id, a.level, condMax(st, a.id));
+    if (a.type === "condition") {
+      setCondition(comp.conditions, a.id, a.level, condMax(st, a.id));
+      const after = lim.deriveCompanion?.(comp); if (after && comp.hp.current !== undefined) comp.hp.current = Math.min(comp.hp.current, after.hp.max);
+    }
     else hpChange(comp.hp, a, st!.hp.max);
     return { value: c };
   }
@@ -49,7 +57,7 @@ export function apply(c0: Character, a: Action, lim: Limits): { value: Character
       if (a.type === "heal" && wasDown && c.hp.current > 0) c.deathSaves = { successes: 0, failures: 0 };
       break;
     }
-    case "condition": setCondition(c.conditions, a.id, a.level, condMax(lim.self, a.id)); if (a.id === "exhaustion") c.hp.current = Math.min(c.hp.current, c.hp.max); break;
+    case "condition": setCondition(c.conditions, a.id, a.level, condMax(lim.self, a.id)); c.hp.current = Math.min(c.hp.current, lim.derive?.(c).hp.max ?? c.hp.max); break;
     case "slot": { const s = lim.self.slots.find(x => x.level === a.level); c.spellSlots[a.level] = { used: clamp(a.used, 0, s?.max ?? 0) }; break; }
     case "resource": { const r = c.resources[a.index]; if (r) r.used = clamp(a.used, 0, r.max); break; }
     case "charges": { const e = c.inventory[a.index]; if (e) e.charges = { used: clamp(a.used, 0, lim.chargesMax(a.index)) }; break; }
@@ -71,9 +79,11 @@ export function apply(c0: Character, a: Action, lim: Limits): { value: Character
   return { value: c };
 }
 
-export function applyNpc(n0: Npc, a: Action, stats: ActorStats): { value: Npc; error?: string } {
+export function applyNpc(n0: Npc, a: Action, stats: ActorStats, rederive?: (n: Npc) => ActorStats | undefined): { value: Npc; error?: string } {
   const n = structuredClone(n0);
   if (a.type === "damage" || a.type === "heal" || a.type === "temp") { hpChange(n.hp, a, stats.hp.max); return { value: n }; }
-  if (a.type === "condition") { setCondition(n.conditions, a.id, a.level, condMax(stats, a.id)); return { value: n }; }
+  if (a.type === "condition") { setCondition(n.conditions, a.id, a.level, condMax(stats, a.id));
+    const after = rederive?.(n); if (after && n.hp.current !== undefined) n.hp.current = Math.min(n.hp.current, after.hp.max);
+    return { value: n }; }
   return { value: n0, error: "Not available for NPCs" };
 }

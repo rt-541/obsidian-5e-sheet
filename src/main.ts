@@ -27,8 +27,8 @@ export default class FiveESheetPlugin extends Plugin {
     if (problems.length) console.error("5e sheet: SRD problems", problems);
     this.store = new NoteStore({ process: (path, fn) => {
       const f = this.app.vault.getAbstractFileByPath(path);
-      return f instanceof TFile ? this.app.fileManager.processFrontMatter(f, fn) : Promise.resolve();
-    } });
+      return f instanceof TFile ? this.app.fileManager.processFrontMatter(f, fn).then(() => true) : Promise.resolve(false);
+    } }, 300, undefined, undefined, path => this.notice(`5e sheet: could not save, ${path} no longer exists.`));
     this.loader = new VaultLoader(this.registry, new ObsidianVaultAdapter(this.app), this.data.settings.compendiumFolder);
     this.registerView(VIEW_TYPE, leaf => new CharacterView(leaf, this));
     this.addSettingTab(new FiveESettingTab(this.app, this));

@@ -1,7 +1,7 @@
 import { writeInto, type Character, type Npc } from "../core/character";
 
 /** The one thing the store needs from Obsidian: app.fileManager.processFrontMatter. */
-export interface FrontmatterIO { process(path: string, fn: (fm: Record<string, unknown>) => void): Promise<void>; }
+export interface FrontmatterIO { process(path: string, fn: (fm: Record<string, unknown>) => void): Promise<boolean | void>; }
 export interface Timers { set(fn: () => void, ms: number): unknown; clear(h: unknown): void; now(): number; }
 const realTimers: Timers = { set: (f, ms) => window.setTimeout(f, ms), clear: h => window.clearTimeout(h as number), now: () => Date.now() };
 
@@ -14,7 +14,7 @@ export class NoteStore {
   private pendingValues = new Map<string, Character | Npc>();
   private handles = new Map<string, unknown>();
   private lastWrite = new Map<string, number>();
-  constructor(private io: FrontmatterIO, private delayMs = 300, private timers: Timers = realTimers, private ownWriteWindowMs = 1500) {}
+  constructor(private io: FrontmatterIO, private delayMs = 300, private timers: Timers = realTimers, private ownWriteWindowMs = 1500, private onMissing?: (path: string) => void) {}
 
   queue(path: string, value: Character | Npc): void {
     this.pendingValues.set(path, structuredClone(value));
@@ -30,7 +30,7 @@ export class NoteStore {
       const h = this.handles.get(p); if (h !== undefined) this.timers.clear(h);
       this.handles.delete(p); this.pendingValues.delete(p);
       this.lastWrite.set(p, this.timers.now());
-      await this.io.process(p, fm => writeInto(fm, v));
+      if ((await this.io.process(p, fm => writeInto(fm, v))) === false) this.onMissing?.(p);
     }
   }
   /** True right after our own write, so the view ignores the modify event it causes. */

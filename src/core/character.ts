@@ -117,37 +117,47 @@ function parseCharacter(fm: R): Parsed {
   for (const k of ["campaign", "race", "background"] as const) { const s = r.str(fm[k], k); if (s) c[k] = s; }
   c.classes = r.list(fm.classes, "classes").flatMap((x, i) => {
     if (!isObj(x) || typeof x.class !== "string") { r.errors.push(`classes[${i}]: must have a class`); return []; }
-    return [{ class: x.class, level: r.whole(x.level, `classes[${i}].level`, 1), ...(typeof x.subclass === "string" ? { subclass: x.subclass } : {}) }];
+    const sub = r.str(x.subclass, `classes[${i}].subclass`);
+    return [{ ...x, class: x.class, level: r.whole(x.level, `classes[${i}].level`, 1), ...(sub !== undefined ? { subclass: sub } : {}) }];
   });
   const ab = r.obj(fm.abilities, "abilities");
   for (const a of ABILS) c.abilities[a] = r.num(ab[a], `abilities.${a}`, 10, 1);
   const pr = r.obj(fm.proficiencies, "proficiencies");
-  c.proficiencies = { saves: r.strs(pr.saves, "proficiencies.saves").filter((s): s is Abil => ABILS.includes(s as Abil)),
+  const saves = r.strs(pr.saves, "proficiencies.saves");
+  for (const s of saves) if (!ABILS.includes(s as Abil)) r.errors.push(`proficiencies.saves: unknown ability "${s}"`);
+  c.proficiencies = { saves: saves.filter((s): s is Abil => ABILS.includes(s as Abil)),
     skills: r.strs(pr.skills, "proficiencies.skills"), expertise: r.strs(pr.expertise, "proficiencies.expertise") };
   const hp = r.obj(fm.hp, "hp");
   c.hp = { max: r.whole(hp.max, "hp.max"), current: r.whole(hp.current, "hp.current"), temp: r.whole(hp.temp, "hp.temp") };
-  for (const [k, v] of Object.entries(r.obj(fm.hitDice, "hitDice"))) c.hitDice[k] = { used: r.whole(isObj(v) ? v.used : undefined, `hitDice.${k}.used`) };
+  for (const [k, v] of Object.entries(r.obj(fm.hitDice, "hitDice"))) {
+    if (!isObj(v)) { r.errors.push(`hitDice.${k}: must be a mapping`); continue; }
+    c.hitDice[k] = { ...v, used: r.whole(v.used, `hitDice.${k}.used`) };
+  }
   const ds = r.obj(fm.deathSaves, "deathSaves");
   c.deathSaves = { successes: r.whole(ds.successes, "deathSaves.successes"), failures: r.whole(ds.failures, "deathSaves.failures") };
-  for (const [k, v] of Object.entries(r.obj(fm.spellSlots, "spellSlots"))) c.spellSlots[k] = { used: r.whole(isObj(v) ? v.used : undefined, `spellSlots.${k}.used`) };
-  c.spells = r.list(fm.spells, "spells").flatMap((x, i) => isObj(x) && typeof x.id === "string" ? [{ id: x.id, prepared: x.prepared === true }] : (r.errors.push(`spells[${i}]: must have an id`), []));
+  for (const [k, v] of Object.entries(r.obj(fm.spellSlots, "spellSlots"))) {
+    if (!isObj(v)) { r.errors.push(`spellSlots.${k}: must be a mapping`); continue; }
+    c.spellSlots[k] = { ...v, used: r.whole(v.used, `spellSlots.${k}.used`) };
+  }
+  c.spells = r.list(fm.spells, "spells").flatMap((x, i) => isObj(x) && typeof x.id === "string" ? [{ ...x, id: x.id, prepared: r.bool(x.prepared, `spells[${i}].prepared`) }] : (r.errors.push(`spells[${i}]: must have an id`), []));
   c.inventory = r.list(fm.inventory, "inventory").flatMap((x, i) => {
     if (!isObj(x) || (typeof x.id !== "string" && typeof x.name !== "string")) { r.errors.push(`inventory[${i}]: needs an id or a name`); return []; }
-    const e: InventoryEntry = { qty: r.whole(x.qty, `inventory[${i}].qty`, 1), equipped: r.bool(x.equipped, `inventory[${i}].equipped`), attuned: r.bool(x.attuned, `inventory[${i}].attuned`) };
+    const e: InventoryEntry = { ...x, qty: r.whole(x.qty, `inventory[${i}].qty`, 1), equipped: r.bool(x.equipped, `inventory[${i}].equipped`), attuned: r.bool(x.attuned, `inventory[${i}].attuned`) };
     if (typeof x.id === "string") e.id = x.id; if (typeof x.name === "string") e.name = x.name;
-    if (isObj(x.charges)) e.charges = { used: r.whole(x.charges.used, `inventory[${i}].charges.used`) };
-    if (typeof x.weight === "number") e.weight = x.weight;
+    if (x.charges !== undefined) { const ch = r.obj(x.charges, `inventory[${i}].charges`); e.charges = { ...ch, used: r.whole(ch.used, `inventory[${i}].charges.used`) }; }
+    if (x.weight !== undefined) e.weight = r.num(x.weight, `inventory[${i}].weight`, 0);
     return [e];
   });
   const co = r.obj(fm.coins, "coins");
   for (const k of ["pp", "gp", "ep", "sp", "cp"] as const) c.coins[k] = r.whole(co[k], `coins.${k}`);
   c.resources = r.list(fm.resources, "resources").flatMap((x, i) => {
     if (!isObj(x) || typeof x.name !== "string") { r.errors.push(`resources[${i}]: must have a name`); return []; }
-    const reset = RESETS.includes(x.reset as never) ? x.reset as Resource["reset"] : "long";
-    return [{ name: x.name, max: r.whole(x.max, `resources[${i}].max`, 1), used: r.whole(x.used, `resources[${i}].used`), reset }];
+    let reset: Resource["reset"] = "long";
+    if (x.reset !== undefined) { if (RESETS.includes(x.reset as never)) reset = x.reset as Resource["reset"]; else r.errors.push(`resources[${i}].reset: must be short, long, dawn or none`); }
+    return [{ ...x, name: x.name, max: r.whole(x.max, `resources[${i}].max`, 1), used: r.whole(x.used, `resources[${i}].used`), reset }];
   });
   c.conditions = r.conditions(fm.conditions, "conditions");
-  c.injuries = r.list(fm.injuries, "injuries").flatMap((x, i) => isObj(x) && typeof x.id === "string" ? [{ id: x.id, overcome: x.overcome === true }] : (r.errors.push(`injuries[${i}]: must have an id`), []));
+  c.injuries = r.list(fm.injuries, "injuries").flatMap((x, i) => isObj(x) && typeof x.id === "string" ? [{ ...x, id: x.id, overcome: r.bool(x.overcome, `injuries[${i}].overcome`) }] : (r.errors.push(`injuries[${i}]: must have an id`), []));
   c.modifiers = r.modifiers(fm.modifiers, "modifiers");
   c.inspiration = r.bool(fm.inspiration, "inspiration");
   c.xp = r.whole(fm.xp, "xp");
@@ -156,8 +166,10 @@ function parseCharacter(fm: R): Parsed {
   c.companions = r.list(fm.companions, "companions").flatMap((x, i) => {
     if (!isObj(x) || typeof x.creature !== "string") { r.errors.push(`companions[${i}]: must have a creature`); return []; }
     const hp = r.obj(x.hp, `companions[${i}].hp`);
-    const ce: CompanionEntry = { creature: x.creature, name: typeof x.name === "string" ? x.name : x.creature,
-      kind: KINDS.includes(x.kind as CompanionKind) ? x.kind as CompanionKind : "companion", hp: { temp: r.whole(hp.temp, `companions[${i}].hp.temp`) },
+    let kind: CompanionKind = "companion";
+    if (x.kind !== undefined) { if (KINDS.includes(x.kind as CompanionKind)) kind = x.kind as CompanionKind; else r.errors.push(`companions[${i}].kind: must be one of ${KINDS.join(", ")}`); }
+    const ce: CompanionEntry = { ...x, creature: x.creature, name: r.str(x.name, `companions[${i}].name`) ?? x.creature,
+      kind, hp: { ...hp, temp: r.whole(hp.temp, `companions[${i}].hp.temp`) },
       conditions: r.conditions(x.conditions, `companions[${i}].conditions`) };
     if (hp.current !== undefined) ce.hp.current = r.whole(hp.current, `companions[${i}].hp.current`);
     return [ce];

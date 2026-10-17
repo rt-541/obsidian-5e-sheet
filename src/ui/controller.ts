@@ -60,6 +60,7 @@ export class SheetController {
   limits(): Limits {
     const c = this.character;
     return { self: this.stats()!, companions: this.companionStats(),
+      derive: v => deriveCharacter(v, this.ctx()), deriveCompanion: e => deriveCompanion(e, this.ctx()),
       chargesMax: i => { const id = c?.inventory[i]?.id; return (id && this.host.registry.get<ItemData>("item", id)?.data.charges?.max) || 0; } };
   }
 
@@ -72,7 +73,7 @@ export class SheetController {
   dispatch(a: Action) {
     if (!this.guard()) return;
     const st = this.stats(); if (!st) { this.host.notify("Unknown creature for this NPC"); return; }
-    const out = this.value.type === "5e-character" ? apply(this.value, a, this.limits()) : applyNpc(this.value, a, st);
+    const out = this.value.type === "5e-character" ? apply(this.value, a, this.limits()) : applyNpc(this.value, a, st, n => deriveNpc(n, this.ctx()));
     if (out.error) { this.host.notify(out.error); return; }
     this.commit(out.value);
   }

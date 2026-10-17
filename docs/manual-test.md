@@ -18,3 +18,4 @@ Setup: copy `examples/` into the vault (Compendium folder to the vault root `Com
 - [ ] Put `hp: lots` in a character note: red banner, nothing saved, rolls still work.
 - [ ] Phone: layout is the mobile one (tabs at top, bottom sheet panels), buttons are easy to hit, no horizontal scroll.
 - [ ] Edit on the phone, wait for Sync, open on desktop: values match.
+- [ ] Rename an open character note, tap Damage, wait a moment: the renamed note's frontmatter shows the new HP and the roll log is still there.
