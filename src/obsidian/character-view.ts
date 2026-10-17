@@ -69,6 +69,7 @@ export class CharacterView extends FileView {
       ruleDefaults: this.plugin.data.settings.ruleDefaults,
       save: v => { if (this.file) this.plugin.store.queue(this.file.path, v); },
       notify: m => this.plugin.notice(m),
+      openBuilder: () => this.plugin.openBuilder(),
       log, body,
       renderMarkdown: (md, el) => { void MarkdownRenderer.render(this.app, md, el, file.path, this); },
     }, parsed);

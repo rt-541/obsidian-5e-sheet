@@ -22,6 +22,8 @@ export interface SheetHost {
   rng?: Rng;
   body?: string;
   renderMarkdown?(md: string, el: HTMLElement): void;
+  /** Open the new-character builder (offered on a sheet that has no class yet). */
+  openBuilder?(): void;
 }
 export type Panel =
   | { kind: "conditions"; who?: number } | { kind: "log" } | { kind: "rest"; id: string }

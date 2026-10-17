@@ -95,3 +95,6 @@
 .fe-subclass { display: flex; align-items: center; gap: 8px; } .fe-subclass .fe-choice { flex: 1; }
 .fe-features { display: grid; gap: var(--fe-gap); } .fe-feature-group { margin-bottom: 6px; }
 .fe-mobile .fe-lu-nav button.fe-btn, .fe-mobile .fe-choice { min-height: 44px; }
+.fe-builder-modal { width: 640px; max-width: 94vw; }
+.fe-builder select, .fe-builder .fe-amt { min-width: 64px; }
+.fe-mobile.fe-builder select, .fe-mobile.fe-builder .fe-amt { min-height: 44px; }

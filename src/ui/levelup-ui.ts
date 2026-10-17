@@ -1,7 +1,9 @@
+import type { Registry } from "../content/registry";
 import type { FeatData } from "../content/types";
+import type { Character } from "../core/character";
 import { levelOptions, type Step } from "../core/levelup";
 import { ABILS, type Abil } from "../core/types";
-import type { LevelUpState, SheetController } from "./controller";
+import type { LevelUpState, LevelUpView, SheetController } from "./controller";
 import { clear, h } from "./h";
 import { btn, titleCase } from "./widgets";
 
@@ -9,10 +11,14 @@ const ABIL_NAME: Record<Abil, string> = { str: "STR", dex: "DEX", con: "CON", in
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 const isStrs = (v: unknown): v is string[] => Array.isArray(v) && v.every(x => typeof x === "string");
 const sgn = (n: number) => (n >= 0 ? "+" : "") + n;
+/** What the step pages need from their owner: the level-up wizard's SheetController, or the character builder. */
+export interface PageCtl { character?: Character; host: { registry: Registry; notify(msg: string): void }; pick(key: string, value: unknown): void; }
+/** The answers and view state the pages read. */
+export interface PageState { choices: Record<string, unknown>; view: LevelUpView; }
 type Pick<K extends Step["kind"]> = Extract<Step, { kind: K }>;
 
 /** Has this step got a complete answer? */
-export function answered(s: Step, st: LevelUpState): boolean {
+export function answered(s: Step, st: { choices: Record<string, unknown>; hp?: unknown }): boolean {
   const v = st.choices[s.key];
   switch (s.kind) {
     case "hp": return s.first || !!st.hp;
@@ -24,7 +30,7 @@ export function answered(s: Step, st: LevelUpState): boolean {
 }
 
 const row = (cls: string, ...kids: (Node | null)[]) => h("div", { cls }, ...kids);
-const choiceButton = (name: string, detail: string | undefined, on: boolean, disabled: string | undefined, click: () => void, data: Record<string, string>) => {
+export const choiceButton = (name: string, detail: string | undefined, on: boolean, disabled: string | undefined, click: () => void, data: Record<string, string>) => {
   const b = h("button", { cls: `fe-btn fe-choice ${on ? "is-on" : ""}`.trim(), data, on: { click } },
     h("span", { cls: "fe-name", text: name }), detail ? h("span", { cls: "fe-faint", text: ` ${detail}` }) : null, disabled ? h("span", { cls: "fe-faint", text: ` (${disabled.toLowerCase()})` }) : null);
   if (disabled) b.disabled = true;
@@ -51,14 +57,14 @@ function hpPage(ctl: SheetController, s: Pick<"hp">, st: LevelUpState): HTMLElem
     st.hp ? h("div", { cls: "fe-name", data: { result: "hp" }, text: st.hp.method === "roll" ? `Rolled ${st.hp.roll} ${sgn(s.conMod)} CON = ${gain(st.hp.roll ?? 1)} HP` : `Average ${s.average} ${sgn(s.conMod)} CON = ${gain(s.average)} HP` }) : null);
 }
 
-function subclassPage(ctl: SheetController, s: Pick<"subclass">, st: LevelUpState): HTMLElement {
+export function subclassPage(ctl: PageCtl, s: Pick<"subclass">, st: PageState): HTMLElement {
   return h("div", { cls: "fe-lu-body", data: { step: s.key } }, h("div", { cls: "fe-muted", text: s.label }),
     ...s.options.map(o => h("div", { cls: "fe-subclass" },
       choiceButton(o.name, undefined, st.choices[s.key] === o.id, o.disabled, () => ctl.pick(s.key, o.id), { opt: o.id }),
       h("span", { cls: "fe-faint fe-detail-link", text: "details", data: { ref: `subclass:${o.id}`, noclick: "" } }))));
 }
 
-function abilityRows(ctl: SheetController, s: Pick<"asi">, st: LevelUpState): HTMLElement {
+export function abilityRows(ctl: PageCtl, s: Pick<"asi">, st: PageState): HTMLElement {
   const c = ctl.character!, v = st.choices[s.key];
   const pts: Record<string, number> = isObj(v) && isObj(v.abilities) ? Object.fromEntries(Object.entries(v.abilities).filter(([, n]) => typeof n === "number")) as Record<string, number> : {};
   const total = Object.values(pts).reduce((a, n) => a + n, 0);
@@ -72,7 +78,7 @@ function abilityRows(ctl: SheetController, s: Pick<"asi">, st: LevelUpState): HT
     }));
 }
 
-function featList(ctl: SheetController, s: Pick<"asi">, st: LevelUpState): HTMLElement {
+export function featList(ctl: PageCtl, s: Pick<"asi">, st: PageState): HTMLElement {
   const view = st.view, picked = isObj(st.choices[s.key]) ? (st.choices[s.key] as Record<string, unknown>).feat : undefined, owned = new Set(ctl.character!.feats);
   const list = h("div", {});
   const fill = () => {
@@ -88,7 +94,7 @@ function featList(ctl: SheetController, s: Pick<"asi">, st: LevelUpState): HTMLE
   return h("div", {}, h("input", { cls: "fe-search", attrs: { placeholder: "Search feats", value: view.featQuery }, on: { input: (e: Event) => { view.featQuery = (e.target as HTMLInputElement).value; fill(); } } }), list);
 }
 
-function asiPage(ctl: SheetController, s: Pick<"asi">, st: LevelUpState): HTMLElement {
+export function asiPage(ctl: PageCtl, s: Pick<"asi">, st: PageState): HTMLElement {
   const v = st.choices[s.key], feat = (isObj(v) && typeof v.feat === "string") || st.view.featOpen.has(s.key);
   return h("div", { cls: "fe-lu-body", data: { step: s.key } }, h("div", { cls: "fe-muted", text: s.label }),
     h("div", { cls: "fe-filters" },
@@ -97,7 +103,7 @@ function asiPage(ctl: SheetController, s: Pick<"asi">, st: LevelUpState): HTMLEl
     feat ? featList(ctl, s, st) : abilityRows(ctl, s, st));
 }
 
-function pickPage(ctl: SheetController, s: Pick<"pick">, st: LevelUpState): HTMLElement {
+export function pickPage(ctl: PageCtl, s: Pick<"pick">, st: PageState): HTMLElement {
   const v = st.choices[s.key], cur = isStrs(v) ? v : [];
   const toggle = (id: string) => ctl.pick(s.key, cur.includes(id) ? cur.filter(x => x !== id) : cur.length >= s.count ? [...cur.slice(1), id] : [...cur, id]);
   const body = s.free
@@ -107,7 +113,7 @@ function pickPage(ctl: SheetController, s: Pick<"pick">, st: LevelUpState): HTML
   return h("div", { cls: "fe-lu-body", data: { step: s.key } }, h("div", { cls: "fe-muted", text: `${s.label} (${cur.length} of ${s.count})` }), ...body);
 }
 
-function spellsPage(ctl: SheetController, s: Pick<"spells">, st: LevelUpState): HTMLElement {
+export function spellsPage(ctl: PageCtl, s: Pick<"spells">, st: PageState): HTMLElement {
   const v = st.choices[s.key], cur = isStrs(v) ? v : [];
   const level = (id: string) => s.options.find(o => o.id === id)?.level ?? 1;
   const nCantrips = cur.filter(id => level(id) === 0).length, nSpells = cur.length - nCantrips;

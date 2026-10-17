@@ -34,7 +34,9 @@ export function levelUpFeature(ctl: SheetController): HTMLElement {
     ? [btn(ctl.confirmUndo ? "Confirm undo" : "Undo last level", () => { ctl.undoLastLevel(); }, ctl.confirmUndo ? "is-on" : ""),
        ctl.confirmUndo ? btn("Keep", () => ctl.cancelUndo()) : null] : [];
   undo[0]?.setAttribute("data-act", "undo-level");
-  return h("div", { cls: "fe-kv fe-levelup" }, up, ...undo);
+  const builder = !c.classes.length && ctl.host.openBuilder ? btn("New character (builder)", () => ctl.host.openBuilder?.()) : null;
+  builder?.setAttribute("data-act", "open-builder");
+  return h("div", { cls: "fe-kv fe-levelup" }, up, ...undo, builder);
 }
 
 function actionRow(ctl: SheetController, st: ActorStats, f: FeatureRow): HTMLElement {

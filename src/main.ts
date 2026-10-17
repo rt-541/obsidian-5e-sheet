@@ -3,9 +3,12 @@ import { Registry } from "./content/registry";
 import { loadSrd } from "./content/srd";
 import { registerBuiltinTypes } from "./content/types";
 import { VaultLoader } from "./content/vault-loader";
+import { BuilderController } from "./ui/builder";
+import { BuilderModal } from "./obsidian/builder-modal";
 import { CharacterView, VIEW_TYPE } from "./obsidian/character-view";
 import { DEFAULT_SETTINGS, FiveESettingTab, type PluginData } from "./obsidian/settings";
 import { NoteStore } from "./obsidian/store";
+import { obsidianCreateNote } from "./obsidian/vault-note";
 import { ObsidianVaultAdapter } from "./obsidian/vault-adapter";
 
 const SHEET_TYPES = new Set(["5e-character", "5e-npc"]);
@@ -56,6 +59,7 @@ export default class FiveESheetPlugin extends Plugin {
     }));
     this.addCommand({ id: "toggle-sheet", name: "Toggle sheet / markdown", callback: () => this.toggleActive() });
     this.addCommand({ id: "new-character", name: "New character", callback: () => this.createNote("5e-character") });
+    this.addCommand({ id: "new-character-builder", name: "New character (builder)", callback: () => this.openBuilder() });
     this.addCommand({ id: "new-npc", name: "New NPC", callback: () => this.createNote("5e-npc") });
     this.addCommand({ id: "show-problems", name: "Show compendium problems", callback: () => {
       const p = this.registry.problems();
@@ -112,6 +116,32 @@ export default class FiveESheetPlugin extends Plugin {
     if (!file || !this.isSheet(file)) { this.notice("This note is not a 5e character or NPC."); return; }
     this.asMarkdown.delete(leaf);
     await leaf.setViewState({ type: VIEW_TYPE, state: { file: file.path }, active: true });
+  }
+  /** The new-character builder: a modal wizard that writes the note through the Obsidian layer and opens it as a sheet. */
+  openBuilder() {
+    const parent = this.app.workspace.getActiveFile()?.parent, folder = parent instanceof TFolder ? parent.path : "";
+    const modal: { close(): void } = { close: () => { /* replaced below */ } };
+    const ctl = new BuilderController({
+      registry: this.registry, notify: m => this.notice(m), folder: folder === "/" ? "" : folder,
+      exists: p => this.app.vault.getAbstractFileByPath(p) !== null,
+      createNote: obsidianCreateNote(this.app),
+      open: path => this.openCreated(path), close: () => modal.close(),
+    });
+    const m = new BuilderModal(this.app, ctl);
+    modal.close = () => m.close();
+    m.open();
+  }
+  /** Show a note this plugin just created as a sheet, once Obsidian has indexed its frontmatter. */
+  private async openCreated(path: string) {
+    const file = this.app.vault.getAbstractFileByPath(path);
+    if (!(file instanceof TFile)) return;
+    if (!this.app.metadataCache.getFileCache(file)?.frontmatter) {
+      await new Promise<void>(done => {
+        const ref = this.app.metadataCache.on("changed", f => { if (f.path === file.path) { this.app.metadataCache.offref(ref); done(); } });
+        window.setTimeout(() => { this.app.metadataCache.offref(ref); done(); }, 2000);
+      });
+    }
+    await this.openAsSheet(file);
   }
   private async createNote(type: "5e-character" | "5e-npc") {
     const parent = this.app.workspace.getActiveFile()?.parent ?? this.app.vault.getRoot();
