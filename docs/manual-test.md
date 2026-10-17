@@ -19,3 +19,10 @@ Setup: copy `examples/` into the vault (Compendium folder to the vault root `Com
 - [ ] Phone: layout is the mobile one (tabs at top, bottom sheet panels), buttons are easy to hit, no horizontal scroll.
 - [ ] Edit on the phone, wait for Sync, open on desktop: values match.
 - [ ] Rename an open character note, tap Damage, wait a moment: the renamed note's frontmatter shows the new HP and the roll log is still there.
+- [ ] Spells tab (Thalia): her spells are grouped by level with a prepared toggle; Cure Wounds shows a heal button (1d8+3). Cast it at level 2: the level-2 pips fill and the toast says "Cast Cure Wounds (level 2, slot spent)".
+- [ ] Equip the Emberheart Warhammer without attuning: no "From items" entry. Attune: Burning Hands appears under it costing 1 charge. Cast: one charge pip fills. Unattune: the entry disappears.
+- [ ] Cast Bless, then another concentration spell: the toast notes that concentration on Bless ends. The chip beside Conditions can be cleared with End, and survives closing and reopening the note.
+- [ ] Edit mode: Add spell opens the compendium filtered to the character's class; "Show all classes" widens it; Remove drops an own spell.
+- [ ] Desktop: hover an item, spell or condition name for a quarter second: a card shows rules text and numbers (+1 AC, 3d6 fire, Dex save); it closes on mouseout and on scroll. Click the name: the same card opens in a panel.
+- [ ] Phone: tapping a name opens the details panel; no hover card ever appears.
+- [ ] A homebrew item named `<b>x</b>` shows the literal text in the card.
