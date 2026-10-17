@@ -3,6 +3,7 @@ import type { CompanionKind } from "../core/character";
 import { MODULES } from "../rules";
 import type { Panel, SheetController } from "./controller";
 import { describeEffects } from "./components";
+import { detailCard } from "./details";
 import { h } from "./h";
 import { addSpellPanel, castPanel } from "./spells-ui";
 
@@ -26,7 +27,7 @@ function conditionsPanel(ctl: SheetController, who?: number): HTMLElement {
       rules.hidden = true;
       return h("div", { cls: `fe-crow ${lvl ? "is-active" : ""}`, data: { cond: e.id } },
         h("div", { cls: "fe-grow", on: { click: () => { rules.hidden = !rules.hidden; } } },
-          h("span", { cls: "fe-name", text: e.name }), h("span", { cls: `fe-src ${e.source === "vault" ? "is-hb" : ""}`, text: e.source === "vault" ? "Homebrew" : "SRD" }),
+          h("span", { cls: "fe-name", text: e.name, data: { ref: `condition:${e.id}`, noclick: "" } }), h("span", { cls: `fe-src ${e.source === "vault" ? "is-hb" : ""}`, text: e.source === "vault" ? "Homebrew" : "SRD" }),
           h("div", { cls: "fe-muted", text: describeEffects(d.levels ? (d.levelEffects?.[Math.max(1, lvl)] ?? {}) : d.effects) }), rules),
         d.levels
           ? h("div", { cls: "fe-lvl" }, h("button", { cls: "fe-btn", text: "-", on: { click: () => set(e.id, lvl - 1) } }), h("span", { text: `Level ${lvl}` }), h("button", { cls: "fe-btn", text: "+", on: { click: () => set(e.id, lvl + 1) } }))
@@ -52,7 +53,7 @@ function restPanel(ctl: SheetController, id: string): HTMLElement {
 function compendiumPanel(ctl: SheetController): HTMLElement {
   const owned = new Set(ctl.character!.inventory.map(e => e.id));
   return h("div", {}, ...ctl.host.registry.list<ItemData>("item").map(e => h("div", { cls: "fe-inv" },
-    h("div", { cls: "fe-grow" }, h("span", { cls: "fe-inv-name", text: e.name }), h("span", { cls: `fe-src ${e.source === "vault" ? "is-hb" : ""}`, text: e.source === "vault" ? "Homebrew" : "SRD" }),
+    h("div", { cls: "fe-grow" }, h("span", { cls: "fe-inv-name", text: e.name, data: { ref: `item:${e.id}` } }), h("span", { cls: `fe-src ${e.source === "vault" ? "is-hb" : ""}`, text: e.source === "vault" ? "Homebrew" : "SRD" }),
       h("div", { cls: "fe-faint", text: [e.data.rarity, e.data.attunement ? "attunement" : "", e.path ?? ""].filter(Boolean).join(" · ") })),
     owned.has(e.id) ? h("span", { cls: "fe-faint", text: "owned" }) : h("button", { cls: "fe-btn", text: "Add", data: { item: e.id }, on: { click: () => ctl.dispatch({ type: "addItem", id: e.id }) } }))));
 }
@@ -78,6 +79,10 @@ function customizePanel(ctl: SheetController, features: readonly string[]): HTML
       h("button", { cls: `fe-switch ${visible.has(f) ? "is-on" : ""}`, data: { section: f }, on: { click: () => ctl.setHidden(f, visible.has(f)) } }))));
 }
 
+function detailsPanel(ctl: SheetController, ref: string): HTMLElement {
+  return detailCard(ref, ctl) ?? h("div", { cls: "fe-faint", text: "No details available." });
+}
+
 function logPanel(ctl: SheetController): HTMLElement {
   if (!ctl.host.log.length) return h("div", { cls: "fe-faint", text: "No rolls yet." });
   return h("div", {}, ...ctl.host.log.map(r => h("div", { cls: "fe-log" }, h("div", { text: r.title }), h("b", { text: String(r.total) }), " ", h("span", { cls: "fe-mono", text: r.detail }))));
@@ -87,7 +92,7 @@ const TITLES: Record<Panel["kind"], string> = { conditions: "Conditions", log: "
 
 export function renderPanel(ctl: SheetController, p: Panel, features: readonly string[]): HTMLElement {
   const body = p.kind === "conditions" ? conditionsPanel(ctl, p.who) : p.kind === "rest" ? restPanel(ctl, p.id) : p.kind === "compendium" ? compendiumPanel(ctl)
-    : p.kind === "cast" ? castPanel(ctl, p.spell) : p.kind === "add-spell" ? addSpellPanel(ctl) : p.kind === "add-companion" ? addCompanionPanel(ctl) : p.kind === "customize" ? customizePanel(ctl, features) : logPanel(ctl);
+    : p.kind === "details" ? detailsPanel(ctl, p.ref) : p.kind === "cast" ? castPanel(ctl, p.spell) : p.kind === "add-spell" ? addSpellPanel(ctl) : p.kind === "add-companion" ? addCompanionPanel(ctl) : p.kind === "customize" ? customizePanel(ctl, features) : logPanel(ctl);
   return h("div", { cls: "fe-panel", data: { panel: p.kind } },
     h("div", { cls: "fe-panel-head" }, h("span", { cls: "fe-grow fe-name", text: TITLES[p.kind] }), h("button", { cls: "fe-btn", text: "Close", on: { click: () => ctl.close() } })),
     h("div", { cls: "fe-panel-body" }, body));

@@ -91,7 +91,7 @@ export function addSpellPanel(ctl: SheetController): HTMLElement {
     clear(list);
     const rows = all.filter(e => e.name.toLowerCase().includes(query) && (showAll || !mine.size || e.data.classes.some(k => mine.has(k))));
     for (const e of rows.slice(0, 80)) list.append(h("div", { cls: "fe-inv" },
-      h("div", { cls: "fe-grow" }, h("span", { cls: "fe-spell-name", text: e.name, data: { ref: `spell:${e.id}` } }), h("div", { cls: "fe-faint", text: `${levelTitle(e.data.level)} · ${e.data.school}` })),
+      h("div", { cls: "fe-grow" }, h("span", { cls: "fe-spell-name", text: e.name, data: { ref: `spell:${e.id}`, noclick: "" } }), h("div", { cls: "fe-faint", text: `${levelTitle(e.data.level)} · ${e.data.school}` })),
       owned.has(e.id) ? h("span", { cls: "fe-faint", text: "added" }) : btn("Add", () => { ctl.dispatch({ type: "addSpell", id: e.id }); }, "", { add: e.id })));
     if (rows.length > 80) list.append(h("div", { cls: "fe-faint", text: `${rows.length - 80} more: narrow the search.` }));
     if (!rows.length) list.append(h("div", { cls: "fe-faint", text: "No spells match." }));

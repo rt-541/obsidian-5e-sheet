@@ -52,7 +52,7 @@ function conditionChips(ctl: SheetController, conds: Record<string, number>, who
   return h("div", { cls: "fe-chips" },
     ...Object.entries(conds).map(([id, lvl]) => {
       const c = r.get<ConditionData>("condition", id);
-      return h("button", { cls: `fe-chip ${c ? "" : "is-missing"}`, text: c ? `${c.name}${c.data.levels ? " " + lvl : ""}` : `${id} (missing from compendium)`,
+      return h("button", { cls: `fe-chip ${c ? "" : "is-missing"}`, ...(c ? { data: { ref: `condition:${id}`, noclick: "" } } : {}), text: c ? `${c.name}${c.data.levels ? " " + lvl : ""}` : `${id} (missing from compendium)`,
         on: { click: () => ctl.open({ kind: "conditions", ...(who !== undefined ? { who } : {}) }) } });
     }),
     h("button", { cls: "fe-chip-add", text: "+ Conditions", data: { feature: "conditions-table" }, on: { click: () => ctl.open({ kind: "conditions", ...(who !== undefined ? { who } : {}) }) } }));
@@ -106,7 +106,7 @@ export const RENDER: Record<string, Render> = {
   concentration: ctl => concentrationFeature(ctl),
   spells: (ctl, st) => spellsFeature(ctl, st),
   "active-effects": (ctl, st) => card("Active effects",
-    ...(st.effects.length ? st.effects.map(e => h("div", { cls: "fe-kv" }, h("span", { text: e.source }), h("span", { cls: "fe-muted", text: describeEffects(e.effects) }))) : [h("div", { cls: "fe-faint", text: "None" })]),
+    ...(st.effects.length ? st.effects.map(e => h("div", { cls: "fe-kv" }, h("span", { text: e.source, data: { ref: `effect:${e.source}` } }), h("span", { cls: "fe-muted", text: describeEffects(e.effects) }))) : [h("div", { cls: "fe-faint", text: "None" })]),
     st.missing.length ? h("div", { cls: "fe-warn", text: `Missing from compendium: ${st.missing.join(", ")}` }) : null),
   abilities: (ctl, st) => card("Abilities", checks(ctl, st).abilities),
   saves: (ctl, st) => card("Saving throws", checks(ctl, st).saves),
@@ -127,7 +127,7 @@ export const RENDER: Record<string, Render> = {
       const it = e.id ? r.get<ItemData>("item", e.id) : undefined;
       const name = it ? it.name : e.name ?? `${e.id} (missing from compendium)`;
       return h("div", { cls: `fe-inv ${it || e.name ? "" : "is-missing"}` },
-        h("div", { cls: "fe-grow" }, h("span", { cls: "fe-inv-name", text: name }), it?.source === "vault" ? h("span", { cls: "fe-src", text: "Homebrew" }) : null,
+        h("div", { cls: "fe-grow" }, h("span", { cls: "fe-inv-name", text: name, ...(it && e.id ? { data: { ref: `item:${e.id}` } } : {}) }), it?.source === "vault" ? h("span", { cls: "fe-src", text: "Homebrew" }) : null,
           h("div", { cls: "fe-faint", text: [e.qty > 1 ? `x${e.qty}` : "", it?.data.rarity ?? "", it?.data.attunement ? (e.attuned ? "attuned" : "requires attunement") : ""].filter(Boolean).join(" · ") })),
         it && it.data.kind !== "gear" && it.data.kind !== "consumable" ? btn(e.equipped ? "Equipped" : "Equip", () => ctl.dispatch({ type: "equip", index: i, on: !e.equipped }), e.equipped ? "is-on" : "") : null,
         it?.data.attunement ? btn(e.attuned ? "Attuned" : "Attune", () => ctl.dispatch({ type: "attune", index: i, on: !e.attuned }), e.attuned ? "is-on" : "") : null,
@@ -149,12 +149,12 @@ export const RENDER: Record<string, Render> = {
           stat("Speed", `${st.speed.value}${st.speed.other ? ` (${st.speed.other})` : ""}`)),
         hpBlock(ctl, st), hpControls(ctl, i), conditionChips(ctl, comp.conditions, i), ch.abilities,
         st.skills.length ? ch.skills : null, attacksList(ctl, st, i),
-        ...traits.map(t => h("div", { cls: "fe-note" }, h("b", { text: t.name + ". " }), t.text)),
+        ...traits.map((t, ti) => h("div", { cls: "fe-note" }, h("b", { text: t.name + ". ", data: { ref: `trait:${comp.creature}:${ti}` } }), t.text)),
         ctl.editing ? btn("Remove", () => ctl.dispatch({ type: "removeCompanion", index: i })) : null);
     }), btn("Add companion", () => ctl.open({ kind: "add-companion" }))); },
   traits: ctl => { const n = ctl.value.type === "5e-npc" ? ctl.value : undefined;
     const traits = (n && ctl.host.registry.get<CreatureData>("creature", n.creature)?.data.traits) || [];
-    return card("Traits", ...traits.map(t => h("div", { cls: "fe-note" }, h("b", { text: t.name + ". " }), t.text))); },
+    return card("Traits", ...traits.map((t, ti) => h("div", { cls: "fe-note" }, h("b", { text: t.name + ". ", data: { ref: `trait:${n!.creature}:${ti}` } }), t.text))); },
   "roll-mode": ctl => h("div", { cls: "fe-seg" }, ...(["dis", "normal", "adv"] as const).map(m =>
     btn({ dis: "Disadv.", normal: "Normal", adv: "Adv." }[m], () => ctl.setMode(m), ctl.mode === m ? "is-on" : ""))),
   "roll-log": ctl => btn(`Roll log${ctl.host.log.length ? ` (${ctl.host.log.length})` : ""}`, () => ctl.open({ kind: "log" })),

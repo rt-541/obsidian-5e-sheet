@@ -2,17 +2,44 @@ import type { SheetController } from "./controller";
 import { RENDER } from "./components";
 import { clear, h } from "./h";
 import { CHARACTER_FEATURES, NPC_FEATURES, layoutFor } from "./layouts";
+import { detailCard } from "./details";
 import { renderPanel } from "./panels";
 
-const TOAST_MS = 2600;
+const TOAST_MS = 2600, HOVER_MS = 250;
 
 /** Mount a sheet into `root`; re-renders on every controller change. */
 export function mountSheet(root: HTMLElement, ctl: SheetController, mobile: boolean): { destroy(): void; render(): void } {
-  let toastTimer: number | undefined, shownRoll: unknown;
+  let toastTimer: number | undefined, shownRoll: unknown, hoverTimer: number | undefined, popover: HTMLElement | undefined;
+  const hidePopover = () => { window.clearTimeout(hoverTimer); hoverTimer = undefined; popover?.remove(); popover = undefined; };
+  const showPopover = (el: HTMLElement) => {
+    const card = detailCard(el.dataset.ref ?? "", ctl); if (!card) return;
+    popover = h("div", { cls: "fe-popover", attrs: { role: "tooltip" } }, card); root.append(popover);
+    const r = el.getBoundingClientRect(), w = popover.offsetWidth, ph = popover.offsetHeight;
+    const left = Math.max(8, Math.min(r.right + 8, window.innerWidth - w - 8)), top = Math.max(8, Math.min(r.top, window.innerHeight - ph - 8));
+    popover.style.left = `${left}px`; popover.style.top = `${top}px`;
+  };
+  const refOf = (e: Event) => (e.target as Element | null)?.closest?.<HTMLElement>("[data-ref]") ?? null;
+  const onOver = (e: MouseEvent) => {
+    if (mobile || window.matchMedia?.("(hover: none)")?.matches) return;   // touch: tap opens the panel instead
+    const el = refOf(e); if (!el) return;
+    const from = (e.relatedTarget as Node | null);
+    if (from && el.contains(from)) return;      // moving between children of the same name
+    hidePopover(); hoverTimer = window.setTimeout(() => { hoverTimer = undefined; showPopover(el); }, HOVER_MS);
+  };
+  const onOut = (e: MouseEvent) => {
+    const el = refOf(e), to = e.relatedTarget as Node | null;
+    if (el && !(to && el.contains(to))) hidePopover();
+  };
+  const onClick = (e: MouseEvent) => {
+    const el = refOf(e); if (!el || "noclick" in el.dataset) return;   // chips and condition rows keep their own click behaviour
+    hidePopover(); ctl.open({ kind: "details", ref: el.dataset.ref! });
+  };
+  root.addEventListener("mouseover", onOver); root.addEventListener("mouseout", onOut); root.addEventListener("click", onClick);
+  window.addEventListener("scroll", hidePopover, true);
   const render = () => {
     const features = ctl.isNpc ? NPC_FEATURES : CHARACTER_FEATURES;
     const layout = layoutFor(ctl.isNpc, mobile), visible = new Set(ctl.visible([...features])), st = ctl.stats();
-    clear(root);
+    hidePopover(); clear(root);
     root.className = `fe-sheet ${mobile ? "fe-mobile" : "fe-desktop"} ${ctl.editing ? "is-editing" : ""}`;
     if (ctl.errors.length) root.append(h("div", { cls: "fe-banner", data: { feature: "problems" } },
       h("b", { text: "This note has errors, so the sheet is read-only:" }), h("ul", {}, ...ctl.errors.map(e => h("li", { text: e })))));
@@ -41,5 +68,9 @@ export function mountSheet(root: HTMLElement, ctl: SheetController, mobile: bool
     root.append(toast);
   };
   const off = ctl.subscribe(render); render();
-  return { render, destroy: () => { off(); window.clearTimeout(toastTimer); clear(root); } };
+  return { render, destroy: () => {
+    off(); window.clearTimeout(toastTimer); hidePopover(); clear(root);
+    root.removeEventListener("mouseover", onOver); root.removeEventListener("mouseout", onOut); root.removeEventListener("click", onClick);
+    window.removeEventListener("scroll", hidePopover, true);
+  } };
 }
