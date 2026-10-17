@@ -1,4 +1,4 @@
-import { Notice, Plugin, TFile, TFolder, type WorkspaceLeaf } from "obsidian";
+import { MarkdownView, Notice, Plugin, TFile, TFolder, type WorkspaceLeaf } from "obsidian";
 import { Registry } from "./content/registry";
 import { loadSrd } from "./content/srd";
 import { registerBuiltinTypes } from "./content/types";
@@ -41,7 +41,11 @@ export default class FiveESheetPlugin extends Plugin {
       this.registerEvent(this.app.metadataCache.on("changed", file => { void this.loader.changed(file.path); this.forViews(v => v.file?.path === file.path, v => v.externalChange()); }));
       this.registerEvent(this.app.vault.on("delete", f => { this.loader.deleted(f.path); }));
       this.registerEvent(this.app.vault.on("rename", (f, old) => { void this.loader.renamed(f.path, old); this.store.rename(old, f.path); }));
-      this.registerEvent(this.app.workspace.on("file-open", file => this.maybeOpenSheet(file)));
+      this.registerEvent(this.app.workspace.on("file-open", file => this.sheetifyLeaves(file)));
+      // Tabs restored at startup never fire file-open; switch them once the metadata cache knows their frontmatter.
+      this.sheetifyLeaves();
+      const ref = this.app.metadataCache.on("resolved", () => { this.sheetifyLeaves(); this.app.metadataCache.offref(ref); });
+      this.registerEvent(ref);
     });
 
     this.addCommand({ id: "toggle-sheet", name: "Toggle sheet / markdown", callback: () => this.toggleActive() });
@@ -69,11 +73,16 @@ export default class FiveESheetPlugin extends Plugin {
     const t = file && this.app.metadataCache.getFileCache(file)?.frontmatter?.type;
     return typeof t === "string" && SHEET_TYPES.has(t);
   }
-  private async maybeOpenSheet(file: TFile | null) {
-    if (!file || !this.data.settings.autoOpen || !this.isSheet(file)) return;
-    const leaf = this.app.workspace.getMostRecentLeaf();
-    if (!leaf || leaf.view.getViewType() !== "markdown" || this.asMarkdown.has(leaf)) return;
-    await leaf.setViewState({ type: VIEW_TYPE, state: { file: file.path }, active: true });
+  /** Switch every markdown tab showing a sheet note (optionally only `only`) to the sheet view, unless the user chose markdown for it. */
+  private sheetifyLeaves(only?: TFile | null) {
+    if (!this.data.settings.autoOpen) return;
+    this.app.workspace.iterateAllLeaves(leaf => {
+      if (leaf.view.getViewType() !== "markdown" || this.asMarkdown.has(leaf)) return;
+      const file = (leaf.view as MarkdownView).file;
+      if (!file || (only && file.path !== only.path) || !this.isSheet(file)) return;
+      const active = this.app.workspace.getMostRecentLeaf() === leaf;
+      void leaf.setViewState({ type: VIEW_TYPE, state: { file: file.path }, active });
+    });
   }
   async openAsMarkdown(leaf: WorkspaceLeaf) {
     const file = (leaf.view as CharacterView).file; if (!file) return;
