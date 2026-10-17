@@ -28,11 +28,19 @@ function card(title: string, subtitle: string, lines: string[], rules: string | 
     path ? h("div", { cls: "fe-faint", text: `Source note: ${path}` }) : null);
 }
 
+/** Price in copper pieces as "1 gp 5 sp 3 cp" (ten cp to the sp, ten sp to the gp). */
+export function priceText(cp: number): string {
+  const gp = Math.floor(cp / 100), sp = Math.floor((cp % 100) / 10), c = cp % 10;
+  return [gp ? `${gp} gp` : "", sp ? `${sp} sp` : "", c ? `${c} cp` : ""].filter(Boolean).join(" ") || "0 cp";
+}
+
 function itemCard(reg: Registry, e: Entry<ItemData>): HTMLElement {
   const d = e.data, lines: string[] = [];
   if (d.armor) lines.push(`Armor: AC ${d.armor.base}${d.armor.dex === "full" ? " + Dex" : d.armor.dex === "max2" ? " + Dex (max 2)" : ""}${d.armor.stealthDis ? ", disadvantage on Stealth" : ""}`);
   if (d.weapon) lines.push(`Weapon: ${d.weapon.dmg}${d.weapon.bonus ? sgn(d.weapon.bonus) : ""} ${d.weapon.type}${d.weapon.extraDamage ? ` + ${d.weapon.extraDamage}` : ""} (${d.weapon.range})`);
   lines.push(...effectLines(d.effects));
+  if (d.weight) lines.push(`Weight: ${d.weight} lb`);
+  if (d.value !== undefined) lines.push(`Value: ${priceText(d.value)}`);
   if (d.charges) lines.push(`Charges: ${d.charges.max}, resets ${d.charges.reset === "none" ? "never" : d.charges.reset}`);
   for (const g of d.grants?.spells ?? []) {
     const sp = reg.get<SpellData>("spell", g.id), c = g.cost;
@@ -58,7 +66,7 @@ function spellCard(_reg: Registry, e: Entry<SpellData>): HTMLElement {
 function conditionCard(e: Entry<ConditionData>, active = 0): HTMLElement {
   const d = e.data, lvl = active;
   const eff = d.levels && d.levelEffects ? d.levelEffects[Math.min(Math.max(lvl, 1), d.levels)] ?? {} : d.effects;
-  return card(e.name, d.levels ? `${cap(d.category)}, ${d.levels} levels${lvl ? ` (level ${lvl} active)` : ""}` : cap(d.category), effectLines(eff), d.rules, e.source === "vault" ? e.path : undefined, sourceLabel(e));
+  return card(e.name, d.levels ? `${cap(d.category)}, ${d.levels} levels${lvl ? ` (level ${lvl} active)` : ""}` : d.kind === "disease" ? "Disease" : cap(d.category), effectLines(eff), d.rules, e.source === "vault" ? e.path : undefined, sourceLabel(e));
 }
 
 function traitCard(creature: string, index: number, ctl: SheetController): HTMLElement | null {
@@ -73,6 +81,8 @@ function creatureCard(e: Entry<CreatureData>, body?: string): HTMLElement {
     ...(Object.keys(d.saves).length ? [`Saves: ${Object.entries(d.saves).map(([a, n]) => `${ABIL[a as keyof typeof ABIL] ?? a} ${sgn(n as number)}`).join(", ")}`] : []),
     ...(Object.keys(d.skills).length ? [`Skills: ${Object.entries(d.skills).map(([k, n]) => `${cap(k)} ${sgn(n)}`).join(", ")}`] : []),
     ...(d.senses ? [`Senses: ${d.senses}`] : []),
+    ...(d.environment?.length ? [`Environment: ${d.environment.join(", ")}`] : []),
+    ...(d.copiedFrom ? [`Copied from: ${d.copiedFrom}`] : []),
     ...d.attacks.map(a => `${a.name}${a.toHit !== undefined ? `: ${sgn(a.toHit)} to hit` : ""}${a.damage ? `, ${a.damage}${a.note ? ` ${a.note}` : ""}` : ""}${a.save ? `, DC ${a.save.dc} ${ABIL[a.save.abil]} save` : ""}`)];
   const rules = [...d.traits.map(t => `${t.name}. ${t.text}`), d.rules ?? ""].filter(Boolean).join("\n\n") || body || undefined;
   return card(e.name, [`${d.size} ${d.ctype}`, d.cr !== undefined ? `CR ${d.cr}` : ""].filter(Boolean).join(" · "), lines, rules, e.source === "vault" ? e.path : undefined, sourceLabel(e));

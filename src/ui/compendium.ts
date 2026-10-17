@@ -109,6 +109,7 @@ function rowFor(ctl: CompendiumController, e: Entry): HTMLElement {
   const b = h("button", { cls: `fe-btn fe-choice fe-crow-btn ${on ? "is-on" : ""} ${off ? "is-off" : ""}`.replace(/\s+/g, " ").trim(),
     data: { id: e.id, type: e.type, source: e.sourceName }, on: { click: () => ctl.select(e) } },
     h("span", { cls: "fe-name", text: e.name }), sourceBadge(sourceLabel(e)),
+    (e.data as { kind?: string }).kind === "disease" ? h("span", { cls: "fe-src fe-disease", text: "disease", data: { badge: "disease" } }) : null,
     e.needsReview?.length ? h("span", { cls: "fe-src fe-review", text: "needs review", title: e.needsReview.join("\n"), data: { badge: "review" } }) : null,
     e.referenceOnly ? h("span", { cls: "fe-src fe-reference", text: "reference only", title: e.referenceOnly, data: { badge: "reference" } }) : null,
     off ? h("span", { cls: "fe-faint", text: " off in this campaign", data: { badge: "off" } }) : null,

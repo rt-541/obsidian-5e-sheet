@@ -7,7 +7,7 @@ import { validateEffects } from "./effects";
 export interface ArmorData { base: number; dex: "full" | "max2" | "none"; stealthDis?: boolean; strReq?: number; }
 export interface WeaponData { dmg: string; type: string; ab: "str" | "dex" | "finesse"; range: "melee" | "ranged"; bonus?: number; extraDamage?: string; }
 export interface GrantedSpell { id: string; cost: { kind: "charges"; amount: number } | { kind: "perDay"; uses: number } | { kind: "atWill" }; level?: number; dc?: number; attack?: number; }
-export interface ItemData { name: string; kind: "armor" | "shield" | "weapon" | "wondrous" | "gear" | "consumable"; rarity?: string; attunement: boolean; weight: number;
+export interface ItemData { name: string; kind: "armor" | "shield" | "weapon" | "wondrous" | "gear" | "consumable"; rarity?: string; attunement: boolean; weight: number; /** Price in copper pieces. */ value?: number;
   armor?: ArmorData; weapon?: WeaponData; charges?: { max: number; reset: "dawn" | "short" | "long" | "none" }; heal?: string; effects: Effects; rules?: string; grants?: { spells: GrantedSpell[] }; }
 
 const whole = (v: unknown, at: string, e: Errs): number | undefined => {
@@ -29,6 +29,7 @@ export const itemType: TypeDef<ItemData> = {
     const out: Partial<ItemData> = { name, kind, attunement: bool(raw.attunement, "attunement", e), weight: num(raw.weight, "weight", e, true) ?? 0,
       effects: validateEffects(raw.effects, "effects", e) };
     if (typeof raw.rarity === "string") out.rarity = raw.rarity;
+    const value = num(raw.value, "value", e, true); if (value !== undefined && value >= 0) out.value = value;
     if (typeof raw.rules === "string") out.rules = raw.rules;
     if (raw.armor !== undefined) {
       if (!isObj(raw.armor)) e.push("armor: must be a mapping");

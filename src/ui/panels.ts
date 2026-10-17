@@ -15,7 +15,7 @@ let condFilter: "all" | "active" | "srd" | "vault" = "all", condQuery = "";
 function conditionsPanel(ctl: SheetController, who?: number): HTMLElement {
   const r = ctl.host.registry;
   const conds = who === undefined ? ctl.value.conditions : ctl.character!.companions[who].conditions;
-  const entries = r.list<ConditionData>("condition");
+  const entries = r.list<ConditionData>("condition").filter(e => e.data.kind !== "disease");
   const rows = entries.filter(e => (condFilter === "all" || (condFilter === "active" ? conds[e.id] : e.source === condFilter)) && e.name.toLowerCase().includes(condQuery));
   const set = (id: string, level: number) => ctl.dispatch({ type: "condition", id, level, ...(who !== undefined ? { who: { companion: who } } : {}) });
   const search = h("input", { cls: "fe-search", attrs: { placeholder: "Search conditions", value: condQuery },

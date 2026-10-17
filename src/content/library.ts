@@ -54,6 +54,8 @@ export function libraryMeta(type: string, fm: Raw): LibraryMeta {
     case "item": {
       raw.kind = ITEM_KINDS[(text(fm.item_type) ?? "").toLowerCase()] ?? "gear";
       put(raw, "rarity", text(fm.rarity)); raw.attunement = fm.attunement === true;
+      if (typeof fm.weight === "number") raw.weight = fm.weight;
+      if (typeof fm.value === "number") raw.value = fm.value;
       break;
     }
     case "creature": {
@@ -62,9 +64,13 @@ export function libraryMeta(type: string, fm: Raw): LibraryMeta {
       raw.speed = speed(fm.speed); raw.abilities = isObj(fm.abilities) ? fm.abilities : undefined;
       put(raw, "saves", isObj(fm.saves) ? fm.saves : undefined); put(raw, "skills", isObj(fm.skills) ? fm.skills : undefined);
       put(raw, "senses", text(fm.senses));
+      const env = Array.isArray(fm.environment) ? fm.environment : text(fm.environment) ? [text(fm.environment)] : [];
+      if (env.length) raw.environment = env;
+      put(raw, "copied_from", text(fm.copied_from));
       const cr = fm.cr === undefined ? undefined : String(fm.cr); put(raw, "cr", cr);
       break;
     }
+    case "condition": case "injury": if (text(fm.condition_kind)?.toLowerCase() === "disease") raw.kind = "disease"; break;
     default: break;   // conditions: name only here, effects come from a bundled SRD condition of the same id (see VaultLoader)
   }
   const review = Array.isArray(fm.needs_review) ? fm.needs_review.filter((x): x is string => typeof x === "string") : [];
@@ -160,6 +166,7 @@ function usesLibrarySchema(type: string, fm: Raw): boolean {
   switch (type) {
     case "spell": return fm.casting_time !== undefined || typeof fm.components === "string";
     case "item": return fm.item_type !== undefined;
+    case "condition": return fm.condition_kind !== undefined;
     case "creature": return fm.creature_type !== undefined || fm.hp_formula !== undefined || typeof fm.hp === "number" || typeof fm.speed === "string";
     default: return false;
   }

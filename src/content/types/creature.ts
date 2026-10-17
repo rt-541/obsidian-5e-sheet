@@ -8,7 +8,7 @@ export interface CreatureAttack { name: string; toHit?: number; save?: { abil: A
 export interface CreatureData { name: string; size: string; ctype: string; ac: number; hp: { average: number; formula: string };
   speed: { walk: number; fly?: number; swim?: number; climb?: number }; abilities: Record<Abil, number>;
   saves: Partial<Record<Abil, number>>; skills: Record<string, number>; senses?: string; cr?: string;
-  attacks: CreatureAttack[]; traits: { name: string; text: string }[]; effects: Effects; rules?: string; }
+  attacks: CreatureAttack[]; traits: { name: string; text: string }[]; effects: Effects; rules?: string; environment?: string[]; copiedFrom?: string; }
 
 export const creatureType: TypeDef<CreatureData> = {
   type: "creature",
@@ -39,9 +39,11 @@ export const creatureType: TypeDef<CreatureData> = {
     });
     const traits = Array.isArray(raw.traits) ? raw.traits.filter(isObj).map(t => ({ name: String(t.name ?? ""), text: String(t.text ?? "") })) : [];
     const effects = validateEffects(raw.effects, "effects", e);
+    const env = (Array.isArray(raw.environment) ? raw.environment : typeof raw.environment === "string" ? [raw.environment] : []).filter((x): x is string => typeof x === "string" && !!x.trim());
     if (e.length || !name || ac === undefined) return { errors: e };
     return { errors: e, value: { name, size, ctype, ac, hp, speed, abilities, saves, skills, attacks, traits, effects,
       ...(typeof raw.senses === "string" ? { senses: raw.senses } : {}), ...(typeof raw.cr === "string" ? { cr: raw.cr } : {}),
-      ...(typeof raw.rules === "string" ? { rules: raw.rules } : {}) } };
+      ...(typeof raw.rules === "string" ? { rules: raw.rules } : {}),
+      ...(env.length ? { environment: env } : {}), ...(typeof raw.copied_from === "string" && raw.copied_from.trim() ? { copiedFrom: raw.copied_from.trim() } : {}) } };
   },
 };
