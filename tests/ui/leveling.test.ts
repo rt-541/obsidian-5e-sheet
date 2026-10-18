@@ -48,7 +48,7 @@ describe.each([["desktop", false], ["mobile", true]] as const)("level up on the 
     expect(s.q('[data-panel="level-up"]')).not.toBeNull();
     expect((s.q('[data-act="lu-next"]') as HTMLButtonElement).disabled).toBe(true);        // no class yet
     s.click('[data-class="skirmisher"]'); s.next();
-    expect(s.q('[data-step="hp"]').textContent).toContain("Full hit die: d8 (8) +2 CON = 10 HP"); s.next();
+    expect(s.q('[data-step="hp"]').textContent).toContain("Full hit die: d8 (8) +2 Constitution = 10 hit points"); s.next();
     expect(s.q('[data-step="class:skirmisher:1:skills"]').textContent).toContain("(0 of 2)");
     expect((s.q('[data-act="lu-next"]') as HTMLButtonElement).disabled).toBe(true);
     s.click('[data-opt="acrobatics"]'); expect((s.q('[data-act="lu-next"]') as HTMLButtonElement).disabled).toBe(true);
@@ -70,7 +70,7 @@ describe.each([["desktop", false], ["mobile", true]] as const)("level up on the 
     s.click('[data-hp="roll"]');
     const rolled = Number(/Rolled (\d+)/.exec(s.q('[data-result="hp"]').textContent!)![1]);
     expect(rolled).toBeGreaterThanOrEqual(1); expect(rolled).toBeLessThanOrEqual(8);
-    s.click('[data-hp="average"]'); expect(s.q('[data-result="hp"]').textContent).toBe("Average 5 +2 CON = 7 HP");
+    s.click('[data-hp="average"]'); expect(s.q('[data-result="hp"]').textContent).toBe("Average 5 +2 Constitution = 7 hit points");
     s.next(); expect(s.q('[data-step="class:skirmisher:2:choose-2"]')).not.toBeNull();
     s.click('[data-opt="stealth"]'); s.click('[data-act="lu-back"]');
     expect(s.q('[data-step="hp"]')).not.toBeNull(); s.next();

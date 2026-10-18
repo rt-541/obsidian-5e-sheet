@@ -42,7 +42,7 @@ function hpControls(ctl: SheetController, who?: number) {
     on: { change: (e: Event) => { ctl.damageType = (e.target as HTMLSelectElement).value; } } },
     h("option", { text: "Any type", attrs: { value: "" } }),
     ...DAMAGE_TYPES.map(t => h("option", { text: titleCase(t), attrs: { value: t, ...(ctl.damageType === t ? { selected: "" } : {}) } })));
-  return h("div", { cls: "fe-hpctl" }, amt, btn("Damage", act("damage")), btn("Heal", act("heal"), "mod-cta"), btn("Temp", act("temp")), kind);
+  return h("div", { cls: "fe-hpctl" }, amt, btn("Damage", act("damage")), btn("Heal", act("heal"), "mod-cta"), btn("Temp HP", act("temp")), kind);
 }
 function conditionChips(ctl: SheetController, conds: Record<string, number>, who?: number) {
   const r = ctl.host.registry;
@@ -89,14 +89,14 @@ function attacksList(ctl: SheetController, st: ActorStats, who?: number) {
 export const RENDER: Record<string, Render> = {
   identity: (ctl, st) => h("div", { cls: "fe-identity" }, h("span", { cls: "fe-name", text: st.name }), h("span", { cls: "fe-muted", text: st.label })),
   inspiration: ctl => btn("Inspiration", () => ctl.dispatch({ type: "inspiration", on: !ctl.character!.inspiration }), ctl.character?.inspiration ? "is-on" : ""),
-  prof: (ctl, st) => h("span", { cls: "fe-kv" }, h("span", { cls: "fe-muted", text: "Prof " }), sgn(st.prof)),
+  prof: (ctl, st) => h("span", { cls: "fe-kv" }, h("span", { cls: "fe-muted", text: "Proficiency bonus " }), sgn(st.prof)),
   xp: ctl => xpFeature(ctl),
   "level-up": ctl => levelUpFeature(ctl),
   features: (ctl, st) => featuresFeature(ctl, st),
   ac: (ctl, st) => stat("AC", String(st.ac.value), whyOf(st, "ac")),
-  initiative: (ctl, st) => stat("Init", rollButton(ctl, sgn(st.initiative), "Initiative", st.initiative, { kind: "initiative", abil: "dex" }, undefined, whyOf(st, "initiative")), whyOf(st, "initiative"), true),
+  initiative: (ctl, st) => stat("Initiative", rollButton(ctl, sgn(st.initiative), "Initiative", st.initiative, { kind: "initiative", abil: "dex" }, undefined, whyOf(st, "initiative")), whyOf(st, "initiative"), true),
   speed: (ctl, st) => stat("Speed", `${st.speed.value}${st.speed.sources.length ? "*" : ""}${st.speed.other ? ` (${st.speed.other})` : ""}`, whyOf(st, "speed")),
-  "passive-perception": (ctl, st) => stat("Pass. Perc", String(st.passivePerception), whyOf(st, "passive:perception")),
+  "passive-perception": (ctl, st) => stat("Passive Perception", String(st.passivePerception), whyOf(st, "passive:perception")),
   hp: (ctl, st) => hpBlock(ctl, st),
   "hp-controls": ctl => hpControls(ctl),
   "hit-dice": (ctl, st) => card("Hit Dice", ...st.hitDice.map(d => h("div", { cls: "fe-kv" },
@@ -120,7 +120,7 @@ export const RENDER: Record<string, Render> = {
   skills: (ctl, st) => card("Skills", checks(ctl, st).skills),
   attacks: (ctl, st) => card("Attacks", attacksList(ctl, st)),
   "spell-dc": (ctl, st) => h("div", { cls: "fe-kv" }, st.spellcasting
-    ? h("span", {}, h("span", { text: `Spell DC ${st.spellcasting.dc}`, ...whyData(whyOf(st, "spell-dc")) }), " · ", h("span", { text: `attack ${sgn(st.spellcasting.attack)}`, ...whyData(whyOf(st, "spell-attack")) }))
+    ? h("span", {}, h("span", { text: `Spell save DC ${st.spellcasting.dc}`, ...whyData(whyOf(st, "spell-dc")) }), " · ", h("span", { text: `spell attack ${sgn(st.spellcasting.attack)}`, ...whyData(whyOf(st, "spell-attack")) }))
     : "No spellcasting"),
   "spell-slots": (ctl, st) => card("Spell slots", ...st.slots.map(s => h("div", { cls: "fe-kv" },
     h("span", { text: s.level === "pact" ? `Pact (level ${s.pactLevel})` : `Level ${s.level}` }),
@@ -159,7 +159,7 @@ export const RENDER: Record<string, Render> = {
       const traits = r.get<CreatureData>("creature", comp.creature)?.data.traits ?? [];
       return h("div", { cls: "fe-comp", data: { companion: String(i) } },
         h("div", { cls: "fe-kv" }, h("span", { cls: "fe-name", text: st.name }), h("span", { cls: "fe-muted", text: st.label })),
-        h("div", { cls: "fe-stats" }, stat("AC", String(st.ac.value)), stat("Init", rollButton(ctl, sgn(st.initiative), `${st.name} initiative`, st.initiative, { kind: "initiative", abil: "dex" }, i)),
+        h("div", { cls: "fe-stats" }, stat("AC", String(st.ac.value)), stat("Initiative", rollButton(ctl, sgn(st.initiative), `${st.name} initiative`, st.initiative, { kind: "initiative", abil: "dex" }, i)),
           stat("Speed", `${st.speed.value}${st.speed.other ? ` (${st.speed.other})` : ""}`)),
         hpBlock(ctl, st), hpControls(ctl, i), conditionChips(ctl, comp.conditions, i), ch.abilities,
         st.skills.length ? ch.skills : null, attacksList(ctl, st, i),
@@ -171,7 +171,7 @@ export const RENDER: Record<string, Render> = {
     const traits = (n && ctl.host.registry.get<CreatureData>("creature", n.creature)?.data.traits) || [];
     return card("Traits", ...traits.map((t, ti) => h("div", { cls: "fe-note" }, h("b", { text: t.name + ". ", data: { ref: `trait:${n!.creature}:${ti}` } }), t.text))); },
   "roll-mode": ctl => h("div", { cls: "fe-seg" }, ...(["dis", "normal", "adv"] as const).map(m =>
-    btn({ dis: "Disadv.", normal: "Normal", adv: "Adv." }[m], () => ctl.setMode(m), ctl.mode === m ? "is-on" : ""))),
+    btn({ dis: "Disadvantage", normal: "Normal", adv: "Advantage" }[m], () => ctl.setMode(m), ctl.mode === m ? "is-on" : ""))),
   "roll-log": ctl => btn(`Roll log${ctl.host.log.length ? ` (${ctl.host.log.length})` : ""}`, () => ctl.open({ kind: "log" })),
   "play-edit": ctl => h("div", { cls: "fe-kv" }, h("div", { cls: "fe-seg" }, btn("Play", () => ctl.setEditing(false), ctl.editing ? "" : "is-on"), btn("Edit", () => ctl.setEditing(true), ctl.editing ? "is-on" : "")),
     ctl.editing ? btn("Customize sheet", () => ctl.open({ kind: "customize" })) : null),

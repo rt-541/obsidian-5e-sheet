@@ -50,12 +50,12 @@ function classPage(ctl: SheetController, st: LevelUpState): HTMLElement {
 function hpPage(ctl: SheetController, s: Pick<"hp">, st: LevelUpState): HTMLElement {
   const gain = (g: number) => Math.max(1, g + s.conMod);
   if (s.first) return h("div", { cls: "fe-lu-body", data: { step: "hp" } }, h("div", { cls: "fe-name", text: "First level" }),
-    h("div", { text: `Full hit die: d${s.die} (${s.die}) ${sgn(s.conMod)} CON = ${gain(s.die)} HP` }));
-  return h("div", { cls: "fe-lu-body", data: { step: "hp" } }, h("div", { cls: "fe-muted", text: `Hit die d${s.die}, CON ${sgn(s.conMod)}` }),
+    h("div", { text: `Full hit die: d${s.die} (${s.die}) ${sgn(s.conMod)} Constitution = ${gain(s.die)} hit points` }));
+  return h("div", { cls: "fe-lu-body", data: { step: "hp" } }, h("div", { cls: "fe-muted", text: `Hit die d${s.die}, Constitution ${sgn(s.conMod)}` }),
     h("div", { cls: "fe-filters" },
       choiceButton("Roll", `1d${s.die}`, st.hp?.method === "roll", undefined, () => ctl.rollLevelHp(s.die), { hp: "roll" }),
       choiceButton("Average", `${s.average}`, st.hp?.method === "average", undefined, () => ctl.setLevelUp({ hp: { method: "average" } }), { hp: "average" })),
-    st.hp ? h("div", { cls: "fe-name", data: { result: "hp" }, text: st.hp.method === "roll" ? `Rolled ${st.hp.roll} ${sgn(s.conMod)} CON = ${gain(st.hp.roll ?? 1)} HP` : `Average ${s.average} ${sgn(s.conMod)} CON = ${gain(s.average)} HP` }) : null);
+    st.hp ? h("div", { cls: "fe-name", data: { result: "hp" }, text: st.hp.method === "roll" ? `Rolled ${st.hp.roll} ${sgn(s.conMod)} Constitution = ${gain(st.hp.roll ?? 1)} hit points` : `Average ${s.average} ${sgn(s.conMod)} Constitution = ${gain(s.average)} hit points` }) : null);
 }
 
 export function subclassPage(ctl: PageCtl, s: Pick<"subclass">, st: PageState): HTMLElement {

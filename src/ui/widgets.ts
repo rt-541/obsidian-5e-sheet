@@ -104,9 +104,9 @@ function combatWords(e: Effects): string[] {
 
 export function describeEffects(e: Effects): string {
   const out: string[] = [];
-  if (e.adv?.length) out.push("Adv: " + e.adv.join(", "));
-  if (e.dis?.length) out.push("Disadv: " + e.dis.join(", "));
-  if (e.autofail?.length) out.push("Auto-fail: " + e.autofail.join(", "));
+  if (e.adv?.length) out.push("Advantage on " + e.adv.map(tagWords).join(", "));
+  if (e.dis?.length) out.push("Disadvantage on " + e.dis.map(tagWords).join(", "));
+  if (e.autofail?.length) out.push("Automatically fail " + e.autofail.map(tagWords).join(", "));
   for (const m of e.modifiers ?? []) out.push(modWords(m));
   if (e.resist?.length) out.push("Resist " + e.resist.join(", "));
   if (e.acAbility) out.push(`AC uses ${e.acAbility.toUpperCase()}`);

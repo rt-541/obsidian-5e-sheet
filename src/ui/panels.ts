@@ -36,11 +36,11 @@ function conditionsPanel(ctl: SheetController, who?: number): HTMLElement {
   };
   return h("div", { cls: "fe-cond-panel" }, search,
     h("div", { cls: "fe-filters" }, ...(["all", "active", "srd", "vault"] as const).map(f =>
-      h("button", { cls: `fe-btn ${condFilter === f ? "is-on" : ""}`, text: { all: "All", active: "Active", srd: "SRD", vault: "Homebrew" }[f], on: { click: () => { condFilter = f; ctl.emit(); } } }))),
+      h("button", { cls: `fe-btn ${condFilter === f ? "is-on" : ""}`, text: { all: "All", active: "Active", srd: "Built in", vault: "Homebrew" }[f], on: { click: () => { condFilter = f; ctl.emit(); } } }))),
     h("div", { cls: "fe-ctab", data: { group: "conditions" } }, ...rows.map(row)),
     diseases.length ? h("div", { cls: "fe-card-title", text: "Diseases" }) : null,
     diseases.length ? h("div", { cls: "fe-ctab", data: { group: "diseases" } }, ...diseases.map(row)) : null,
-    h("div", { cls: "fe-faint", text: "SRD entries ship with the plugin. Homebrew entries are notes in your compendium folder (type: 5e-condition)." }));
+    h("div", { cls: "fe-faint", text: "Built-in entries come with the plugin. Homebrew entries are notes you add to your compendium folder." }));
 }
 
 function restPanel(ctl: SheetController, id: string): HTMLElement {
@@ -75,14 +75,16 @@ function addCompanionPanel(ctl: SheetController): HTMLElement {
       h("button", { cls: "fe-btn", text: "Add", data: { creature: e.id }, on: { click: () => { ctl.dispatch({ type: "addCompanion", creature: e.id, name: name.value.trim() || e.name, kind }); ctl.close(); } } }))));
 }
 
+const sectionName = (id: string) => { const t = id.replace(/-/g, " "); return t.charAt(0).toUpperCase() + t.slice(1); };
+
 function customizePanel(ctl: SheetController, features: readonly string[]): HTMLElement {
   const visible = new Set(ctl.visible([...features])), rules = ctl.rules();
   return h("div", {},
-    h("div", { cls: "fe-card-title", text: "Rules" }),
+    h("div", { cls: "fe-card-title", text: "Optional rules" }),
     ...MODULES.map(m => h("label", { cls: "fe-kv" }, h("span", { text: m.title }),
       h("button", { cls: `fe-switch ${rules[m.id] ? "is-on" : ""}`, data: { rule: m.id }, on: { click: () => ctl.setRule(m.id, !rules[m.id]) } }))),
-    h("div", { cls: "fe-card-title", text: "Sections" }),
-    ...features.filter(f => f !== "identity" && f !== "play-edit").map(f => h("label", { cls: "fe-kv" }, h("span", { text: f }),
+    h("div", { cls: "fe-card-title", text: "Parts of the sheet" }),
+    ...features.filter(f => f !== "identity" && f !== "play-edit").map(f => h("label", { cls: "fe-kv" }, h("span", { text: sectionName(f) }),
       h("button", { cls: `fe-switch ${visible.has(f) ? "is-on" : ""}`, data: { section: f }, on: { click: () => ctl.setHidden(f, visible.has(f)) } }))));
 }
 

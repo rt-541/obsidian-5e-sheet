@@ -96,7 +96,7 @@ export class SheetController {
   private commit(v: Character | Npc) { this.value = v; this.host.save(v); this.emit(); }
   private guard(): boolean {
     if (this.writable) return true;
-    this.host.notify("This note has errors, so the sheet is read-only. Fix the frontmatter first."); return false;
+    this.host.notify("This note has errors, so the sheet is read-only. Fix the note's properties first, then reopen it."); return false;
   }
 
   /** Apply an action; returns whether it changed the note, plus any note the rules attached (e.g. concentration replaced). */
