@@ -1,6 +1,6 @@
 import type { CompanionEntry, Character, Npc } from "./character";
 import type { ClassData, CreatureData, ItemData } from "../content/types";
-import { collectEffects, damageTraits, itemWorks, missingIds, notes, sumModifier, type EffectContext, type ModOpts, type SourcedEffects } from "./effects";
+import { collectEffects, damageTraits, itemWorks, missingIds, modifierParts, notes, sumModifier, type EffectContext, type ModOpts, type SourcedEffects } from "./effects";
 import { filterGated, gateHolds, gateStateOf, NO_GATES } from "./gates";
 import { abilityMod, profBonus } from "./abilities";
 import { buildAttacks, NOT_PROFICIENT } from "./attack-rows";
@@ -10,12 +10,15 @@ import { matchesTag } from "./roll-tags";
 import { slotTable } from "./slots";
 import { ABILS, SKILLS, type Abil, type Effects, type Modifier, type RollTarget } from "./types";
 import type { ToggleDef } from "../content/types";
+import { ABIL_LONG, abilTerm, modTerms, sgn as signed, sum, type Term } from "./why";
 
 export interface AttackStat { name: string; toHit?: number; save?: { abil: Abil; dc: number }; damage?: string; note?: string; target: RollTarget;
   /** Set (false) only when the character lacks the weapon proficiency, so the proficiency bonus is not in toHit. */
   proficient?: false;
   /** The damage on a critical hit: dice doubled, plus any extra crit dice (Brutal Critical). Absent when the damage has no dice. */
-  critDamage?: string; }
+  critDamage?: string;
+  /** The same numbers in words: where the to-hit and the damage come from. */
+  why?: { hit?: string; damage?: string }; }
 export { NOT_PROFICIENT };
 
 /** "Crossbows, light" -> "light crossbow", "Simple Weapons" -> "simple weapon": lower case, singular, in the order a weapon is named. */
@@ -69,6 +72,8 @@ export interface ActorStats {
   traits: { resist: string[]; immune: string[]; vulnerable: string[] };
   notes: { source: string; text: string }[]; effects: SourcedEffects[]; missing: string[]; attunedCount: number;
   toggles: ToggleRow[];
+  /** Every number in words, by key: ac, speed, hp, initiative, carry, spell-dc, spell-attack, save:<abil>, check:<abil>, skill:<id>, passive:<skill>, dc:<id>. */
+  why: Record<string, string>;
   /** Manual resources followed by those derived from class operations. */
   resources: ResourceRow[]; casters: CasterStat[];
   /** Features, scales, class DCs, pending choices and so on, replayed from race, background, feats and class levels. */
@@ -140,13 +145,23 @@ export function deriveCharacter(c: Character, ctx: EffectContext): ActorStats {
   const dexCap = Math.max(2, ...fx.map(s => s.effects.armorDexMax ?? 0));
   const dexA = armor?.it?.armor?.dex === "none" ? 0 : armor?.it?.armor?.dex === "max2" ? Math.min(m[acAbil], dexCap) : m[acAbil];
   const acMod = sumModifier(fx, "ac", opt());
+  let acBecause: string | undefined;
+  const acParts = modTerms(modifierParts(fx, "ac", opt()));
   const ac = { value: (armor ? armor.it!.armor!.base : 10) + dexA + acMod.add, sources: [armor ? armor.it!.name : "Unarmored", ...(acFrom ? [acFrom] : []), ...(armor && dexCap > 2 && armor.it!.armor!.dex === "max2" ? [fx.find(s => s.effects.armorDexMax === dexCap)!.source] : []), ...acMod.sources] };
+  const dexNote = armor?.it?.armor?.dex === "max2" && m[acAbil] > dexCap ? `medium armor adds at most +${dexCap}` : acFrom;
+  let acTerms: Term[] = [armor ? { n: armor.it!.armor!.base, from: armor.it!.name } : { n: 10, from: "no armor" },
+    ...(armor?.it?.armor?.dex === "none" ? [] : [abilTerm(acAbil, dexA, dexNote)]), ...acParts.terms];
   // An alternate base (Unarmored Defense, Draconic Resilience) competes with the normal formula; the highest wins.
   for (const s of fx) {
     const f = s.effects.acFormula; if (!f || (armor && !f.withArmor) || (f.noShield && gates.shield)) continue;
     const value = f.base + (f.abils ?? []).reduce((a, k) => a + m[k], 0) + acMod.add;
-    if (value > ac.value) { ac.value = value; ac.sources = [s.source, ...acMod.sources]; }
+    if (value > ac.value) {
+      ac.value = value; ac.sources = [s.source, ...acMod.sources];
+      acTerms = [{ n: f.base }, ...(f.abils ?? []).map(k => abilTerm(k, m[k])), ...acParts.terms]; acBecause = s.source;
+    }
   }
+  const why: Record<string, string> = {};
+  why.ac = sum("AC", ac.value, acTerms, { ...(acBecause ? { because: acBecause } : {}), notes: acParts.notes });
 
   // Half proficiency (Jack of All Trades) on matching checks the character is not proficient in; sources do not stack.
   const halfOf = (t: RollTarget): number => {
@@ -157,25 +172,45 @@ export function deriveCharacter(c: Character, ctx: EffectContext): ActorStats {
   const saveProf = new Set<Abil>([...c.proficiencies.saves, ...prog.proficiencies.saves]);
   const skillProf = new Set([...c.proficiencies.skills, ...prog.proficiencies.skills]), expertiseProf = new Set([...c.proficiencies.expertise, ...prog.proficiencies.expertise]);
   const bonusVars = vars;
-  const saveFormula = (a: Abil) => {
-    let add = 0;
+  const saveFormulaTerms = (a: Abil): Term[] => {
+    const out: Term[] = [];
     for (const s of fx) for (const b of s.effects.saveBonus ?? []) if (b.abils.includes(a)) {
-      try { add += Math.floor(evalFormula(b.value, bonusVars)); } catch (x) { const msg = `${s.source}: save bonus ${(x as Error).message}`; if (!prog.problems.includes(msg)) prog.problems.push(msg); }
+      try { out.push({ n: Math.floor(evalFormula(b.value, bonusVars)), from: s.source }); } catch (x) { const msg = `${s.source}: save bonus ${(x as Error).message}`; if (!prog.problems.includes(msg)) prog.problems.push(msg); }
     }
-    return add;
+    return out;
   };
+  const saveFormula = (a: Abil) => saveFormulaTerms(a).reduce((t, x) => t + x.n, 0);
   const saveMod = (a: Abil, concentration = false) => m[a] + (saveProf.has(a) ? prof : 0) + sumModifier(fx, "save", opt({ kind: "save", abil: a, ...(concentration ? { concentration: true } : {}) })).add + saveFormula(a);
   const saves = Object.fromEntries(ABILS.map(a => [a, { mod: saveMod(a), prof: saveProf.has(a) }])) as ActorStats["saves"];
+  const titled = (s: string) => s.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+  for (const a of ABILS) {
+    const mp = modTerms(modifierParts(fx, "save", opt({ kind: "save", abil: a })));
+    why[`save:${a}`] = sum(`${ABIL_LONG[a]} save ${signed(saves[a].mod)}`, "", [abilTerm(a, m[a]), ...(saveProf.has(a) ? [{ label: "Proficiency", n: prof }] : []), ...mp.terms, ...saveFormulaTerms(a)], { notes: mp.notes });
+  }
+  /** The terms of a skill or check number: ability, proficiency, expertise, half proficiency and check bonuses. */
+  const checkTerms = (t: RollTarget, abil: Abil, p: boolean, ex: boolean): { terms: Term[]; notes: string[] } => {
+    const half = p || ex ? 0 : halfOf(t), mp = modTerms(modifierParts(fx, "check", opt(t)));
+    return { terms: [abilTerm(abil, m[abil]), ...(p || ex ? [{ label: "Proficiency", n: prof }] : []), ...(ex ? [{ label: "Expertise", n: prof }] : []), ...(half ? [{ label: "Half proficiency", n: half }] : []), ...mp.terms], notes: mp.notes };
+  };
   const skills = Object.entries(SKILLS).map(([id, abil]) => {
     const p = skillProf.has(id), ex = expertiseProf.has(id);
     const t: RollTarget = { kind: "skill", abil, skill: id };
-    return { id, abil, mod: m[abil] + (p ? prof : 0) + (ex ? prof : 0) + (p || ex ? 0 : halfOf(t)) + sumModifier(fx, "check", opt(t)).add, prof: p, expertise: ex };
+    const mod = m[abil] + (p ? prof : 0) + (ex ? prof : 0) + (p || ex ? 0 : halfOf(t)) + sumModifier(fx, "check", opt(t)).add, w = checkTerms(t, abil, p, ex);
+    why[`skill:${id}`] = sum(`${titled(id)} ${signed(mod)}`, "", w.terms, { notes: w.notes });
+    return { id, abil, mod, prof: p, expertise: ex };
   });
   const checks = Object.fromEntries(ABILS.map(a => [a, m[a] + halfOf({ kind: "check", abil: a }) + sumModifier(fx, "check", opt({ kind: "check", abil: a })).add])) as Record<Abil, number>;
+  for (const a of ABILS) { const w = checkTerms({ kind: "check", abil: a }, a, false, false); why[`check:${a}`] = sum(`${ABIL_LONG[a]} check ${signed(checks[a])}`, "", w.terms, { notes: w.notes }); }
   const weaponProf = weaponProficiency(prog.proficiencies.other, classData.length > 0 && classData.every(x => x.d) && prog.unknown.length === 0);
   const attacks = buildAttacks({ fx, mods: m, prof, scales: prog.scales, vars, items, weaponProf, opt, problem });
   const casters: CasterStat[] = prog.spellcasting.map(e => ({ name: e.className, abil: e.abil, progression: e.progression,
     dc: 8 + prof + m[e.abil] + sumModifier(fx, "spellDC", opt()).add, attack: prof + m[e.abil] + sumModifier(fx, "spellAttack", opt()).add }));
+  if (casters[0]) {
+    const c0 = casters[0], dcp = modTerms(modifierParts(fx, "spellDC", opt())), atp = modTerms(modifierParts(fx, "spellAttack", opt()));
+    why["spell-dc"] = sum("Spell save DC", c0.dc, [{ n: 8 }, { label: "Proficiency", n: prof }, abilTerm(c0.abil, m[c0.abil]), ...dcp.terms], { notes: dcp.notes });
+    why["spell-attack"] = sum(`Spell attack ${signed(c0.attack)}`, "", [{ label: "Proficiency", n: prof }, abilTerm(c0.abil, m[c0.abil]), ...atp.terms], { notes: atp.notes });
+  }
+  for (const d of prog.dcs) why[`dc:${d.id}`] = sum(`${d.name} save DC`, d.dc, [{ n: 8 }, { label: "Proficiency", n: prof }, abilTerm(d.abil, d.dc - 8 - prof)]);
   const spellcasting = casters[0] ? { abil: casters[0].abil, dc: casters[0].dc, attack: casters[0].attack } : undefined;
   const slots = slotTable(prog.spellcasting.map(e => ({ level: e.level, progression: e.progression, ...(e.table ? { table: e.table } : {}) })))
     .map(s => ({ ...s, used: Math.min(c.spellSlots[s.level]?.used ?? 0, s.max) }));
@@ -186,10 +221,24 @@ export function deriveCharacter(c: Character, ctx: EffectContext): ActorStats {
   const carryMod = sumModifier(fx, "carry", opt());
   const passive = (skill: string) => 10 + skills.find(k => k.id === skill)!.mod + sumModifier(fx, "passive", opt({ kind: "passive", skill })).add;
   const passives = { perception: passive("perception"), investigation: passive("investigation"), insight: passive("insight") };
+  for (const [id, abil] of [["perception", "wis"], ["investigation", "int"], ["insight", "wis"]] as const) {
+    const t: RollTarget = { kind: "skill", abil, skill: id }, w = checkTerms(t, abil, skillProf.has(id), expertiseProf.has(id)), pp = modTerms(modifierParts(fx, "passive", opt({ kind: "passive", skill: id })));
+    why[`passive:${id}`] = sum(`Passive ${titled(id)}`, passives[id], [{ n: 10 }, ...w.terms, ...pp.terms], { notes: [...w.notes, ...pp.notes] });
+  }
   const resources: ResourceRow[] = [...c.resources.map((x, i) => ({ id: `manual:${i}`, name: x.name, max: x.max, used: x.used, reset: x.reset, derived: false })),
     ...prog.resources.map(x => ({ ...x, derived: true }))];
   const crits = fx.filter(s => s.effects.critRange !== undefined).sort((a, b) => a.effects.critRange! - b.effects.critRange!);
   const speedBase = speedOf(prog.speed ?? c.baseSpeed, fx, opt());
+  const sp = modTerms(modifierParts(fx, "speed", opt()));
+  why.speed = sum("Speed", speedBase.value, [{ label: "Base", n: prog.speed ?? c.baseSpeed }, ...sp.terms], { notes: sp.notes });
+  const hpp = modTerms(modifierParts(fx, "hpMax", opt()));
+  why.hp = sum("Max HP", hpOf(c.hp.max, c.hp.current, c.hp.temp, fx, opt()).max, [{ label: "Hit points from levels", n: c.hp.max }, ...hpp.terms], { notes: hpp.notes });
+  const ip = modTerms([...modifierParts(fx, "initiative", opt({ kind: "initiative", abil: "dex" })), ...modifierParts(fx, "check", opt({ kind: "initiative", abil: "dex" }))]);
+  const ih = halfOf({ kind: "initiative", abil: "dex" });
+  const initiative = m.dex + ih + sumModifier(fx, "initiative", opt({ kind: "initiative", abil: "dex" })).add + sumModifier(fx, "check", opt({ kind: "initiative", abil: "dex" })).add;
+  why.initiative = sum(`Initiative ${signed(initiative)}`, "", [abilTerm("dex", m.dex), ...(ih ? [{ label: "Half proficiency", n: ih }] : []), ...ip.terms], { notes: ip.notes });
+  const cm = modTerms(modifierParts(fx, "carry", opt())), capacity = Math.max(0, scores.str * 15 + carryMod.add) * (carryMod.double ? 2 : 1) / (carryMod.half ? 2 : 1);
+  why.carry = `Carrying capacity ${capacity} lb = Str ${scores.str} x 15${cm.terms.map(t => `${t.n < 0 ? " - " : " + "}${Math.abs(t.n)} (${t.from})`).join("")}${carryMod.double ? " doubled" : ""}${carryMod.half ? " halved" : ""}`;
   // Extra movement modes: the best of each; "walk" means the walking speed.
   const modes: string[] = []; let hover = false;
   for (const k of ["fly", "swim", "climb", "burrow"] as const) {
@@ -215,10 +264,10 @@ export function deriveCharacter(c: Character, ctx: EffectContext): ActorStats {
     abilities: scores, mods: m, prof, level, ac, speed: { ...speedBase, other: modes.join(", ") + (hover && modes.some(x => x.startsWith("fly")) ? " (hover)" : "") },
     attacksPerAction, senses, conditionImmune: [...new Set(fx.flatMap(s => s.effects.conditionImmune ?? []))],
     hp: hpOf(c.hp.max, c.hp.current, c.hp.temp, fx, opt()), saves, concentrationSave: saveMod("con", true), skills, checks,
-    initiative: m.dex + halfOf({ kind: "initiative", abil: "dex" }) + sumModifier(fx, "initiative", opt({ kind: "initiative", abil: "dex" })).add + sumModifier(fx, "check", opt({ kind: "initiative", abil: "dex" })).add,
+    initiative, why,
     passivePerception: passives.perception, passives, attacks,
     ...(spellcasting ? { spellcasting } : {}), slots, hitDice,
-    carry: { weight, capacity: Math.max(0, scores.str * 15 + carryMod.add) * (carryMod.double ? 2 : 1) / (carryMod.half ? 2 : 1) },
+    carry: { weight, capacity },
     traits: damageTraits(fx), notes: notes(fx), effects: fx, missing, attunedCount: c.inventory.filter(e => e.attuned).length,
     toggles, resources, casters, progress: prog, maxScores, ...(crits[0] ? { crit: { range: crits[0].effects.critRange!, ...(crits[0].effects.critVs ? { vs: crits[0].effects.critVs } : {}) } } : {}),
     languages: mergeLanguages(prog.languages, c.languages),
@@ -246,7 +295,7 @@ export function deriveCreature(b: CreatureData, st: { name: string; hp: { max?: 
       ...(a.damage ? { damage: a.damage } : {}), ...(a.note ? { note: a.note } : {}), target: { kind: "attack" } })),
     slots: [], hitDice: [], carry: { weight: 0, capacity: b.abilities.str * 15 }, traits: damageTraits(fx), notes: notes(fx), effects: fx,
     missing: missingIds({ conditions: st.conditions }, ctx.registry), attunedCount: 0,
-    toggles: [], resources: [], casters: [], progress: emptyProgress(), maxScores: { str: 20, dex: 20, con: 20, int: 20, wis: 20, cha: 20 },
+    toggles: [], resources: [], casters: [], why: {}, progress: emptyProgress(), maxScores: { str: 20, dex: 20, con: 20, int: 20, wis: 20, cha: 20 },
   };
 }
 

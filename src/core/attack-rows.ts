@@ -2,11 +2,12 @@ import { slug } from "../content/registry";
 import type { ItemData } from "../content/types";
 import type { AttackStat } from "./derive";
 import { averageDice, critDamageOf, parseDice } from "./dice";
-import { itemWorks, sumModifier, type ModOpts, type SourcedEffects } from "./effects";
+import { itemWorks, modifierParts, sumModifier, type ModOpts, type SourcedEffects } from "./effects";
 import type { InventoryEntry } from "./character";
 import { evalFormula, fillDice } from "./formula";
 import { matchesTag } from "./roll-tags";
 import type { Abil, NaturalWeapon, RollTarget } from "./types";
+import { abilTerm, modTerms, sgn as signed, sum } from "./why";
 
 const sgn = (n: number) => (n >= 0 ? "+" : "") + n;
 export const NOT_PROFICIENT = "Not proficient with this weapon, so the proficiency bonus is not added.";
@@ -81,14 +82,16 @@ export function buildAttacks(i: AttackInputs): AttackStat[] {
     }
     const mod = row.offhand && !row.addMod ? Math.min(0, i.mods[abil]) : i.mods[abil];
     const dm = mod + row.bonus + sumModifier(i.fx, "damage", i.opt(target)).add;
+    const dmgMods = modTerms(modifierParts(i.fx, "damage", i.opt(target))), tail: string[] = [];
     const parts = [dmg === "1" ? `${Math.max(0, 1 + dm)} ${row.type}` : `${dmg}${dm ? sgn(dm) : ""} ${row.type}`];
-    if (row.itemExtra) parts.push(row.itemExtra);
+    if (row.itemExtra) { parts.push(row.itemExtra); tail.push(`${row.itemExtra} (${row.name})`); }
     const notes = [...(row.trained ? [] : [NOT_PROFICIENT]), ...row.notes];
     for (const s of i.fx) for (const x of s.effects.extraDamage ?? []) {
       if (x.on !== undefined && !matchesTag(x.on, target)) continue;
       const dice = extraDice(x.dice, i);
       if (dice === undefined) { i.problem(`${s.source}: extra damage ${String(x.dice)} cannot be worked out`); continue; }
       parts.push(`${dice} ${x.type === "weapon" ? row.type : x.type}`);
+      tail.push(`${dice} ${x.type === "weapon" ? row.type : x.type} (${s.source})`);
       if (x.per === "turn") notes.push(`${s.source}: the extra damage applies once per turn.`);
       if (x.note) notes.push(`${s.source}: ${x.note}`);
     }
@@ -98,7 +101,16 @@ export function buildAttacks(i: AttackInputs): AttackStat[] {
       try { extraCrit += Math.max(0, Math.floor(evalFormula(c.extra, i.vars))); } catch (x) { i.problem(`${s.source}: crit dice ${(x as Error).message}`); }
     }
     const damage = parts.join(" + "), crit = critDamageOf(damage, extraCrit);
-    return { name: row.name, toHit: i.mods[abil] + (row.trained ? i.prof : 0) + row.bonus + sumModifier(i.fx, "attack", i.opt(target)).add, damage,
+    const toHit = i.mods[abil] + (row.trained ? i.prof : 0) + row.bonus + sumModifier(i.fx, "attack", i.opt(target)).add;
+    const hitMods = modTerms(modifierParts(i.fx, "attack", i.opt(target)));
+    const why = {
+      hit: sum(`To hit ${signed(toHit)}`, "", [abilTerm(abil, i.mods[abil]), { label: "Proficiency", n: row.trained ? i.prof : 0, ...(row.trained ? {} : { from: "not proficient" }) },
+        ...(row.bonus ? [{ n: row.bonus, from: "weapon bonus" }] : []), ...hitMods.terms], { notes: hitMods.notes }),
+      damage: sum(`Damage ${dmg === "1" ? Math.max(0, 1 + dm) : `${dmg}${dm ? sgn(dm) : ""}`}`, "",
+        [...(mod ? [abilTerm(abil, mod, row.offhand && !row.addMod ? "off-hand: only a penalty counts" : undefined)] : []), ...(row.bonus ? [{ n: row.bonus, from: "weapon bonus" }] : []), ...dmgMods.terms],
+        { lead: dmg, tail, notes: dmgMods.notes }),
+    };
+    return { name: row.name, toHit, why, damage,
       ...(crit ? { critDamage: crit } : {}), target, ...(row.trained ? {} : { proficient: false as const }), ...(notes.length ? { note: notes.join(" ") } : {}) };
   });
 }
