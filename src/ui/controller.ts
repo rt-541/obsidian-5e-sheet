@@ -110,6 +110,13 @@ export class SheetController {
     return { ok: true, ...("note" in out && out.note ? { note: out.note } : {}) };
   }
 
+  /** Start or end a toggle (Rage, a stance, an aura) and say in words what happened, including why it could not start. */
+  toggle(id: string, on: boolean, value?: number): boolean {
+    const out = this.dispatch({ type: "toggle", id, on, ...(value !== undefined ? { value } : {}) });
+    if (out.ok && out.note) this.host.notify(out.note);
+    return out.ok;
+  }
+
   /** Roll the Constitution save the concentration prompt asks for; failing it ends the spell. */
   rollConcentration() {
     const chk = this.concentrationCheck, st = this.stats(), c = this.character;

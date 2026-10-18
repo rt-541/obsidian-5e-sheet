@@ -117,3 +117,13 @@
 .fe-trait { display: flex; align-items: center; gap: 8px; padding: 3px 0 3px 1.2em; flex-wrap: wrap; }
 .fe-trait-uses { flex: none; }
 .fe-mobile .fe-sheet button.fe-trait-head, .fe-mobile button.fe-trait-head { min-height: 44px; }
+/* toggles (Rage, stances, auras): big Start / End buttons */
+.fe-toggles { display: grid; gap: 8px; }
+.fe-toggle { display: grid; gap: 4px; padding: 8px; border: 1px solid var(--background-modifier-border); border-radius: var(--radius-m, 6px); }
+.fe-toggle.is-on { border-color: var(--interactive-accent); background: var(--background-secondary); }
+.fe-toggle.is-suppressed { opacity: .7; }
+.fe-sheet button.fe-toggle-btn { width: 100%; min-height: 40px; font-weight: 600; }
+.fe-mobile .fe-sheet button.fe-toggle-btn, .fe-mobile button.fe-toggle-btn { min-height: 48px; }
+.fe-toggle-value { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.fe-attacks-per { margin-bottom: 4px; }
+.fe-sheet button.fe-crit { flex: none; }

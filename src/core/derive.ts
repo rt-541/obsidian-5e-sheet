@@ -39,7 +39,7 @@ export function weaponProficiency(other: string[], known: boolean) {
 export interface ResourceRow { id: string; name: string; max: number; used: number; reset: "short" | "long" | "dawn" | "none"; derived: boolean; source?: string; refill?: DerivedResource["refill"]; unlimited?: string; }
 /** A switch on the sheet (Rage, a stance, a flame aura): `on` is what the note says, `suppressed` means it is on but its own conditions fail right now. */
 export interface ToggleRow {
-  id: string; name: string; source: string; text?: string; def: ToggleDef; effects: Effects; on: boolean; suppressed: boolean;
+  id: string; name: string; source: string; /** What a tap on the name opens: `feature:<key>` or `item:<id>`. */ ref: string; text?: string; def: ToggleDef; effects: Effects; on: boolean; suppressed: boolean;
   /** The number set while it is on (a value toggle), else 1 when on. */
   value: number; /** Set for a toggle that belongs to an inventory item. */ itemIndex?: number;
 }
@@ -110,13 +110,13 @@ export function deriveCharacter(c: Character, ctx: EffectContext): ActorStats {
   // Effects blocks with a `while` gate (armor, shield, two weapons, a toggle, concentrating) count only while the gate holds.
   const gates = gateStateOf(items, c.active, !!c.concentration);
   const fx = filterGated([...collectEffects(c, ctx), ...prog.effects], gates);
-  const toggleRow = (id: string, name: string, source: string, def: ToggleDef, effects: Effects, text?: string, itemIndex?: number): ToggleRow => {
+  const toggleRow = (id: string, name: string, source: string, ref: string, def: ToggleDef, effects: Effects, text?: string, itemIndex?: number): ToggleRow => {
     const v = c.active[id], on = v !== undefined && v !== false && v !== 0 && v !== "";
-    return { id, name, source, def, effects, on, suppressed: on && !(def.while ?? []).every(g => gateHolds(g, gates)), value: typeof v === "number" ? v : on ? 1 : 0,
+    return { id, name, source, ref, def, effects, on, suppressed: on && !(def.while ?? []).every(g => gateHolds(g, gates)), value: typeof v === "number" ? v : on ? 1 : 0,
       ...(text !== undefined ? { text } : {}), ...(itemIndex !== undefined ? { itemIndex } : {}) };
   };
-  const toggles: ToggleRow[] = [...prog.toggles.map(t => toggleRow(t.id, t.name, t.source, t.def, t.effects, t.text)),
-    ...items.flatMap(({ e, it }, i) => it?.toggle && itemWorks(e, it) && !prog.toggles.some(t => t.id === it.toggle!.id) ? [toggleRow(it.toggle.id, it.name, "Item", it.toggle, it.effects, it.rules, i)] : [])];
+  const toggles: ToggleRow[] = [...prog.toggles.map(t => toggleRow(t.id, t.name, t.source, `feature:${t.key}`, t.def, t.effects, t.text)),
+    ...items.flatMap(({ e, it }, i) => it?.toggle && itemWorks(e, it) && !prog.toggles.some(t => t.id === it.toggle!.id) ? [toggleRow(it.toggle.id, it.name, "Item", `item:${e.id}`, it.toggle, it.effects, it.rules, i)] : [])];
 
   const problem = (msg: string) => { if (!prog.problems.includes(msg)) prog.problems.push(msg); };
   const vars0 = { ...formulaVars(c, prog.scales), ...Object.fromEntries(prog.dcs.map(d => [`dc_${d.id.replace(/-/g, "_")}`, d.dc])),

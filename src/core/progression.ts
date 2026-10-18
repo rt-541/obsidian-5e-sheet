@@ -40,7 +40,7 @@ export interface Progress {
 }
 
 /** A switch declared by a feature or option: `effects` count only while it is on. */
-export interface DeclaredToggle { id: string; name: string; source: string; text?: string; def: ToggleDef; effects: Effects; }
+export interface DeclaredToggle { id: string; name: string; source: string; /** Key of the feature row that declares it. */ key: string; text?: string; def: ToggleDef; effects: Effects; }
 
 export const emptyProgress = (): Progress => ({
   features: [], resources: [], scales: {}, dcs: [], proficiencies: { saves: [], skills: [], expertise: [], other: [] }, languages: [],
@@ -95,7 +95,7 @@ export function progress(c: Character, registry: Registry): Progress {
     out.features.push({ key, source: src.label, sourceKind: kind, level: src.level, name, effects, ...(text !== undefined ? { text } : {}), ...(action ? { action } : {}), ...(toggle ? { toggle } : {}) });
     if (toggle) {
       if (out.toggles.some(t => t.id === toggle.id)) problem(`${name}: another switch is already called "${toggle.id}"`);
-      else out.toggles.push({ id: toggle.id, name, source: src.label, def: toggle, effects, ...(text !== undefined ? { text } : {}) });
+      else out.toggles.push({ id: toggle.id, name, source: src.label, key, def: toggle, effects, ...(text !== undefined ? { text } : {}) });
     }
     if (Object.keys(effects).length) out.effects.push({ source: name, effects: toggle ? gatedByToggle(effects, toggle) : effects });
   };

@@ -7,6 +7,7 @@ import { h, sgn } from "./h";
 import { btn, card, describeEffects, pips } from "./widgets";
 import { featuresFeature, levelUpFeature, xpFeature } from "./features-ui";
 import { traitsFeature } from "./traits-ui";
+import { togglesFeature } from "./toggles-ui";
 import { concentrationFeature, pinnedSpellsFeature, spellsFeature } from "./spells-ui";
 
 export { describeEffects, pips };
@@ -67,11 +68,15 @@ function checks(ctl: SheetController, st: ActorStats, who?: number) {
 }
 function attacksList(ctl: SheetController, st: ActorStats, who?: number) {
   if (!st.attacks.length) return h("div", { cls: "fe-faint", text: "No attacks" });
-  return h("div", { cls: "fe-attacks" }, ...st.attacks.map(a => h("div", { cls: "fe-attack" },
+  return h("div", { cls: "fe-attacks" },
+    who === undefined && st.kind === "character" ? h("div", { cls: "fe-muted fe-attacks-per", text: `Attacks per action: ${st.attacksPerAction}` }) : null,
+    ...st.attacks.map(a => h("div", { cls: "fe-attack" },
     h("span", { cls: "fe-grow", text: a.name }),
     a.toHit !== undefined ? rollButton(ctl, sgn(a.toHit), `${a.name} to hit`, a.toHit, a.target, who) : h("span", { cls: "fe-faint", text: "" }),
     a.save ? h("span", { cls: "fe-faint", text: `DC ${a.save.dc} ${ABIL_NAME[a.save.abil]}` }) : null,
     a.damage ? h("button", { cls: "fe-roll", text: a.damage, on: { click: () => ctl.damage(`${a.name} damage`, a.damage!) } }) : null,
+    a.critDamage ? h("button", { cls: "fe-roll fe-crit", text: "Crit", title: `Damage on a critical hit: ${a.critDamage}`, attrs: { "aria-label": `${a.name} critical hit damage` },
+      on: { click: () => ctl.damage(`${a.name} critical damage`, a.critDamage!) } }) : null,
     a.note ? h("div", { cls: "fe-note", text: a.note }) : null)));
 }
 
@@ -96,6 +101,7 @@ export const RENDER: Record<string, Render> = {
         " F ", pips(3, ds.failures, n => ctl.dispatch({ type: "deathSave", which: "failures", value: n }), "is-f"))); },
   conditions: ctl => conditionChips(ctl, ctl.value.conditions),
   concentration: ctl => concentrationFeature(ctl),
+  toggles: (ctl, st) => togglesFeature(ctl, st),
   spells: (ctl, st) => spellsFeature(ctl, st),
   "pinned-spells": (ctl, st) => pinnedSpellsFeature(ctl, st),
   "active-effects": (ctl, st) => card("Active effects",
