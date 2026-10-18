@@ -14,6 +14,12 @@ const HP_METHODS: HpMethod[] = ["roll", "average", "first", "recorded"];
  * Keys starting with `+` are written by the level-up and read by undo (`+subclass`, `+items`, `+spells`, `+swaps`).
  */
 export interface LevelEntry { class: string; level: number; hp: { method: HpMethod; die?: number; gained: number; added?: number }; choices: Record<string, unknown>; }
+/** The kinds of action a combo step can be, in the words a player uses. */
+export const COMBO_ACTIONS = ["Action", "Bonus action", "Reaction", "Move", "Free", "Other"] as const;
+/** What a combo step points at on the sheet: one thing to use (attack, spell, feature, item), a save DC to show, a resource to spend, dice to roll. */
+export interface ComboUse { attack?: string; spell?: string; feature?: string; item?: string; /** Index of a companion; with `attack`, that companion's attack. */ companion?: number; resource?: string; cost?: number; dc?: string; dice?: string; }
+export interface ComboStep { action: string; /** Who does it, when not the character (a companion's name). */ who?: string; use?: ComboUse; text: string; }
+export interface Combo { name: string; when: string; steps: ComboStep[]; notes?: string; /** Shown on the main page. */ pinned?: boolean; }
 export interface SheetToggles { hide: string[]; show: string[]; }
 export interface Character {
   type: "5e-character"; schema: 1; name: string; campaign?: string; race?: string; subrace?: string; background?: string;
@@ -42,6 +48,8 @@ export interface Character {
   concentration?: string;
   /** Spells shown on the main page: own spell id, or "<item id>/<spell id>" for item spells. */
   mainSpells: string[];
+  /** Combos: ordered coaching steps, each optionally pointing at an attack, spell, feature, item or resource. */
+  combos: Combo[];
   rest: { nightsInPlace: number }; companions: CompanionEntry[]; sheet: SheetToggles; rules: Record<string, boolean>;
 }
 export interface Npc {
@@ -58,6 +66,14 @@ type R = Record<string, unknown>;
 const isObj = (v: unknown): v is R => typeof v === "object" && v !== null && !Array.isArray(v);
 const KINDS: CompanionKind[] = ["familiar", "companion", "steed", "summon", "sidekick"];
 const RESETS = ["short", "long", "dawn", "none"] as const;
+
+/** "bonus", "Bonus Action" and "bonus action" all mean "Bonus action"; undefined or empty is an ordinary Action. */
+export function comboAction(v: unknown): string | undefined {
+  if (v === undefined || v === "") return "Action";
+  if (typeof v !== "string") return undefined;
+  const strip = (s: string) => s.trim().toLowerCase().replace(/\s+action$/, ""), k = strip(v);
+  return k === "action" || k === "" ? "Action" : COMBO_ACTIONS.find(a => strip(a) === k);
+}
 
 /** Field readers: undefined -> default silently; wrong type -> error + default. */
 class Reader {
@@ -105,6 +121,31 @@ class Reader {
   modifiers(v: unknown, at: string): Modifier[] {
     return this.list(v, at).flatMap((m, i) => { const mod = parseModifier(m, `${at}[${i}]`, this.errors); return mod ? [mod] : []; });
   }
+  combos(v: unknown, at: string): Combo[] {
+    return this.list(v, at).flatMap((x, i) => {
+      const a = `${at}[${i}]`;
+      if (!isObj(x) || typeof x.name !== "string" || !x.name.trim()) { this.errors.push(`${a}: must have a name`); return []; }
+      const steps = this.list(x.steps, `${a}.steps`).flatMap((s, j) => {
+        const b = `${a}.steps[${j}]`;
+        if (!isObj(s)) { this.errors.push(`${b}: must be a mapping`); return []; }
+        const action = comboAction(s.action);
+        if (action === undefined) this.errors.push(`${b}.action: must be one of ${COMBO_ACTIONS.join(", ")}`);
+        const step: ComboStep = { ...s, action: action ?? "Action", text: this.str(s.text, `${b}.text`) ?? "" };
+        const who = this.str(s.who, `${b}.who`); if (who) step.who = who; else delete step.who;
+        if (s.use !== undefined) {
+          const u = this.obj(s.use, `${b}.use`), use: ComboUse = { ...u };
+          for (const k of ["attack", "spell", "feature", "item", "resource", "dc", "dice"] as const) { const t = this.str(u[k], `${b}.use.${k}`); if (t !== undefined) use[k] = t; else delete use[k]; }
+          for (const k of ["companion", "cost"] as const) { if (u[k] !== undefined) use[k] = this.whole(u[k], `${b}.use.${k}`); else delete use[k]; }
+          step.use = use;
+        } else delete step.use;
+        return [step];
+      });
+      const combo: Combo = { ...x, name: x.name, when: this.str(x.when, `${a}.when`) ?? "", steps };
+      const notes = this.str(x.notes, `${a}.notes`); if (notes) combo.notes = notes; else delete combo.notes;
+      if (x.pinned !== undefined) { if (this.bool(x.pinned, `${a}.pinned`)) combo.pinned = true; else delete combo.pinned; }
+      return [combo];
+    });
+  }
   toggles(v: unknown, at: string): SheetToggles { const o = this.obj(v, at); return { hide: this.strs(o.hide, `${at}.hide`), show: this.strs(o.show, `${at}.show`) }; }
   rules(v: unknown, at: string): Record<string, boolean> {
     const o = this.obj(v, at), out: Record<string, boolean> = {};
@@ -118,7 +159,7 @@ export function newCharacter(name: string): Character {
     type: "5e-character", schema: 1, name, classes: [], abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
     proficiencies: { saves: [], skills: [], expertise: [] }, hp: { max: 0, current: 0, temp: 0 }, hitDice: {},
     deathSaves: { successes: 0, failures: 0 }, spellSlots: {}, spells: [], inventory: [], coins: { pp: 0, gp: 0, ep: 0, sp: 0, cp: 0 },
-    resources: [], conditions: {}, injuries: [], modifiers: [], inspiration: false, xp: 0, baseSpeed: 30, levelLog: [], feats: [], languages: [], uses: {}, choices: {}, active: {}, mainSpells: [],
+    resources: [], conditions: {}, injuries: [], modifiers: [], inspiration: false, xp: 0, baseSpeed: 30, levelLog: [], feats: [], languages: [], uses: {}, choices: {}, active: {}, mainSpells: [], combos: [],
     rest: { nightsInPlace: 0 }, companions: [], sheet: { hide: [], show: [] }, rules: {},
   };
 }
@@ -217,6 +258,7 @@ function parseCharacter(fm: R): Parsed {
   }
   const conc = r.str(fm.concentration, "concentration"); if (conc) c.concentration = conc;
   c.mainSpells = r.strs(fm.mainSpells, "mainSpells");
+  c.combos = r.combos(fm.combos, "combos");
   c.sheet = r.toggles(fm.sheet, "sheet");
   c.rules = r.rules(fm.rules, "rules");
   return { kind: "character", value: c, errors: r.errors, writable: r.errors.length === 0 };

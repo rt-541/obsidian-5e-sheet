@@ -1,4 +1,5 @@
-import type { Character, CompanionEntry, Npc } from "./character";
+import type { Character, Combo, CompanionEntry, Npc } from "./character";
+import { validateCombo } from "./combos";
 import type { ActorStats } from "./derive";
 import type { ConditionData, ItemData, SpellData } from "../content/types";
 import { itemWorks, type EffectContext } from "./effects";
@@ -29,7 +30,10 @@ export type Action =
   /** Switch a class DC to its alternate ability (stored as character.choices["dc.<id>.alt"]). */
   | { type: "dcAlt"; id: string; on: boolean }
   /** Switch a toggle (Rage, a stance) on or off. Starting spends its cost and ends the others in its group; `value` sets a value toggle's number. */
-  | { type: "toggle"; id: string; on: boolean; value?: number };
+  | { type: "toggle"; id: string; on: boolean; value?: number }
+  /** Save a combo: replaces the one at `index`, or adds a new one at the end when `index` is left out. */
+  | { type: "combo"; index?: number; combo: Combo } | { type: "comboRemove"; index: number }
+  | { type: "comboMove"; index: number; by: -1 | 1 } | { type: "comboPin"; index: number; on: boolean };
 export interface Limits {
   self: ActorStats; companions: (ActorStats | undefined)[]; chargesMax: (index: number) => number;
   /** Re-derive after a condition change so stored HP can be clamped to the new effective max. */
@@ -242,6 +246,18 @@ export function apply(c0: Character, a: Action, lim: Limits): Applied {
       if (n) c.uses[a.id] = n; else delete c.uses[a.id];
       break;
     }
+    case "combo": {
+      const bad = validateCombo(a.combo); if (bad) return { value: c0, error: bad };
+      const clean: Combo = { ...structuredClone(a.combo), name: a.combo.name.trim(), when: a.combo.when.trim() };
+      if (!clean.notes?.trim()) delete clean.notes; if (!clean.pinned) delete clean.pinned;
+      if (a.index === undefined) c.combos.push(clean);
+      else if (c.combos[a.index]) c.combos[a.index] = clean;
+      else return { value: c0, error: "That combo no longer exists." };
+      break;
+    }
+    case "comboRemove": c.combos.splice(a.index, 1); break;
+    case "comboMove": { const j = a.index + a.by; if (c.combos[a.index] && c.combos[j]) [c.combos[a.index], c.combos[j]] = [c.combos[j], c.combos[a.index]]; break; }
+    case "comboPin": { const k = c.combos[a.index]; if (k) { if (a.on) k.pinned = true; else delete k.pinned; } break; }
     case "ability": c.abilities[a.abil] = clamp(a.value, 1, 30); break;
   }
   return { value: c };
