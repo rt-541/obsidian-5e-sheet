@@ -1,5 +1,5 @@
-import { checkFormula, hasPlaceholder, isUnlimitedWord, UNLIMITED, type Formula } from "../../core/formula";
-import { parseDice } from "../../core/dice";
+import { checkFormula, isUnlimitedWord, UNLIMITED, type Formula } from "../../core/formula";
+import { checkDice } from "../../core/dice";
 import { ABILS, SKILLS, type Abil, type Effects } from "../../core/types";
 import { bool, isObj, type Errs, type Raw } from "../check";
 import { slug } from "../registry";
@@ -69,13 +69,7 @@ const abil = (v: unknown, at: string, e: Errs): Abil => {
   e.push(`${at}: must be one of ${ABILS.join(", ")}`); return "str";
 };
 
-/** Dice with optional {scale} placeholders: valid when it parses with each placeholder as a count or as a die. */
-export function checkDice(v: unknown): boolean {
-  if (typeof v !== "string" || !v.trim()) return false;
-  const ok = (s: string) => { try { parseDice(s); return true; } catch { return false; } };
-  if (!hasPlaceholder(v)) return ok(v);
-  return ok(v.replace(/\{[a-z0-9-]+\}/g, "1")) || ok(v.replace(/\{[a-z0-9-]+\}/g, "1d6"));
-}
+export { checkDice };
 const dice = (v: unknown, at: string, e: Errs): string => {
   if (checkDice(v)) return (v as string).trim();
   e.push(`${at}: must be dice such as 1d6+2 or {scale-id}`); return "";

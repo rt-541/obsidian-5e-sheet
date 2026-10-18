@@ -50,7 +50,30 @@ export interface Effects {
   speeds?: { fly?: number | "walk"; swim?: number | "walk"; climb?: number | "walk"; burrow?: number | "walk"; hover?: boolean };
   /** Added to the ability score before the modifier is worked out (capped by the score maximum). Each value is a Formula. */
   abilityBonus?: Partial<Record<Abil, number | string>>;
+  /** Changes how matching attack rows are worked out (Martial Arts, Ki-Empowered Strikes, Two-Weapon Fighting). */
+  weaponRule?: WeaponRule[];
+  /** Adds attack rows for natural or feature weapons (Bite, Claws, Psychic Blades). */
+  weapons?: NaturalWeapon[];
+  /** Extra damage appended to matching attack rows (Divine Strike, Hex Warrior's curse). */
+  extraDamage?: ExtraDamage[];
+  /** Extra weapon damage dice rolled on a critical hit (Brutal Critical, Savage Attacks). */
+  critDice?: CritDice[];
+  /** Extra damage added to matching spells (Agonizing Blast, Empowered Evocation). */
+  spellDamage?: SpellDamageBonus[];
+  /** Half the proficiency bonus on checks the character is not proficient in (Jack of All Trades). */
+  halfProf?: { on: string[]; roundUp?: boolean };
+  /** Rules about the d20 itself: reroll low rolls, treat low rolls as a minimum (Reliable Talent, Halfling Lucky). */
+  d20Rule?: D20Rule[];
 }
+/** match: weapon tags (`monk`, `unarmed`, `offhand`, `pact`, `magic`, a weapon property or a weapon id) or `all`. */
+export interface WeaponRule { match: string[]; abils?: Abil[]; die?: string; magical?: boolean; addMod?: boolean; note?: string; }
+/** ab: one ability, `finesse` (the better of Dex and Str) or a list (the best of them). */
+export interface NaturalWeapon { name: string; dmg: string; type: string; ab: Abil | "finesse" | Abil[]; range?: "melee" | "ranged"; bonus?: number | string; tag?: string; }
+/** dice: dice, a {scale} placeholder or a Formula; type `weapon` uses the damage type of the weapon hit. */
+export interface ExtraDamage { dice: string | number; type: string; on?: string; per?: "turn" | "hit"; note?: string; }
+export interface CritDice { extra: number | string; on?: string; }
+export interface SpellDamageBonus { spell?: string; level?: number; school?: string; damageType?: string[]; class?: string; add: number | string; perBeam?: boolean; }
+export interface D20Rule { on: string; min?: number; reroll?: number; proficient?: boolean; }
 export type Rng = () => number;            // returns [0, 1)
 export type RollMode = "normal" | "adv" | "dis";
 export interface RollResult {

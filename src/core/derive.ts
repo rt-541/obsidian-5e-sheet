@@ -3,6 +3,7 @@ import type { ClassData, CreatureData, ItemData } from "../content/types";
 import { collectEffects, damageTraits, itemWorks, missingIds, notes, sumModifier, type EffectContext, type ModOpts, type SourcedEffects } from "./effects";
 import { filterGated, gateHolds, gateStateOf, NO_GATES } from "./gates";
 import { abilityMod, profBonus } from "./abilities";
+import { buildAttacks, NOT_PROFICIENT } from "./attack-rows";
 import { evalFormula } from "./formula";
 import { emptyProgress, formulaVars, progress, type Progress, type DerivedResource } from "./progression";
 import { slotTable } from "./slots";
@@ -11,8 +12,10 @@ import type { ToggleDef } from "../content/types";
 
 export interface AttackStat { name: string; toHit?: number; save?: { abil: Abil; dc: number }; damage?: string; note?: string; target: RollTarget;
   /** Set (false) only when the character lacks the weapon proficiency, so the proficiency bonus is not in toHit. */
-  proficient?: false; }
-export const NOT_PROFICIENT = "Not proficient with this weapon, so the proficiency bonus is not added.";
+  proficient?: false;
+  /** The damage on a critical hit: dice doubled, plus any extra crit dice (Brutal Critical). Absent when the damage has no dice. */
+  critDamage?: string; }
+export { NOT_PROFICIENT };
 
 /** "Crossbows, light" -> "light crossbow", "Simple Weapons" -> "simple weapon": lower case, singular, in the order a weapon is named. */
 const weaponKey = (s: string): string => {
@@ -162,14 +165,7 @@ export function deriveCharacter(c: Character, ctx: EffectContext): ActorStats {
   });
   const checks = Object.fromEntries(ABILS.map(a => [a, m[a] + sumModifier(fx, "check", opt({ kind: "check", abil: a })).add])) as Record<Abil, number>;
   const weaponProf = weaponProficiency(prog.proficiencies.other, classData.length > 0 && classData.every(x => x.d) && prog.unknown.length === 0);
-  const attacks: AttackStat[] = items.filter(x => x.e.equipped && x.it?.weapon).map(({ e, it }) => {
-    const w = it!.weapon!, works = itemWorks(e, it), bonus = works ? (w.bonus ?? 0) : 0, trained = weaponProf(it!.name, e.id, w.category);
-    const abil: Abil = w.ab === "finesse" ? (m.dex >= m.str ? "dex" : "str") : w.ab;
-    const target: RollTarget = { kind: "attack", abil, range: w.range, tags: [...(e.id ? [e.id] : []), ...(w.props ?? [])] };
-    const dm = m[abil] + bonus + sumModifier(fx, "damage", opt(target)).add;
-    return { name: it!.name, toHit: m[abil] + (trained ? prof : 0) + bonus + sumModifier(fx, "attack", opt(target)).add, damage: `${w.dmg}${dm ? sgn(dm) : ""} ${w.type}${works && w.extraDamage ? " + " + w.extraDamage : ""}`,
-      target, ...(trained ? {} : { proficient: false, note: NOT_PROFICIENT }) };
-  });
+  const attacks = buildAttacks({ fx, mods: m, prof, scales: prog.scales, vars, items, weaponProf, opt, problem });
   const casters: CasterStat[] = prog.spellcasting.map(e => ({ name: e.className, abil: e.abil, progression: e.progression,
     dc: 8 + prof + m[e.abil] + sumModifier(fx, "spellDC", opt()).add, attack: prof + m[e.abil] + sumModifier(fx, "spellAttack", opt()).add }));
   const spellcasting = casters[0] ? { abil: casters[0].abil, dc: casters[0].dc, attack: casters[0].attack } : undefined;

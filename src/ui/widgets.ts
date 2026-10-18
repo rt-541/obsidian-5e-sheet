@@ -68,6 +68,40 @@ function defenseWords(e: Effects): string[] {
   return out;
 }
 
+/** Dice with a {scale} placeholder in words: `{martial-arts-die}` reads "your Martial Arts die". */
+const diceWords = (d: string | number) => String(d).replace(/\{([a-z0-9-]+)\}/g, (_m, id: string) => `your ${titleCase(id).toLowerCase()}`);
+const WEAPON_WORDS: Record<string, string> = { all: "all weapons", monk: "monk weapons", unarmed: "unarmed strikes", offhand: "off-hand attacks", pact: "your pact weapon", magic: "magic weapons" };
+const abilsWords = (a: string[]) => a.map(x => ABIL_WORD[x]).join(" or ");
+
+/** Weapon rules, natural weapons, extra damage, crit dice, spell damage, half proficiency and d20 rules in plain words. */
+function combatWords(e: Effects): string[] {
+  const out: string[] = [];
+  for (const r of e.weaponRule ?? []) {
+    const bits = [...(r.abils ? [`use ${abilsWords(r.abils)} if it is better`] : []), ...(r.die ? [`damage die is at least ${diceWords(r.die)}`] : []),
+      ...(r.magical ? ["count as magical"] : []), ...(r.addMod ? ["add your ability modifier to damage"] : []), ...(r.note ? [r.note] : [])];
+    out.push(`${r.match.map(m => WEAPON_WORDS[m] ?? titleCase(m)).join(" and ")}: ${bits.join(", ")}`);
+  }
+  for (const w of e.weapons ?? []) {
+    const ab = w.ab === "finesse" ? "Strength or Dexterity" : Array.isArray(w.ab) ? abilsWords(w.ab) : ABIL_WORD[w.ab];
+    out.push(`Attack: ${w.name} ${diceWords(w.dmg)} ${w.type} (${w.range ?? "melee"}, ${ab})`);
+  }
+  for (const x of e.extraDamage ?? []) {
+    out.push(`Extra ${diceWords(x.dice)} ${x.type === "weapon" ? "damage" : `${x.type} damage`}${x.on ? ` on ${tagWords(x.on)}` : " on weapon attacks"}${x.per === "turn" ? ", once per turn" : ""}${x.note ? ` (${x.note})` : ""}`);
+  }
+  for (const c of e.critDice ?? []) out.push(`Critical hits roll ${c.extra} extra weapon damage ${c.extra === 1 ? "die" : "dice"}${c.on ? ` on ${tagWords(c.on)}` : ""}`);
+  for (const d of e.spellDamage ?? []) {
+    const what = [d.spell ? titleCase(d.spell) : "", d.level !== undefined ? (d.level === 0 ? "cantrips" : `level ${d.level} spells`) : "", d.school ? `${titleCase(d.school)} spells` : "",
+      d.damageType ? `${d.damageType.join(" or ")} spells` : "", d.class ? `${titleCase(d.class)} spells` : ""].filter(Boolean).join(", ") || "spells";
+    out.push(`Extra ${diceWords(d.add)} damage on ${what}${d.perBeam ? " (for each beam)" : ""}`);
+  }
+  if (e.halfProf) out.push(`Half your proficiency bonus${e.halfProf.roundUp ? " (rounded up)" : ""} on ${e.halfProf.on.map(tagWords).join(" and ")} you are not proficient in`);
+  for (const r of e.d20Rule ?? []) {
+    if (r.min !== undefined) out.push(`A d20 roll of ${r.min - 1} or lower counts as ${r.min} on ${tagWords(r.on)}${r.proficient ? " you are proficient in" : ""}`);
+    if (r.reroll !== undefined) out.push(`Reroll a d20 of ${r.reroll} or lower once on ${tagWords(r.on)}${r.proficient ? " you are proficient in" : ""}`);
+  }
+  return out;
+}
+
 export function describeEffects(e: Effects): string {
   const out: string[] = [];
   if (e.adv?.length) out.push("Adv: " + e.adv.join(", "));
@@ -80,7 +114,7 @@ export function describeEffects(e: Effects): string {
   if (e.critRange !== undefined) out.push(`Crit on ${e.critRange}-20${e.critOn ? ` for ${tagWords(e.critOn)}` : ""}${e.critVs ? ` vs ${e.critVs}` : ""}`);
   if (e.maxScore) out.push(`${e.maxScore.abil.toUpperCase()} max ${e.maxScore.max}`);
   if (e.conditionImmune?.length) out.push("Can't be " + e.conditionImmune.map(titleCase).join(" or ").toLowerCase());
-  out.push(...defenseWords(e));
+  out.push(...defenseWords(e), ...combatWords(e));
   if (e.note) out.push(e.note);
   const text = out.join(" · ");
   return e.while?.length ? `${text} (only while ${e.while.map(gateWords).join(" and ")})` : text;

@@ -1,3 +1,4 @@
+import { hasPlaceholder } from "./formula";
 import type { RollMode, RollResult, Rng } from "./types";
 
 const sgn = (n: number) => (n >= 0 ? "+" : "") + n;
@@ -46,4 +47,31 @@ export function rollDice(title: string, expr: string, rng: Rng = Math.random): R
     parts.push(t.n ? `${t.n}d${t.faces}${t.bonus ? sgn(t.bonus) : ""}${t.label ? " " + t.label : ""}: [${rs.join(", ")}]` : `${t.bonus}${t.label ? " " + t.label : ""}`);
   }
   return { title, total, dice, detail: parts.join("  "), crit: false, fumble: false, sources: { adv: [], dis: [], fail: [] } };
+}
+
+/** Dice with optional {scale} placeholders: valid when it parses with each placeholder as a count or as a die. */
+export function checkDice(v: unknown): boolean {
+  if (typeof v !== "string" || !v.trim()) return false;
+  const ok = (s: string) => { try { parseDice(s); return true; } catch { return false; } };
+  if (!hasPlaceholder(v)) return ok(v);
+  return ok(v.replace(/\{[a-z0-9-]+\}/g, "1")) || ok(v.replace(/\{[a-z0-9-]+\}/g, "1d6"));
+}
+
+/** Average roll of a dice expression (flat numbers count as themselves); used to pick the larger of two dice. */
+export function averageDice(expr: string): number {
+  return parseDice(expr).reduce((a, t) => a + t.n * (t.faces + 1) / 2 + t.bonus, 0);
+}
+
+/**
+ * The same damage on a critical hit: every die count doubles, flat bonuses do not, and `extra` more dice of the first die's size are added
+ * (Brutal Critical). Returns undefined when the expression has no dice.
+ */
+export function critDamageOf(expr: string, extra = 0): string | undefined {
+  const terms = parseDice(expr);
+  if (!terms.some(t => t.n > 0)) return undefined;
+  return terms.map((t, idx) => {
+    if (!t.n) return `${t.bonus}${t.label ? " " + t.label : ""}`;
+    const n = t.n * 2 + (idx === 0 ? extra : 0);
+    return `${n}d${t.faces}${t.bonus ? sgn(t.bonus) : ""}${t.label ? " " + t.label : ""}`;
+  }).join(" + ");
 }

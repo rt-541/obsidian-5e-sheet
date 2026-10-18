@@ -44,3 +44,13 @@ export const act = (c: Character, a: Action, r: Registry) => {
 const rest = (id: string, c: Character, r: Registry) => activeRests({ "rest-standard": true }).find(x => x.id === id)!.apply({ c, stats: derive(c, r), registry: r, rules: { "rest-standard": true } });
 export const restShort = (c: Character, r: Registry) => rest("short", c, r);
 export const restLong = (c: Character, r: Registry) => rest("long", c, r);
+
+/** A function that gives the test character a feat carrying one effects block (and optionally extra ops) and derives it. */
+export function carrier(r: Registry) {
+  let n = 0;
+  return (effects: object, o: object = {}, ops: object[] = []) => {
+    const id = `carrier-${++n}`;
+    r.add("vault", "feat", { name: id, grants: [...ops, { op: "effect", effects }] }, { path: `${id}.md` });
+    return derive(makeChar({ ...o, feats: [id, ...((o as { feats?: string[] }).feats ?? [])] }), r);
+  };
+}
