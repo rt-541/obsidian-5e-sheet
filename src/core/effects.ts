@@ -88,6 +88,21 @@ export function critInfo(list: SourcedEffects[], t: RollTarget): { range: number
   return { range, hints };
 }
 
+/**
+ * What the d20Rule effects do to this roll: a die at or below `reroll` is rolled again (keep the new one), a die below `min` counts as `min`.
+ * `proficient` rules only apply to skills the character is proficient in. `notes` names the sources, for the roll log.
+ */
+export function d20Rules(list: SourcedEffects[], t: RollTarget, proficient: boolean): { min?: number; reroll?: number; notes: string[] } {
+  let min: number | undefined, reroll: number | undefined; const notes: string[] = [];
+  for (const s of list) for (const r of s.effects.d20Rule ?? []) {
+    if (!matchesTag(r.on, t) || (r.proficient && !proficient)) continue;
+    if (r.min !== undefined) min = Math.max(min ?? 0, r.min);
+    if (r.reroll !== undefined) reroll = Math.max(reroll ?? 0, r.reroll);
+    if (!notes.includes(s.source)) notes.push(s.source);
+  }
+  return { ...(min !== undefined ? { min } : {}), ...(reroll !== undefined ? { reroll } : {}), notes };
+}
+
 export function damageTraits(list: SourcedEffects[]) {
   const u = (k: "resist" | "immune" | "vulnerable") => [...new Set(list.flatMap(s => s.effects[k] ?? []))];
   return { resist: u("resist"), immune: u("immune"), vulnerable: u("vulnerable") };

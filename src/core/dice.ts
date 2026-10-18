@@ -9,19 +9,27 @@ export function seeded(seed: number): Rng {
   return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
 }
 
-export function rollD20(o: { title: string; mod: number; mode: RollMode; adv?: string[]; dis?: string[]; fail?: string[]; rng?: Rng; critRange?: number; critNote?: string[] }): RollResult {
+export function rollD20(o: { title: string; mod: number; mode: RollMode; adv?: string[]; dis?: string[]; fail?: string[]; rng?: Rng; critRange?: number; critNote?: string[];
+  /** A die at or below this is rolled again once and the new roll is kept (Halfling Lucky). */ reroll?: number;
+  /** A die below this counts as this (Reliable Talent). */ min?: number; /** Who gave the reroll or minimum, for the roll log. */ ruleNotes?: string[] }): RollResult {
   const rng = o.rng ?? Math.random, adv = o.adv ?? [], dis = o.dis ?? [], fail = o.fail ?? [];
   const sources = { adv, dis, fail };
   if (fail.length) return { title: o.title, total: "fail", dice: [], detail: `Automatic failure (${fail.join(", ")})`, crit: false, fumble: false, sources };
   const hasAdv = o.mode === "adv" || adv.length > 0, hasDis = o.mode === "dis" || dis.length > 0;
+  const rerolled: string[] = [];
+  const d20 = () => { const first = die(20, rng); if (o.reroll !== undefined && first <= o.reroll) { const again = die(20, rng); rerolled.push(`${first}->${again}`); return again; } return first; };
   let dice: number[], natural: number, how = "";
-  if (hasAdv && !hasDis) { dice = [die(20, rng), die(20, rng)]; natural = Math.max(...dice); how = ` adv [${dice.join(", ")}]`; }
-  else if (hasDis && !hasAdv) { dice = [die(20, rng), die(20, rng)]; natural = Math.min(...dice); how = ` dis [${dice.join(", ")}]`; }
-  else { dice = [die(20, rng)]; natural = dice[0]; if (hasAdv && hasDis) how = " adv+dis cancel"; }
+  if (hasAdv && !hasDis) { dice = [d20(), d20()]; natural = Math.max(...dice); how = ` adv [${dice.join(", ")}]`; }
+  else if (hasDis && !hasAdv) { dice = [d20(), d20()]; natural = Math.min(...dice); how = ` dis [${dice.join(", ")}]`; }
+  else { dice = [d20()]; natural = dice[0]; if (hasAdv && hasDis) how = " adv+dis cancel"; }
+  const rolled = natural;
+  if (o.min !== undefined && natural < o.min) natural = o.min;
+  const ruleText = [...(rerolled.length ? [`rerolled ${rerolled.join(", ")}`] : []), ...(natural !== rolled ? [`${rolled} counts as ${natural}`] : [])];
+  const because = ruleText.length && o.ruleNotes?.length ? ` (${ruleText.join("; ")}: ${o.ruleNotes.join(", ")})` : ruleText.length ? ` (${ruleText.join("; ")})` : "";
   const why = [...adv.map(s => "adv: " + s), ...dis.map(s => "dis: " + s)].join(", ");
   const range = Math.min(20, o.critRange ?? 20), crit = natural >= range;
   const hint = [...(crit && natural < 20 ? [`critical hit: you crit on ${range}-20`] : []), ...(o.critNote ?? [])];
-  return { title: o.title, total: natural + o.mod, natural, dice, detail: `d20(${natural})${how} ${sgn(o.mod)}${why ? ` (${why})` : ""}${hint.length ? ` - ${hint.join("; ")}` : ""}`,
+  return { title: o.title, total: natural + o.mod, natural, dice, detail: `d20(${natural})${how}${because} ${sgn(o.mod)}${why ? ` (${why})` : ""}${hint.length ? ` - ${hint.join("; ")}` : ""}`,
     crit, fumble: natural === 1, sources };
 }
 

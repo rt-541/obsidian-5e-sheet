@@ -6,6 +6,7 @@ import { abilityMod, profBonus } from "./abilities";
 import { buildAttacks, NOT_PROFICIENT } from "./attack-rows";
 import { evalFormula } from "./formula";
 import { emptyProgress, formulaVars, progress, type Progress, type DerivedResource } from "./progression";
+import { matchesTag } from "./roll-tags";
 import { slotTable } from "./slots";
 import { ABILS, SKILLS, type Abil, type Effects, type Modifier, type RollTarget } from "./types";
 import type { ToggleDef } from "../content/types";
@@ -147,6 +148,12 @@ export function deriveCharacter(c: Character, ctx: EffectContext): ActorStats {
     if (value > ac.value) { ac.value = value; ac.sources = [s.source, ...acMod.sources]; }
   }
 
+  // Half proficiency (Jack of All Trades) on matching checks the character is not proficient in; sources do not stack.
+  const halfOf = (t: RollTarget): number => {
+    let best = 0;
+    for (const s of fx) { const h = s.effects.halfProf; if (h && h.on.some(tag => matchesTag(tag, t))) best = Math.max(best, h.roundUp ? Math.ceil(prof / 2) : Math.floor(prof / 2)); }
+    return best;
+  };
   const saveProf = new Set<Abil>([...c.proficiencies.saves, ...prog.proficiencies.saves]);
   const skillProf = new Set([...c.proficiencies.skills, ...prog.proficiencies.skills]), expertiseProf = new Set([...c.proficiencies.expertise, ...prog.proficiencies.expertise]);
   const bonusVars = vars;
@@ -161,9 +168,10 @@ export function deriveCharacter(c: Character, ctx: EffectContext): ActorStats {
   const saves = Object.fromEntries(ABILS.map(a => [a, { mod: saveMod(a), prof: saveProf.has(a) }])) as ActorStats["saves"];
   const skills = Object.entries(SKILLS).map(([id, abil]) => {
     const p = skillProf.has(id), ex = expertiseProf.has(id);
-    return { id, abil, mod: m[abil] + (p ? prof : 0) + (ex ? prof : 0) + sumModifier(fx, "check", opt({ kind: "skill", abil, skill: id })).add, prof: p, expertise: ex };
+    const t: RollTarget = { kind: "skill", abil, skill: id };
+    return { id, abil, mod: m[abil] + (p ? prof : 0) + (ex ? prof : 0) + (p || ex ? 0 : halfOf(t)) + sumModifier(fx, "check", opt(t)).add, prof: p, expertise: ex };
   });
-  const checks = Object.fromEntries(ABILS.map(a => [a, m[a] + sumModifier(fx, "check", opt({ kind: "check", abil: a })).add])) as Record<Abil, number>;
+  const checks = Object.fromEntries(ABILS.map(a => [a, m[a] + halfOf({ kind: "check", abil: a }) + sumModifier(fx, "check", opt({ kind: "check", abil: a })).add])) as Record<Abil, number>;
   const weaponProf = weaponProficiency(prog.proficiencies.other, classData.length > 0 && classData.every(x => x.d) && prog.unknown.length === 0);
   const attacks = buildAttacks({ fx, mods: m, prof, scales: prog.scales, vars, items, weaponProf, opt, problem });
   const casters: CasterStat[] = prog.spellcasting.map(e => ({ name: e.className, abil: e.abil, progression: e.progression,
@@ -207,7 +215,7 @@ export function deriveCharacter(c: Character, ctx: EffectContext): ActorStats {
     abilities: scores, mods: m, prof, level, ac, speed: { ...speedBase, other: modes.join(", ") + (hover && modes.some(x => x.startsWith("fly")) ? " (hover)" : "") },
     attacksPerAction, senses, conditionImmune: [...new Set(fx.flatMap(s => s.effects.conditionImmune ?? []))],
     hp: hpOf(c.hp.max, c.hp.current, c.hp.temp, fx, opt()), saves, concentrationSave: saveMod("con", true), skills, checks,
-    initiative: m.dex + sumModifier(fx, "initiative", opt({ kind: "initiative", abil: "dex" })).add + sumModifier(fx, "check", opt({ kind: "initiative", abil: "dex" })).add,
+    initiative: m.dex + halfOf({ kind: "initiative", abil: "dex" }) + sumModifier(fx, "initiative", opt({ kind: "initiative", abil: "dex" })).add + sumModifier(fx, "check", opt({ kind: "initiative", abil: "dex" })).add,
     passivePerception: passives.perception, passives, attacks,
     ...(spellcasting ? { spellcasting } : {}), slots, hitDice,
     carry: { weight, capacity: Math.max(0, scores.str * 15 + carryMod.add) * (carryMod.double ? 2 : 1) / (carryMod.half ? 2 : 1) },
