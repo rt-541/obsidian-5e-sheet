@@ -104,7 +104,8 @@ const classLevelOf = (env: Env, key: string) => {
 function spellOptions(env: Env, op: Extract<Op, { op: "spells" }>, maxLevel: number): StepOption[] {
   const owned = new Set(env.cand.spells.map(s => s.id)), schools = op.schools?.map(s => s.toLowerCase());
   return env.registry.list<SpellData>("spell")
-    .filter(e => (Array.isArray(op.from) ? op.from.includes(e.id) : e.data.classes.includes(op.from)) && (!schools || schools.includes(e.data.school.toLowerCase())))
+    // from "*" is any class list (Magical Secrets); schools limit leveled spells only, cantrips are never restricted by them
+    .filter(e => (Array.isArray(op.from) ? op.from.includes(e.id) : op.from === "*" || e.data.classes.includes(op.from)) && (!schools || e.data.level === 0 || schools.includes(e.data.school.toLowerCase())))
     .map(e => ({ id: e.id, name: e.name, source: sourceLabel(e), level: e.data.level, school: e.data.school, text: e.data.level === 0 ? `${e.data.school} cantrip` : `Level ${e.data.level} ${e.data.school}`,
       ...(owned.has(e.id) ? { disabled: "Already known" } : e.data.level > maxLevel ? { disabled: `Needs a level ${e.data.level} slot` } : {}) }));
 }
