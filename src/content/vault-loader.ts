@@ -13,11 +13,14 @@ export interface VaultAdapter {
 }
 
 const NOT_CONTENT = new Set(["character", "npc"]);
+/** Types whose generated library notes carry the full op structure in frontmatter (the importer writes it), so they load like user notes. */
+const OP_TYPES = new Set(["class", "subclass", "race", "subrace", "feat", "background"]);
+type LibMeta = { library?: true; book?: string };
 const norm = (f: string) => f.replace(/^\/+|\/+$/g, "");
 const YIELD_EVERY = 200;
 const yieldToUi = () => new Promise<void>(r => setTimeout(r, 0));
 
-interface SubNote { fm: Record<string, unknown>; body: string; loc: Located; folder: string }
+interface SubNote { fm: Record<string, unknown>; body: string; loc: Located; folder: string; lib: LibMeta }
 
 /**
  * Reads the compendium folder into the registry. The first folder under the root is the source (notes in the root are
@@ -74,14 +77,17 @@ export class VaultLoader {
     if (typeof t !== "string" || !t.startsWith("5e-") || NOT_CONTENT.has(t.slice(3))) { this.forget(path); return false; }
     this.known.add(path);
     const type = t.slice(3);
-    if (lib) return this.loadLibrary(path, type, fm!, loc.source);
+    if (lib && !OP_TYPES.has(type)) return this.loadLibrary(path, type, fm!, loc.source);
+    // An op-format library note: usable as is; if it fails validation it becomes reference-only, never a user problem.
+    // Not `mapped`: a bundled entry of the same id keeps precedence, so characters built on it keep their recorded choices.
+    const lm: LibMeta = lib ? { library: true, ...(typeof fm!.source === "string" ? { book: fm!.source } : {}) } : {};
     const cf = classFolder(loc);
     if (cf?.kind === "class" && type === "class") this.noteClass(path, cf.folder, loc.source, fm!);
     if (cf?.kind === "subclass" && type === "subclass") {
-      this.subs.set(path, { fm: fm!, body, loc, folder: cf.folder });
+      this.subs.set(path, { fm: fm!, body, loc, folder: cf.folder, lib: lm });
       return this.addSub(path);
     }
-    return this.registry.add("vault", type, adaptUserNote(type, fm!, body), { path, body, sourceName: loc.source }) === null;
+    return this.registry.add("vault", type, adaptUserNote(type, fm!, body), { path, body, sourceName: loc.source, ...lm }) === null;
   }
 
   private loadLibrary(path: string, type: string, fm: Record<string, unknown>, sourceName: string): boolean {
@@ -114,7 +120,7 @@ export class VaultLoader {
   private addSub(path: string): boolean {
     const s = this.subs.get(path); if (!s) return false;
     const cls = this.classIdFor(slug(s.folder), s.loc.source);
-    return this.registry.add("vault", "subclass", { ...s.fm, class: cls }, { path, body: s.body, sourceName: s.loc.source }) === null;
+    return this.registry.add("vault", "subclass", { ...s.fm, class: cls }, { path, body: s.body, sourceName: s.loc.source, ...s.lib }) === null;
   }
   /** A class id changed (or the class note went away): re-register the subclasses of that folder under the new id. */
   private reattach(folderSlug: string) {
