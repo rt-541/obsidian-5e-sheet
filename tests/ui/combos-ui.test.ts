@@ -5,7 +5,7 @@ import { SheetController, type SheetHost } from "../../src/ui/controller";
 import { mountSheet } from "../../src/ui/sheet";
 import { mechanicsRegistry, tester } from "../fixtures/mechanics";
 
-export const LAYOUTS = [["desktop", false], ["mobile", true]] as const;
+const LAYOUTS = ["desktop", "tablet", "mobile"] as const;
 
 const stun = { name: "Stun Lock", when: "A dangerous single target", notes: "Stop once it is stunned.", steps: [
   { action: "Action", text: "Hit it with the dagger.", use: { attack: "Dagger" } },
@@ -14,13 +14,13 @@ const stun = { name: "Stun Lock", when: "A dangerous single target", notes: "Sto
 ] };
 const base = { inventory: [{ id: "dagger", equipped: true }] };
 
-function setup(note: object, mobile: boolean) {
+function setup(note: object, layout: (typeof LAYOUTS)[number]) {
   const r = mechanicsRegistry();
   const saved: (Character | Npc)[] = [], notices: string[] = [];
   const host: SheetHost = { registry: r, ruleDefaults: {}, save: v => saved.push(structuredClone(v)), notify: m => notices.push(m), log: [], rng: seeded(5) };
   const p = parseNote({ ...tester, ...note }); if (p.kind === "none") throw new Error("not a sheet");
   const ctl = new SheetController(host, p), root = document.createElement("div");
-  document.body.append(root); mountSheet(root, ctl, mobile);
+  document.body.append(root); mountSheet(root, ctl, layout);
   const q = (sel: string) => root.querySelector(sel) as HTMLElement;
   const all = (sel: string) => [...root.querySelectorAll<HTMLElement>(sel)];
   const click = (sel: string) => { const el = q(sel); if (!el) throw new Error("missing " + sel); el.dispatchEvent(new MouseEvent("click", { bubbles: true })); };
@@ -29,9 +29,9 @@ function setup(note: object, mobile: boolean) {
   return { ctl, root, saved, notices, q, all, click, type, pick, host };
 }
 
-for (const [name, mobile] of LAYOUTS) describe(`combos (${name})`, () => {
+for (const layout of LAYOUTS) describe(`combos (${layout})`, () => {
   it("with none yet, the tab invites the player to add the first one, in Play mode too", () => {
-    const s = setup(base, mobile);
+    const s = setup(base, layout);
     s.click('[data-tab="combos"]');
     const add = s.q('[data-pane="combos"] [data-act="add-combo"]');
     expect(add.textContent).toBe("No combos yet. Add your first combo");
@@ -42,7 +42,7 @@ for (const [name, mobile] of LAYOUTS) describe(`combos (${name})`, () => {
   });
 
   it("a combo is built in the form with plain words and pickers, then saved to the note", () => {
-    const s = setup(base, mobile);
+    const s = setup(base, layout);
     s.click('[data-tab="combos"]'); s.click('[data-act="add-combo"]');
     expect(s.q('[data-act="combo-delete"]')).toBeNull();
     s.click('[data-act="combo-save"]');
@@ -65,7 +65,7 @@ for (const [name, mobile] of LAYOUTS) describe(`combos (${name})`, () => {
   });
 
   it("each card shows a ready line, an action badge and live buttons, and red when something runs out", () => {
-    const s = setup({ ...base, combos: [stun] }, mobile);
+    const s = setup({ ...base, combos: [stun] }, layout);
     const card = s.q('[data-pane="combos"] [data-combo="0"]');
     expect(card.querySelector(".fe-ready")!.textContent).toBe("Ready");
     expect([...card.querySelectorAll(".fe-badge")].map(b => b.textContent)).toEqual(["Action", "Bonus action", "Reaction"]);
@@ -93,14 +93,14 @@ for (const [name, mobile] of LAYOUTS) describe(`combos (${name})`, () => {
   });
 
   it("a step names what is missing in words instead of failing", () => {
-    const s = setup({ combos: [{ name: "Broken", when: "", steps: [{ action: "Action", text: "Hit.", use: { attack: "Sword of Nothing" } }] }] }, mobile);
+    const s = setup({ combos: [{ name: "Broken", when: "", steps: [{ action: "Action", text: "Hit.", use: { attack: "Sword of Nothing" } }] }] }, layout);
     const step = s.q('[data-combo="0"] [data-step="0"]');
     expect(step.classList.contains("is-out")).toBe(true);
     expect(step.textContent).toContain("Can't do this yet: Sword of Nothing is not one of the attacks on this sheet.");
   });
 
   it("a feature step starts the switch and tapping its text opens the feature's detail card", () => {
-    const s = setup({ combos: [{ name: "Rage plan", when: "", steps: [{ action: "Bonus action", text: "Go fury.", use: { feature: "class:tester:1:fury" } }] }] }, mobile);
+    const s = setup({ combos: [{ name: "Rage plan", when: "", steps: [{ action: "Bonus action", text: "Go fury.", use: { feature: "class:tester:1:fury" } }] }] }, layout);
     s.click('[data-step="0"] [data-act="step-toggle"]');
     expect((s.ctl.value as Character).active.fury).toBe(true);
     expect(s.q('[data-step="0"] [data-act="step-toggle"]').textContent).toBe("End Fury");
@@ -109,7 +109,7 @@ for (const [name, mobile] of LAYOUTS) describe(`combos (${name})`, () => {
   });
 
   it("Edit opens the same form, which can reorder and delete with a second tap", () => {
-    const s = setup({ ...base, combos: [stun, { name: "Second", when: "", steps: [{ action: "Action", text: "x" }] }] }, mobile);
+    const s = setup({ ...base, combos: [stun, { name: "Second", when: "", steps: [{ action: "Action", text: "x" }] }] }, layout);
     s.click('[data-combo="0"] [data-act="edit-combo"]');
     expect((s.q('[data-act="combo-name"]') as HTMLInputElement).value).toBe("Stun Lock");
     expect(s.all(".fe-form-step")).toHaveLength(3);
@@ -125,13 +125,13 @@ for (const [name, mobile] of LAYOUTS) describe(`combos (${name})`, () => {
   });
 
   it("Cancel leaves the note alone", () => {
-    const s = setup({ combos: [stun] }, mobile);
+    const s = setup({ combos: [stun] }, layout);
     s.click('[data-act="edit-combo"]'); s.type('[data-act="combo-name"]', "Renamed"); s.click('[data-act="combo-cancel"]');
     expect((s.ctl.value as Character).combos[0].name).toBe("Stun Lock"); expect(s.saved).toEqual([]);
   });
 
   it("a pinned combo shows on the main page with its live buttons", () => {
-    const s = setup({ ...base, combos: [stun, { ...stun, name: "Other" }] }, mobile);
+    const s = setup({ ...base, combos: [stun, { ...stun, name: "Other" }] }, layout);
     expect(s.q('[data-feature="pinned-combos"]').textContent).toContain("Pin a combo on the Combos tab");
     s.click('[data-pane="combos"] [data-combo="1"] [data-act="pin-combo"]');
     expect((s.ctl.value as Character).combos.map(k => !!k.pinned)).toEqual([false, true]);
@@ -143,7 +143,7 @@ for (const [name, mobile] of LAYOUTS) describe(`combos (${name})`, () => {
   });
 
   it("tapping the combo's name opens its full detail card", () => {
-    const s = setup({ combos: [stun] }, mobile);
+    const s = setup({ combos: [stun] }, layout);
     s.click('[data-pane="combos"] [data-combo="0"] .fe-name');
     const d = s.q('[data-panel="details"]').textContent!;
     expect(d).toContain("1. Action: Hit it with the dagger."); expect(d).toContain("2. Bonus action: Fury up."); expect(d).toContain("Stop once it is stunned.");
@@ -152,14 +152,15 @@ for (const [name, mobile] of LAYOUTS) describe(`combos (${name})`, () => {
 
 describe("combos give identical results on every layout", () => {
   it("the same session ends in the same note and the same words", () => {
-    const run = (mobile: boolean) => {
-      const s = setup({ ...base, combos: [stun] }, mobile);
+    const run = (layout: (typeof LAYOUTS)[number]) => {
+      const s = setup({ ...base, combos: [stun] }, layout);
       s.click('[data-pane="combos"] [data-combo="0"] [data-act="pin-combo"]');
       s.click('[data-pane="combos"] [data-step="1"] [data-act="step-spend"]');
       s.click('[data-pane="combos"] [data-step="0"] button');
       s.click('[data-pane="combos"] [data-act="add-combo"]'); s.type('[data-act="combo-name"]', "Two"); s.type('[data-act="step-text"]', "Wait."); s.click('[data-act="combo-save"]');
       return [JSON.stringify((s.ctl.value as Character).combos), JSON.stringify((s.ctl.value as Character).uses), s.q('[data-feature="pinned-combos"]').textContent!, s.q('[data-feature="combos"]').textContent!, s.host.log.map(l => l.title).join("|")];
     };
-    expect(run(false)).toEqual(run(true));
+    const [d, t, m] = [run("desktop"), run("tablet"), run("mobile")];
+    expect(t).toEqual(d); expect(m).toEqual(d);
   });
 });

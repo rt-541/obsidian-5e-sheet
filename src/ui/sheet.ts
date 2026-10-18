@@ -1,14 +1,16 @@
 import type { SheetController } from "./controller";
 import { RENDER } from "./components";
 import { clear, h } from "./h";
-import { CHARACTER_FEATURES, NPC_FEATURES, layoutFor } from "./layouts";
+import { CHARACTER_FEATURES, NPC_FEATURES, layoutFor, type LayoutName } from "./layouts";
 import { detailCard } from "./details";
 import { renderPanel } from "./panels";
 
 const TOAST_MS = 2600, HOVER_MS = 250;
 
 /** Mount a sheet into `root`; re-renders on every controller change. */
-export function mountSheet(root: HTMLElement, ctl: SheetController, mobile: boolean): { destroy(): void; render(): void } {
+export function mountSheet(root: HTMLElement, ctl: SheetController, layoutIn: LayoutName | boolean): { destroy(): void; render(): void } {
+  const layoutName: LayoutName = layoutIn === true ? "mobile" : layoutIn === false ? "desktop" : layoutIn;
+  const touch = layoutName !== "desktop";   // phones and tablets: a tap opens the card, there is no hover
   let toastTimer: number | undefined, shownRoll: unknown, hoverTimer: number | undefined, popover: HTMLElement | undefined;
   const hidePopover = () => { window.clearTimeout(hoverTimer); hoverTimer = undefined; popover?.remove(); popover = undefined; };
   /**
@@ -28,7 +30,7 @@ export function mountSheet(root: HTMLElement, ctl: SheetController, mobile: bool
   };
   const refOf = (e: Event) => (e.target as Element | null)?.closest?.<HTMLElement>("[data-ref]") ?? null;
   const onOver = (e: MouseEvent) => {
-    if (mobile || window.matchMedia?.("(hover: none)")?.matches) return;   // touch: tap opens the panel instead
+    if (touch || window.matchMedia?.("(hover: none)")?.matches) return;   // touch: tap opens the panel instead
     const el = refOf(e); if (!el) return;
     const from = (e.relatedTarget as Node | null);
     if (from && el.contains(from)) return;      // moving between children of the same name
@@ -47,10 +49,10 @@ export function mountSheet(root: HTMLElement, ctl: SheetController, mobile: bool
   window.addEventListener("scroll", hidePopover, true);
   const render = () => {
     const features = ctl.isNpc ? NPC_FEATURES : CHARACTER_FEATURES;
-    const layout = layoutFor(ctl.isNpc, mobile), visible = new Set(ctl.visible([...features])), st = ctl.stats();
+    const layout = layoutFor(ctl.isNpc, layoutName), visible = new Set(ctl.visible([...features])), st = ctl.stats();
     const body = root.querySelector<HTMLElement>(".fe-panel-body"), was = body ? { kind: (body.parentElement as HTMLElement).dataset.panel, top: body.scrollTop } : undefined;
     hidePopover(); clear(root);
-    root.className = `fe-sheet ${mobile ? "fe-mobile" : "fe-desktop"} ${ctl.editing ? "is-editing" : ""}`;
+    root.className = `fe-sheet fe-${layoutName} ${ctl.editing ? "is-editing" : ""}`;
     if (ctl.errors.length) root.append(h("div", { cls: "fe-banner", data: { feature: "problems" } },
       h("b", { text: "This note has errors, so the sheet is read-only:" }), h("ul", {}, ...ctl.errors.map(e => h("li", { text: e })))));
     if (!st) { root.append(h("div", { cls: "fe-banner", text: "This NPC's creature is not in the compendium." })); return; }

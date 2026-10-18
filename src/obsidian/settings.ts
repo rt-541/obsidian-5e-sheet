@@ -2,12 +2,13 @@ import { PluginSettingTab, Setting, type App } from "obsidian";
 import type { RollResult } from "../core/types";
 import { setBuiltinMechanics } from "../content/overlay";
 import { MODULES } from "../rules";
+import type { LayoutSetting } from "../ui/layouts";
 import type FiveESheetPlugin from "../main";
 
 export interface Settings {
   compendiumFolder: string;
   autoOpen: boolean;
-  layout: "auto" | "desktop" | "mobile";
+  layout: LayoutSetting;
   ruleDefaults: Record<string, boolean>;
   /** Built-in mechanics: numbers and switches the plugin supplies for features whose notes have none. */
   builtinMechanics: boolean;
@@ -24,9 +25,9 @@ export class FiveESettingTab extends PluginSettingTab {
       .addText(t => t.setValue(s.compendiumFolder).onChange(async v => { s.compendiumFolder = v.trim() || DEFAULT_SETTINGS.compendiumFolder; await this.plugin.persist(); await this.plugin.loader.setFolder(s.compendiumFolder); }));
     new Setting(containerEl).setName("Open sheets automatically").setDesc("Character and NPC notes open as a sheet instead of markdown.")
       .addToggle(t => t.setValue(s.autoOpen).onChange(async v => { s.autoOpen = v; await this.plugin.persist(); }));
-    new Setting(containerEl).setName("Layout").setDesc("Auto picks the mobile layout on phones and narrow panes.")
-      .addDropdown(d => d.addOptions({ auto: "Auto", desktop: "Desktop", mobile: "Mobile" }).setValue(s.layout)
-        .onChange(async v => { s.layout = v as Settings["layout"]; await this.plugin.persist(); this.plugin.refreshViews(); }));
+    new Setting(containerEl).setName("Layout").setDesc("Auto picks the phone layout on phones and narrow panes, the tablet layout on tablets and medium-width panes (700 to 1100 pixels), and the desktop layout otherwise. Choose one to always use it.")
+      .addDropdown(d => d.addOptions({ auto: "Auto", desktop: "Desktop", tablet: "Tablet", mobile: "Phone" }).setValue(s.layout)
+        .onChange(async v => { s.layout = v as LayoutSetting; await this.plugin.persist(); this.plugin.refreshViews(); }));
     new Setting(containerEl).setName("Built-in mechanics").setDesc("The plugin fills in the numbers and switches (armor class, Rage, Sneak Attack, fighting styles and so on) for features whose notes do not have any. A note that has its own always wins. Turn this off to use only what your notes say.")
       .addToggle(t => t.setValue(s.builtinMechanics).onChange(async v => {
         s.builtinMechanics = v; setBuiltinMechanics(v); await this.plugin.persist();

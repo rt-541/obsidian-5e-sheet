@@ -5,11 +5,11 @@ import { loadSrd } from "../../src/content/srd";
 import { parseNote, type Character, type Npc } from "../../src/core/character";
 import { seeded } from "../../src/core/dice";
 import { SheetController, type SheetHost } from "../../src/ui/controller";
-import { CHARACTER_FEATURES, NPC_FEATURES, DESKTOP, MOBILE, NPC_DESKTOP, NPC_MOBILE, placed } from "../../src/ui/layouts";
+import { CHARACTER_FEATURES, NPC_FEATURES, DESKTOP, MOBILE, TABLET, NPC_DESKTOP, NPC_MOBILE, placed } from "../../src/ui/layouts";
 import { mountSheet } from "../../src/ui/sheet";
 import { thalia, maren } from "../fixtures/notes";
 
-function setup(note: object, mobile: boolean, extra?: (r: Registry) => void) {
+function setup(note: object, mobile: boolean | "tablet", extra?: (r: Registry) => void) {
   const r = new Registry(); registerBuiltinTypes(r); loadSrd(r); extra?.(r);
   const saved: (Character | Npc)[] = [], notices: string[] = [];
   const host: SheetHost = { registry: r, ruleDefaults: {}, save: v => saved.push(structuredClone(v)), notify: m => notices.push(m), log: [], rng: seeded(11), body: "Backstory" };
@@ -24,17 +24,17 @@ const features = (root: HTMLElement) => new Set([...root.querySelectorAll<HTMLEl
 
 describe("layout parity", () => {
   it("every layout places each feature exactly once", () => {
-    for (const [l, list] of [[DESKTOP, CHARACTER_FEATURES], [MOBILE, CHARACTER_FEATURES], [NPC_DESKTOP, NPC_FEATURES], [NPC_MOBILE, NPC_FEATURES]] as const) {
+    for (const [l, list] of [[DESKTOP, CHARACTER_FEATURES], [TABLET, CHARACTER_FEATURES], [MOBILE, CHARACTER_FEATURES], [NPC_DESKTOP, NPC_FEATURES], [NPC_MOBILE, NPC_FEATURES]] as const) {
       const p = placed(l); expect([...p].sort()).toEqual([...list].sort()); expect(new Set(p).size).toBe(p.length);
     }
   });
-  it("desktop and mobile render the same feature set", () => {
-    const d = setup(thalia, false), m = setup(thalia, true);
-    expect(features(d.root)).toEqual(features(m.root));
+  it("desktop, tablet and mobile render the same feature set", () => {
+    const d = setup(thalia, false), t = setup(thalia, "tablet"), m = setup(thalia, true);
+    expect(features(d.root)).toEqual(features(m.root)); expect(features(t.root)).toEqual(features(d.root));
     for (const f of CHARACTER_FEATURES) expect(features(d.root).has(f), f).toBe(true);
   });
   it("the same session gives identical results on both layouts", () => {
-    const run = (mobile: boolean) => {
+    const run = (mobile: boolean | "tablet") => {
       const s = setup(thalia, mobile), out: string[] = [];
       s.click('[data-feature="skills"] .fe-roll'); out.push(s.q(".fe-toast").textContent!);                         // Acrobatics, poisoned -> dis
       s.click('[data-feature="roll-mode"] .fe-btn:last-child'); s.click('[data-feature="saves"] .fe-roll'); out.push(s.q(".fe-toast").textContent!);
@@ -46,8 +46,8 @@ describe("layout parity", () => {
       out.push(s.q('[data-feature="hp"]').textContent!, JSON.stringify(s.ctl.value.conditions));
       return out;
     };
-    const d = run(false), m = run(true);
-    expect(d).toEqual(m);
+    const d = run(false), m = run(true), t = run("tablet");
+    expect(d).toEqual(m); expect(t).toEqual(d);
     expect(d[0]).toContain("dis: Poisoned"); expect(d[3]).toContain("Automatic failure (Paralyzed)"); expect(d[4]).toContain("43 / 43");
   });
 });

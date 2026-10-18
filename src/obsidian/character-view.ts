@@ -2,17 +2,17 @@ import { FileView, MarkdownRenderer, Platform, TFile, type WorkspaceLeaf } from 
 import { campaignType, type CampaignData } from "../content/types/campaign";
 import { parseNote } from "../core/character";
 import { SheetController } from "../ui/controller";
+import { pickLayout, type LayoutName } from "../ui/layouts";
 import { mountSheet } from "../ui/sheet";
 import type FiveESheetPlugin from "../main";
 import { campaignLink, stripFrontmatter } from "./store";
 
 export const VIEW_TYPE = "dnd-5e-sheet";
-const NARROW_PX = 700;
 
 export class CharacterView extends FileView {
   private ctl?: SheetController;
   private mounted?: { destroy(): void; render(): void };
-  private narrow = false;
+  private layoutName?: LayoutName;
   private resizeObs?: ResizeObserver;
   private logPath?: string;
 
@@ -23,7 +23,7 @@ export class CharacterView extends FileView {
 
   async onOpen() {
     this.addAction("file-text", "Open as markdown", () => this.plugin.openAsMarkdown(this.leaf));
-    this.resizeObs = new ResizeObserver(() => { const n = this.contentEl.clientWidth < NARROW_PX; if (n !== this.narrow) { this.narrow = n; void this.build(); } });
+    this.resizeObs = new ResizeObserver(() => { if (this.layoutName && this.pick() !== this.layoutName) void this.build(); });
     this.resizeObs.observe(this.contentEl);
   }
   async onClose() { this.resizeObs?.disconnect(); await this.teardown(); }
@@ -41,9 +41,9 @@ export class CharacterView extends FileView {
   /** The sheet being shown (the compendium browser adds items, spells and companions to it). */
   get sheet(): SheetController | undefined { return this.ctl; }
 
-  private mobile(): boolean {
-    const l = this.plugin.data.settings.layout;
-    return l === "mobile" || (l === "auto" && (Platform.isMobile || this.narrow));
+  /** The layout for this pane: the Layout setting, else the device and the pane width (phone, tablet 700 to 1100 px, desktop). */
+  private pick(): LayoutName {
+    return pickLayout(this.plugin.data.settings.layout, { isMobile: Platform.isMobile, isTablet: Platform.isTablet, width: this.contentEl.clientWidth });
   }
   private campaignFor(file: TFile, raw: string | undefined): CampaignData | undefined {
     const link = campaignLink(raw); if (!link) return undefined;
@@ -83,7 +83,7 @@ export class CharacterView extends FileView {
     if (prev) { ctl.tab = prev.tab; ctl.mode = prev.mode; ctl.editing = prev.editing; }
     ctl.subscribe(() => this.plugin.saveLogsSoon());
     this.mounted?.destroy();
-    this.ctl = ctl; this.mounted = mountSheet(this.contentEl, ctl, this.mobile());
+    this.ctl = ctl; this.layoutName = this.pick(); this.mounted = mountSheet(this.contentEl, ctl, this.layoutName);
   }
 
   /** Called by the plugin when this file's metadata changes. */

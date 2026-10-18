@@ -151,3 +151,19 @@
 .fe-form-step { display: grid; gap: 6px; padding: 8px; border: 1px solid var(--background-modifier-border); border-radius: var(--radius-m, 6px); }
 .fe-mobile .fe-combo-form select, .fe-mobile .fe-combo-form input, .fe-mobile .fe-combo-form textarea { min-height: 44px; }
 .fe-mobile .fe-step-ctl button.fe-btn, .fe-mobile .fe-step-ctl button.fe-roll { min-height: 44px; }
+
+/* tablet: a header that stays put, two columns, and 44px touch targets */
+.fe-tablet .fe-pinned { position: sticky; top: 0; z-index: 5; background: var(--background-primary); padding-top: 6px; }
+.fe-tablet .fe-pane { grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); align-items: start; }
+.fe-tablet button.fe-btn, .fe-tablet button.fe-roll, .fe-tablet button.fe-tab, .fe-tablet button.fe-chip, .fe-tablet button.fe-chip-add { min-height: 44px; }
+.fe-tablet button.fe-toggle-btn, .fe-sheet.fe-tablet button.fe-toggle-btn { min-height: 48px; }
+.fe-tablet button.fe-trait-head, .fe-tablet .fe-lu-nav button.fe-btn, .fe-tablet .fe-choice { min-height: 44px; }
+.fe-sheet.fe-tablet button.fe-pip { width: 28px; height: 28px; }
+.fe-sheet.fe-tablet button.fe-dot { width: 26px; height: 26px; }
+.fe-sheet.fe-tablet button.fe-switch { width: 68px; height: 44px; border: 6px solid transparent; background-clip: padding-box; }
+.fe-tablet .fe-switch::after { top: 4px; left: 4px; width: 24px; height: 24px; } .fe-tablet .fe-switch.is-on::after { left: 28px; }
+.fe-tablet .fe-row { min-height: 44px; border-bottom: 1px solid var(--background-modifier-border); }
+.fe-tablet select, .fe-tablet input:not([type="checkbox"]), .fe-tablet textarea { min-height: 44px; }
+.fe-tablet .fe-panel { left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(720px, 94vw); max-height: 85vh; border-radius: var(--radius-l); }
+.fe-tablet .fe-step-ctl button.fe-btn, .fe-tablet .fe-step-ctl button.fe-roll { min-height: 44px; }
+.fe-tablet .fe-comp-detail { position: static; }
