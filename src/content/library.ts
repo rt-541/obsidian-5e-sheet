@@ -52,10 +52,13 @@ export function libraryMeta(type: string, fm: Raw): LibraryMeta {
       break;
     }
     case "item": {
-      raw.kind = ITEM_KINDS[(text(fm.item_type) ?? "").toLowerCase()] ?? "gear";
+      // The importer writes the plugin-native kind, weapon, armor, effects and charges where the data has them.
+      raw.kind = text(fm.kind) ?? ITEM_KINDS[(text(fm.item_type) ?? "").toLowerCase()] ?? "gear";
       put(raw, "rarity", text(fm.rarity)); raw.attunement = fm.attunement === true;
       if (typeof fm.weight === "number") raw.weight = fm.weight;
       if (typeof fm.value === "number") raw.value = fm.value;
+      for (const k of ["weapon", "armor", "effects", "charges"] as const) if (isObj(fm[k])) raw[k] = fm[k];
+      if (text(fm.heal)) raw.heal = text(fm.heal);
       break;
     }
     case "creature": {
@@ -124,6 +127,11 @@ function spellFromBody(raw: Raw, body: string): Raw {
   if (level > 0 && uniq.size === 1) {
     const type = tagType ?? hits[0].t;
     out.damage = { type, bySlot: bySlot(level, hits[0].d, inc(/damage increases by (\d+d\d+)/i)) };
+  } else if (level === 0 && uniq.size === 1) {
+    // Cantrips: "increases by 1d10 when you reach 5th level (2d10), 11th level (3d10), and 17th level (4d10)";
+    // without that sentence (a cantrip that adds beams instead) the dice stay the same at every tier.
+    const base = hits[0].d, tiers = /5th level \((\d+d\d+)\),\s*11th level \((\d+d\d+)\),?\s*and 17th level \((\d+d\d+)\)/i.exec(main);
+    out.damage = { type: tagType ?? hits[0].t, byCharLevel: { "1": base, "5": tiers ? norm(tiers[1]) : base, "11": tiers ? norm(tiers[2]) : base, "17": tiers ? norm(tiers[3]) : base } };
   }
   const heal = /regains? (?:a number of )?hit points equal to (\d+d\d+)(\s*\+\s*your spellcasting ability modifier)?/i.exec(main);
   if (heal && level > 0) out.heal = { bySlot: bySlot(level, `${heal[1]}${heal[2] ? "+MOD" : ""}`, inc(/healing increases by (\d+d\d+)/i)) };
@@ -144,6 +152,7 @@ export function creatureAttacks(body: string): Raw[] {
     const hit = /([+-]\d+) to hit/i.exec(t); if (hit) a.toHit = Number(hit[1]);
     const dm = /Hit:\*?\s*\d+\s*\(([^)]+)\)\s*([a-z]+)?\s*damage/i.exec(t);
     if (dm && dice(dm[1])) { a.damage = norm(dm[1]); if (dm[2]) a.note = dm[2].toLowerCase(); }
+    else { const flat = /Hit:\*?\s*(\d+)\s+([a-z]+)\s+damage/i.exec(t); if (flat) { a.damage = flat[1]; a.note = flat[2].toLowerCase(); } }   // "Hit: 1 slashing damage"
     const sv = /DC (\d+) (Strength|Dexterity|Constitution|Intelligence|Wisdom|Charisma) saving throw/i.exec(t);
     if (sv) a.save = { abil: ABIL_NAMES[sv[2].toLowerCase()], dc: Number(sv[1]) };
     if (a.toHit !== undefined || a.save) out.push(a);
@@ -151,12 +160,21 @@ export function creatureAttacks(body: string): Raw[] {
   return out;
 }
 
+/** Traits: the `***Name.*** text` entries before the first `## ` section (Flyby, Keen Hearing and Sight). */
+export function creatureTraits(body: string): Raw[] {
+  const end = body.search(/^## /m), head = end >= 0 ? body.slice(0, end) : body;
+  return [...head.matchAll(/^\*\*\*(.+?)\.\*\*\*\s*(.*)$/gm)].map(m => ({ name: m[1].trim(), text: m[2].trim() }));
+}
+
 /** Stage two: patch the metadata-mapped raw with what the note text provides. */
 export function libraryBody(type: string, raw: Raw, body: string): Raw {
   switch (type) {
     case "spell": return spellFromBody(raw, body);
     case "item": case "condition": case "injury": { const rules = cleanBody(body); return rules ? { ...raw, rules } : raw; }
-    case "creature": { const attacks = creatureAttacks(body); return attacks.length ? { ...raw, attacks } : raw; }
+    case "creature": {
+      const attacks = creatureAttacks(body), traits = creatureTraits(body);
+      return { ...raw, ...(attacks.length ? { attacks } : {}), ...(traits.length ? { traits } : {}) };
+    }
     default: return raw;
   }
 }
