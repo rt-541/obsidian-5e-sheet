@@ -47,7 +47,7 @@ export function mountSheet(root: HTMLElement, ctl: SheetController, mobile: bool
   window.addEventListener("scroll", hidePopover, true);
   /** Nearest ancestor that scrolls (Obsidian's .view-content); re-rendering must not reset its position. */
   const scrollParent = (): HTMLElement | null => {
-    for (let el = root.parentElement; el; el = el.parentElement) {
+    for (let el: HTMLElement | null = root; el; el = el.parentElement) {
       const o = getComputedStyle(el).overflowY;
       if (o === "auto" || o === "scroll" || el.classList.contains("view-content")) return el;
     }
@@ -59,7 +59,8 @@ export function mountSheet(root: HTMLElement, ctl: SheetController, mobile: bool
     const features = ctl.isNpc ? NPC_FEATURES : CHARACTER_FEATURES;
     const layout = layoutFor(ctl.isNpc, mobile), visible = new Set(ctl.visible([...features])), st = ctl.stats();
     hidePopover(); clear(root);
-    root.className = `fe-sheet ${mobile ? "fe-mobile" : "fe-desktop"} ${ctl.editing ? "is-editing" : ""}`;
+    // classList, never className: `root` is Obsidian's .view-content, and that class is what makes the pane scroll
+    root.classList.add("fe-sheet", mobile ? "fe-mobile" : "fe-desktop"); root.classList.toggle("is-editing", ctl.editing);
     if (ctl.errors.length) root.append(h("div", { cls: "fe-banner", data: { feature: "problems" } },
       h("b", { text: "This note has errors, so the sheet is read-only:" }), h("ul", {}, ...ctl.errors.map(e => h("li", { text: e })))));
     if (!st) { root.append(h("div", { cls: "fe-banner", text: "This NPC's creature is not in the compendium." })); return; }
@@ -91,6 +92,7 @@ export function mountSheet(root: HTMLElement, ctl: SheetController, mobile: bool
   const off = ctl.subscribe(render); render();
   return { render, destroy: () => {
     off(); window.clearTimeout(toastTimer); hidePopover(); clear(root);
+    root.classList.remove("fe-sheet", "fe-mobile", "fe-desktop", "is-editing");
     root.removeEventListener("mouseover", onOver); root.removeEventListener("mouseout", onOut); root.removeEventListener("click", onClick);
     window.removeEventListener("scroll", hidePopover, true);
   } };

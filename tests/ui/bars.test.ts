@@ -1,7 +1,15 @@
 // @vitest-environment jsdom
+import { readFileSync } from "node:fs";
 import { bar, pips, PIP_LIMIT } from "../../src/ui/widgets";
 
 const click = (el: Element | null) => { if (!el) throw new Error("missing element"); el.dispatchEvent(new MouseEvent("click", { bubbles: true })); };
+
+describe("bar styles", () => {
+  it("the fill is a block, so its width (the percentage) actually draws inside the bar", () => {
+    const css = readFileSync("styles.css", "utf8");
+    expect(css).toMatch(/\.fe-bar-fill \{[^}]*display: block;[^}]*\}/);
+  });
+});
 
 describe("resource bars", () => {
   it("small resources keep pips; pools above the limit become a bar showing what is left", () => {
@@ -21,7 +29,7 @@ describe("resource bars", () => {
   });
   it("a progress tracker fills as it grows (Learning Smith 72 / 80) and adds up to the max", () => {
     let used = 72; const el = bar(80, used, n => { used = n; }, "progress");
-    expect(el.querySelector(".fe-bar-num")!.textContent).toBe("72 / 80");
+    expect(el.querySelector(".fe-bar-num")!.textContent).toBe("72 / 80 (90%)");
     expect((el.querySelector(".fe-bar-fill") as HTMLElement).getAttribute("style")).toBe("width:90%");
     (el.querySelector(".fe-bar-amt") as HTMLInputElement).value = "5";
     click([...el.querySelectorAll("button")].find(b => b.textContent === "Add")!);

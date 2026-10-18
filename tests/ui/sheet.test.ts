@@ -20,6 +20,26 @@ function setup(note: object, mobile: boolean, extra?: (r: Registry) => void) {
   const click = (sel: string, init: MouseEventInit = {}) => { const el = q(sel); if (!el) throw new Error("missing " + sel); el.dispatchEvent(new MouseEvent("click", { bubbles: true, ...init })); };
   return { r, ctl, root, saved, notices, q, click, host };
 }
+describe("host element", () => {
+  it("keeps the host's own classes (Obsidian's view-content is what scrolls) across re-renders", () => {
+    const r = new Registry(); registerBuiltinTypes(r); loadSrd(r);
+    const host: SheetHost = { registry: r, ruleDefaults: {}, save: () => {}, notify: () => {}, log: [], rng: seeded(11), body: "" };
+    const p = parseNote(thalia); if (p.kind === "none") throw new Error("not a sheet");
+    const ctl = new SheetController(host, p), root = document.createElement("div");
+    root.className = "view-content"; document.body.append(root);
+    const m = mountSheet(root, ctl, false);
+    expect(root.classList.contains("view-content")).toBe(true);
+    expect(root.classList.contains("fe-sheet")).toBe(true);
+    ctl.editing = true; m.render();
+    expect([...root.classList]).toEqual(expect.arrayContaining(["view-content", "fe-sheet", "fe-desktop", "is-editing"]));
+    ctl.editing = false; m.render();
+    expect(root.classList.contains("is-editing")).toBe(false);
+    m.destroy();
+    expect(root.classList.contains("view-content")).toBe(true);
+    expect(root.classList.contains("fe-sheet")).toBe(false);
+  });
+});
+
 const features = (root: HTMLElement) => new Set([...root.querySelectorAll<HTMLElement>("[data-feature]")].map(e => e.dataset.feature!));
 
 describe("layout parity", () => {

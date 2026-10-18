@@ -142,6 +142,8 @@
 /* Progress and pool bars (resources over 12 points, `track: progress` trackers). */
 .fe-barbox { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; flex: 1 1 220px; min-width: 0; }
 .fe-bar.fe-bar-wide { flex: 1 1 120px; height: 10px; border-radius: 5px; }
+/* the fill is a <span>: without display:block its width is ignored and nothing draws */
+.fe-bar-fill { display: block; }
 .fe-barbox.is-progress .fe-bar-fill { background: var(--interactive-accent); }
 .fe-bar-num { font-variant-numeric: tabular-nums; color: var(--text-muted); font-size: var(--font-ui-smaller); white-space: nowrap; }
 .fe-bar-ctl { display: inline-flex; align-items: center; gap: 4px; }

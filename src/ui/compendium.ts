@@ -126,7 +126,7 @@ export function mountCompendium(root: HTMLElement, ctl: CompendiumController, mo
   const search = h("input", { cls: "fe-search", data: { field: "search" }, attrs: { placeholder: "Search by name", "aria-label": "Search the compendium", value: ctl.query },
     on: { input: (e: Event) => ctl.setQuery((e.target as HTMLInputElement).value) } });
   const body = h("div", { cls: "fe-comp-body" });
-  root.className = `fe-sheet fe-compendium ${mobile ? "fe-mobile" : "fe-desktop"}`;
+  root.classList.add("fe-sheet", "fe-compendium", mobile ? "fe-mobile" : "fe-desktop");   // keep Obsidian's .view-content (it scrolls)
   clear(root); root.append(sourceTabs, typeTabs, search, body);
   let token = 0;
 
@@ -187,7 +187,7 @@ export function mountCompendium(root: HTMLElement, ctl: CompendiumController, mo
     if (mobile) body.append(picked ? detail : list, ...tail); else body.append(h("div", { cls: "fe-comp-cols" }, list, detail), ...tail);
   };
   const off = ctl.subscribe(render); render();
-  return { render, destroy: () => { off(); token++; clear(root); } };
+  return { render, destroy: () => { off(); token++; clear(root); root.classList.remove("fe-sheet", "fe-compendium", "fe-mobile", "fe-desktop"); } };
 }
 
 /** Add `e` to the character on `ctl` (item to the inventory, spell to the spell list, creature as a companion). Returns the message to show. */
