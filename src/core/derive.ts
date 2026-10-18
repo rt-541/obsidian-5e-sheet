@@ -8,7 +8,29 @@ import { emptyProgress, formulaVars, progress, type Progress, type DerivedResour
 import { slotTable } from "./slots";
 import { ABILS, SKILLS, type Abil, type Modifier, type RollTarget } from "./types";
 
-export interface AttackStat { name: string; toHit?: number; save?: { abil: Abil; dc: number }; damage?: string; note?: string; target: RollTarget; }
+export interface AttackStat { name: string; toHit?: number; save?: { abil: Abil; dc: number }; damage?: string; note?: string; target: RollTarget;
+  /** Set (false) only when the character lacks the weapon proficiency, so the proficiency bonus is not in toHit. */
+  proficient?: false; }
+export const NOT_PROFICIENT = "Not proficient with this weapon, so the proficiency bonus is not added.";
+
+/** "Crossbows, light" -> "light crossbow", "Simple Weapons" -> "simple weapon": lower case, singular, in the order a weapon is named. */
+const weaponKey = (s: string): string => {
+  let t = s.trim().toLowerCase();
+  const m = /^([^,]+),\s*(.+)$/.exec(t); if (m) t = `${m[2]} ${m[1]}`;
+  return t.replace(/\s+/g, " ").replace(/s$/, "");
+};
+/**
+ * Whether a character is trained with a weapon: it has the category (Simple Weapons / Martial Weapons) or the weapon itself by name.
+ * A weapon with no category, or a character whose class, race, background or feats are not all in the compendium (so what they grant is unknown),
+ * gets the benefit of the doubt.
+ */
+export function weaponProficiency(other: string[], known: boolean) {
+  const have = new Set(other.map(weaponKey));
+  return (name: string, id: string | undefined, category: "simple" | "martial" | undefined): boolean => {
+    if (!known || !category) return true;
+    return have.has(`${category} weapon`) || have.has(weaponKey(name)) || (id !== undefined && have.has(weaponKey(id.replace(/-/g, " "))));
+  };
+}
 export interface ResourceRow { id: string; name: string; max: number; used: number; reset: "short" | "long" | "dawn" | "none"; derived: boolean; source?: string; refill?: DerivedResource["refill"]; unlimited?: string; }
 export interface CasterStat { name: string; abil: Abil; dc: number; attack: number; progression: string; }
 export interface ActorStats {
@@ -96,13 +118,14 @@ export function deriveCharacter(c: Character, ctx: EffectContext): ActorStats {
     return { id, abil, mod: m[abil] + (p ? prof : 0) + (ex ? prof : 0) + sumModifier(fx, "check", opt({ kind: "skill", abil, skill: id })).add, prof: p, expertise: ex };
   });
   const checks = Object.fromEntries(ABILS.map(a => [a, m[a] + sumModifier(fx, "check", opt({ kind: "check", abil: a })).add])) as Record<Abil, number>;
+  const weaponProf = weaponProficiency(prog.proficiencies.other, classData.length > 0 && classData.every(x => x.d) && prog.unknown.length === 0);
   const attacks: AttackStat[] = items.filter(x => x.e.equipped && x.it?.weapon).map(({ e, it }) => {
-    const w = it!.weapon!, works = itemWorks(e, it), bonus = works ? (w.bonus ?? 0) : 0;
+    const w = it!.weapon!, works = itemWorks(e, it), bonus = works ? (w.bonus ?? 0) : 0, trained = weaponProf(it!.name, e.id, w.category);
     const abil: Abil = w.ab === "finesse" ? (m.dex >= m.str ? "dex" : "str") : w.ab;
     const target: RollTarget = { kind: "attack", abil, range: w.range, tags: [...(e.id ? [e.id] : []), ...(w.props ?? [])] };
     const dm = m[abil] + bonus + sumModifier(fx, "damage", opt(target)).add;
-    return { name: it!.name, toHit: m[abil] + prof + bonus + sumModifier(fx, "attack", opt(target)).add, damage: `${w.dmg}${dm ? sgn(dm) : ""} ${w.type}${works && w.extraDamage ? " + " + w.extraDamage : ""}`,
-      target };
+    return { name: it!.name, toHit: m[abil] + (trained ? prof : 0) + bonus + sumModifier(fx, "attack", opt(target)).add, damage: `${w.dmg}${dm ? sgn(dm) : ""} ${w.type}${works && w.extraDamage ? " + " + w.extraDamage : ""}`,
+      target, ...(trained ? {} : { proficient: false, note: NOT_PROFICIENT }) };
   });
   const casters: CasterStat[] = prog.spellcasting.map(e => ({ name: e.className, abil: e.abil, progression: e.progression,
     dc: 8 + prof + m[e.abil] + sumModifier(fx, "spellDC", opt()).add, attack: prof + m[e.abil] + sumModifier(fx, "spellAttack", opt()).add }));
