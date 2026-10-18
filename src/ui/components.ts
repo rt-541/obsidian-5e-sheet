@@ -13,20 +13,25 @@ import { concentrationFeature, pinnedSpellsFeature, spellsFeature } from "./spel
 
 export { describeEffects, pips };
 export type Render = (ctl: SheetController, st: ActorStats) => HTMLElement;
-const stat = (label: string, value: Node | string, title?: string) => h("div", { cls: "fe-stat", ...(title ? { title } : {}) }, h("div", { cls: "fe-stat-v" }, value), h("div", { cls: "fe-stat-l", text: label }));
+/** A tile. `why` is the breakdown it opens: on the whole tile when nothing inside it is a button, else on the label (the number inside keeps its own hover card). */
+const stat = (label: string, value: Node | string, why?: string, interactive = false) => h("div", { cls: "fe-stat", ...(why && !interactive ? { data: { ref: why } } : {}) },
+  h("div", { cls: "fe-stat-v" }, value), h("div", { cls: "fe-stat-l", text: label, ...(why && interactive ? { data: { ref: why } } : {}) }));
+/** The data attribute for a number's breakdown, or nothing when the actor has none (a creature's stat block). */
+const whyOf = (st: ActorStats, key: string): string | undefined => (st.why[key] ? `why:${key}` : undefined);
+const whyData = (ref?: string, noclick = false): { data: Record<string, string> } | Record<string, never> => (ref ? { data: { ref, ...(noclick ? { noclick: "" } : {}) } } : {});
 const DAMAGE_TYPES = ["acid", "bludgeoning", "cold", "fire", "force", "lightning", "necrotic", "piercing", "poison", "psychic", "radiant", "slashing", "thunder"];
 const ABIL_NAME: Record<Abil, string> = { str: "STR", dex: "DEX", con: "CON", int: "INT", wis: "WIS", cha: "CHA" };
 const titleCase = (s: string) => s.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase());
 
-export function rollButton(ctl: SheetController, label: string, title: string, mod: number, target: Parameters<SheetController["roll"]>[2], who?: number) {
-  return h("button", { cls: "fe-roll", text: label, on: { click: (e: MouseEvent) => ctl.roll(title, mod, target, e, who) } });
+export function rollButton(ctl: SheetController, label: string, title: string, mod: number, target: Parameters<SheetController["roll"]>[2], who?: number, why?: string) {
+  return h("button", { cls: "fe-roll", text: label, ...whyData(why, true), on: { click: (e: MouseEvent) => ctl.roll(title, mod, target, e, who) } });
 }
 
 function hpBlock(ctl: SheetController, st: ActorStats) {
   const pct = st.hp.max ? Math.round(100 * st.hp.current / st.hp.max) : 0;
   return h("div", { cls: "fe-hp" },
     h("div", { cls: "fe-hp-line" }, h("span", { cls: "fe-hp-n", text: String(st.hp.current) }),
-      h("small", { text: ` / ${st.hp.max}${st.hp.maxReduced ? " (halved)" : ""} · temp ${st.hp.temp}` })),
+      h("small", { text: ` / ${st.hp.max}${st.hp.maxReduced ? " (halved)" : ""} · temp ${st.hp.temp}`, ...whyData(whyOf(st, "hp")) })),
     h("div", { cls: "fe-bar" }, h("div", { cls: "fe-bar-fill", attrs: { style: `width:${pct}%` } })));
 }
 function hpControls(ctl: SheetController, who?: number) {
@@ -53,29 +58,29 @@ function checks(ctl: SheetController, st: ActorStats, who?: number) {
   return {
     abilities: h("div", { cls: "fe-abilities" }, ...ABILS.map(a => h("div", { cls: "fe-tile" },
       h("div", { cls: "fe-tile-k", text: ABIL_NAME[a] }),
-      rollButton(ctl, sgn(st.checks[a]), `${ABIL_NAME[a]} check`, st.checks[a], { kind: "check", abil: a }, who),
+      rollButton(ctl, sgn(st.checks[a]), `${ABIL_NAME[a]} check`, st.checks[a], { kind: "check", abil: a }, who, whyOf(st, `check:${a}`)),
       ctl.editing && who === undefined && ctl.character
         ? h("input", { cls: "fe-score", attrs: { type: "number", min: "1", max: "30", value: String(st.abilities[a]), "aria-label": `${ABIL_NAME[a]} score` },
             on: { change: (e: Event) => ctl.dispatch({ type: "ability", abil: a, value: +(e.target as HTMLInputElement).value }) } })
         : h("div", { cls: "fe-tile-s", text: String(st.abilities[a]) })))),
     saves: h("div", { cls: "fe-rows" }, ...ABILS.map(a => h("div", { cls: "fe-row" },
-      h("span", { cls: `fe-dot ${st.saves[a].prof ? "is-prof" : ""}` }), h("span", { cls: "fe-grow", text: ABIL_NAME[a] }),
-      rollButton(ctl, sgn(st.saves[a].mod), `${ABIL_NAME[a]} save`, st.saves[a].mod, { kind: "save", abil: a }, who)))),
+      h("span", { cls: `fe-dot ${st.saves[a].prof ? "is-prof" : ""}` }), h("span", { cls: "fe-grow", text: ABIL_NAME[a], ...whyData(whyOf(st, `save:${a}`)) }),
+      rollButton(ctl, sgn(st.saves[a].mod), `${ABIL_NAME[a]} save`, st.saves[a].mod, { kind: "save", abil: a }, who, whyOf(st, `save:${a}`))))),
     skills: h("div", { cls: "fe-rows" }, ...st.skills.map(k => h("div", { cls: "fe-row" },
       h("span", { cls: `fe-dot ${k.prof ? "is-prof" : ""} ${k.expertise ? "is-expert" : ""}` }),
-      h("span", { cls: "fe-grow", text: titleCase(k.id) }), h("span", { cls: "fe-faint", text: ABIL_NAME[k.abil] }),
-      rollButton(ctl, sgn(k.mod), titleCase(k.id), k.mod, { kind: "skill", abil: k.abil, skill: k.id }, who)))),
+      h("span", { cls: "fe-grow", text: titleCase(k.id), ...whyData(whyOf(st, `skill:${k.id}`)) }), h("span", { cls: "fe-faint", text: ABIL_NAME[k.abil] }),
+      rollButton(ctl, sgn(k.mod), titleCase(k.id), k.mod, { kind: "skill", abil: k.abil, skill: k.id }, who, whyOf(st, `skill:${k.id}`))))),
   };
 }
 function attacksList(ctl: SheetController, st: ActorStats, who?: number) {
   if (!st.attacks.length) return h("div", { cls: "fe-faint", text: "No attacks" });
   return h("div", { cls: "fe-attacks" },
     who === undefined && st.kind === "character" ? h("div", { cls: "fe-muted fe-attacks-per", text: `Attacks per action: ${st.attacksPerAction}` }) : null,
-    ...st.attacks.map(a => h("div", { cls: "fe-attack" },
-    h("span", { cls: "fe-grow", text: a.name }),
-    a.toHit !== undefined ? rollButton(ctl, sgn(a.toHit), `${a.name} to hit`, a.toHit, a.target, who) : h("span", { cls: "fe-faint", text: "" }),
+    ...st.attacks.map((a, ai) => h("div", { cls: "fe-attack" },
+    h("span", { cls: "fe-grow", text: a.name, ...whyData(a.why ? `why:attack:${ai}` : undefined) }),
+    a.toHit !== undefined ? rollButton(ctl, sgn(a.toHit), `${a.name} to hit`, a.toHit, a.target, who, a.why?.hit ? `why:attack:${ai}:hit` : undefined) : h("span", { cls: "fe-faint", text: "" }),
     a.save ? h("span", { cls: "fe-faint", text: `DC ${a.save.dc} ${ABIL_NAME[a.save.abil]}` }) : null,
-    a.damage ? h("button", { cls: "fe-roll", text: a.damage, on: { click: () => ctl.damage(`${a.name} damage`, a.damage!) } }) : null,
+    a.damage ? h("button", { cls: "fe-roll", text: a.damage, ...whyData(a.why?.damage ? `why:attack:${ai}:damage` : undefined, true), on: { click: () => ctl.damage(`${a.name} damage`, a.damage!) } }) : null,
     a.critDamage ? h("button", { cls: "fe-roll fe-crit", text: "Crit", title: `Damage on a critical hit: ${a.critDamage}`, attrs: { "aria-label": `${a.name} critical hit damage` },
       on: { click: () => ctl.damage(`${a.name} critical damage`, a.critDamage!) } }) : null,
     a.note ? h("div", { cls: "fe-note", text: a.note }) : null)));
@@ -88,10 +93,10 @@ export const RENDER: Record<string, Render> = {
   xp: ctl => xpFeature(ctl),
   "level-up": ctl => levelUpFeature(ctl),
   features: (ctl, st) => featuresFeature(ctl, st),
-  ac: (ctl, st) => stat("AC", String(st.ac.value), st.ac.sources.join(", ")),
-  initiative: (ctl, st) => stat("Init", rollButton(ctl, sgn(st.initiative), "Initiative", st.initiative, { kind: "initiative", abil: "dex" })),
-  speed: (ctl, st) => stat("Speed", `${st.speed.value}${st.speed.sources.length ? "*" : ""}${st.speed.other ? ` (${st.speed.other})` : ""}`, st.speed.sources.join(", ")),
-  "passive-perception": (ctl, st) => stat("Pass. Perc", String(st.passivePerception)),
+  ac: (ctl, st) => stat("AC", String(st.ac.value), whyOf(st, "ac")),
+  initiative: (ctl, st) => stat("Init", rollButton(ctl, sgn(st.initiative), "Initiative", st.initiative, { kind: "initiative", abil: "dex" }, undefined, whyOf(st, "initiative")), whyOf(st, "initiative"), true),
+  speed: (ctl, st) => stat("Speed", `${st.speed.value}${st.speed.sources.length ? "*" : ""}${st.speed.other ? ` (${st.speed.other})` : ""}`, whyOf(st, "speed")),
+  "passive-perception": (ctl, st) => stat("Pass. Perc", String(st.passivePerception), whyOf(st, "passive:perception")),
   hp: (ctl, st) => hpBlock(ctl, st),
   "hp-controls": ctl => hpControls(ctl),
   "hit-dice": (ctl, st) => card("Hit Dice", ...st.hitDice.map(d => h("div", { cls: "fe-kv" },
@@ -114,7 +119,9 @@ export const RENDER: Record<string, Render> = {
   saves: (ctl, st) => card("Saving throws", checks(ctl, st).saves),
   skills: (ctl, st) => card("Skills", checks(ctl, st).skills),
   attacks: (ctl, st) => card("Attacks", attacksList(ctl, st)),
-  "spell-dc": (ctl, st) => h("div", { cls: "fe-kv" }, st.spellcasting ? `Spell DC ${st.spellcasting.dc} · attack ${sgn(st.spellcasting.attack)}` : "No spellcasting"),
+  "spell-dc": (ctl, st) => h("div", { cls: "fe-kv" }, st.spellcasting
+    ? h("span", {}, h("span", { text: `Spell DC ${st.spellcasting.dc}`, ...whyData(whyOf(st, "spell-dc")) }), " · ", h("span", { text: `attack ${sgn(st.spellcasting.attack)}`, ...whyData(whyOf(st, "spell-attack")) }))
+    : "No spellcasting"),
   "spell-slots": (ctl, st) => card("Spell slots", ...st.slots.map(s => h("div", { cls: "fe-kv" },
     h("span", { text: s.level === "pact" ? `Pact (level ${s.pactLevel})` : `Level ${s.level}` }),
     pips(s.max, s.used, n => ctl.dispatch({ type: "slot", level: s.level, used: n }))))),
@@ -141,7 +148,7 @@ export const RENDER: Record<string, Render> = {
         ctl.editing ? btn("Remove", () => ctl.dispatch({ type: "removeItem", index: i })) : null);
     }),
     h("div", { cls: "fe-kv" }, h("span", { text: Object.entries(c.coins).filter(([, v]) => v).map(([k, v]) => `${v} ${k}`).join(" ") || "No coins" }),
-      h("span", { cls: "fe-muted", text: `${st.carry.weight} / ${st.carry.capacity} lb · attuned ${st.attunedCount}/3` })),
+      h("span", { cls: "fe-muted", text: `${st.carry.weight} / ${st.carry.capacity} lb · attuned ${st.attunedCount}/3`, ...whyData(whyOf(st, "carry")) })),
     btn("Add from compendium", () => ctl.open({ kind: "compendium" }))); },
   companions: ctl => { const c = ctl.character!, sts = ctl.companionStats(), r = ctl.host.registry;
     return card("Companions", ...c.companions.map((comp, i) => {

@@ -153,6 +153,15 @@ function comboCard(index: number, ctl: SheetController): HTMLElement | null {
   return card(v.combo.name, v.combo.when ? `When to use it: ${v.combo.when}` : "Combo", lines, v.combo.notes);
 }
 
+/** "Where this number comes from": the breakdown sentence of `key` (ac, save:dex, attack:0 for both lines of an attack, attack:0:hit for one). */
+function whyCard(key: string, ctl: SheetController): HTMLElement | null {
+  const st = ctl.stats(); if (!st) return null;
+  const am = /^attack:(\d+)(?::(hit|damage))?$/.exec(key);
+  const lines = am ? [am[2] ? st.attacks[+am[1]]?.why?.[am[2] as "hit" | "damage"] : st.attacks[+am[1]]?.why?.hit, am[2] ? undefined : st.attacks[+am[1]]?.why?.damage].filter((x): x is string => !!x)
+    : st.why[key] ? [st.why[key]] : [];
+  return lines.length ? card("Where this number comes from", am ? st.attacks[+am[1]].name : "", lines, undefined) : null;
+}
+
 /** A detail card for `ref` (item:, spell:, condition:, trait:<creature>:<index>, effect:<source>), or null if it is not known. All text goes in as text nodes. */
 export function detailCard(ref: string, ctl: SheetController): HTMLElement | null {
   const i = ref.indexOf(":"); if (i < 0) return null;
@@ -161,6 +170,7 @@ export function detailCard(ref: string, ctl: SheetController): HTMLElement | nul
     case "item": { const e = reg.get<ItemData>("item", rest); return e ? itemCard(reg, e) : null; }
     case "spell": { const e = reg.get<SpellData>("spell", rest); return e ? spellCard(reg, e) : null; }
     case "condition": { const e = reg.get<ConditionData>("condition", rest) ?? reg.get<ConditionData>("injury", rest); return e ? conditionCard(e, ctl.value.conditions[rest] ?? 0) : null; }
+    case "why": return whyCard(rest, ctl);
     case "effect": return effectCard(rest, ctl);
     case "feature": return featureCard(rest, ctl);
     case "combo": return comboCard(Number(rest), ctl);

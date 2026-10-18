@@ -63,7 +63,7 @@ export function featuresFeature(ctl: SheetController, st: ActorStats): HTMLEleme
     })));
   }
   if (p.dcs.length) cards.push(card("Class DCs", ...p.dcs.map(d => h("div", { cls: "fe-kv", data: { dc: d.id } },
-    h("span", { text: `${d.name}: DC ${d.dc} · attack +${d.attack} · ${ABIL_NAME[d.abil]}`.replace("+-", "-") }),
+    h("span", { text: `${d.name}: DC ${d.dc} · attack +${d.attack} · ${ABIL_NAME[d.abil]}`.replace("+-", "-"), ...(st.why[`dc:${d.id}`] ? { data: { ref: `why:dc:${d.id}` } } : {}) }),
     d.alt && ctl.editing ? btn(`Use ${ABIL_NAME[d.abil === d.base ? d.alt : d.base]}`, () => ctl.dispatch({ type: "dcAlt", id: d.id, on: d.abil === d.base })) : null))));
   const scales = Object.entries(p.scales);
   if (scales.length) cards.push(card("Scales", ...scales.map(([id, v]) => h("div", { cls: "fe-kv", data: { scale: id } }, h("span", { text: sentence(id) }), h("b", { text: String(v) })))));
