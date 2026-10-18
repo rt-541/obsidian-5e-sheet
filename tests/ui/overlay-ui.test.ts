@@ -22,7 +22,7 @@ for (const mobile of [false, true]) describe(`built-in mechanics on the sheet ($
     const s = setup(barbarian, mobile);
     const card = s.q('[data-toggle-card="rage"]');
     expect((card.querySelector("button") as HTMLElement).textContent).toBe("Start Rage");
-    expect(card.textContent).toContain("Costs 1 Rage.");
+    expect(card.textContent).toContain("Costs 1 Rage (3 of 3 left).");
     s.click('[data-toggle="rage"]');
     expect((s.ctl.value as Character).active.rage).toBe(true);
     expect(s.notices).toEqual(["Rage started. 1 Rage spent."]);

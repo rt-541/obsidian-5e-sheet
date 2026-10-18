@@ -4,7 +4,7 @@ import { ABILS, type Abil, type Effects } from "../core/types";
 import { activeRests } from "../rules";
 import type { SheetController } from "./controller";
 import { h, sgn } from "./h";
-import { btn, card, describeEffects, pips, bar } from "./widgets";
+import { btn, card, describeEffects, pips, bar, usesPips } from "./widgets";
 import { featuresFeature, levelUpFeature, xpFeature } from "./features-ui";
 import { combosFeature, pinnedCombosFeature } from "./combos-ui";
 import { traitsFeature } from "./traits-ui";
@@ -76,7 +76,7 @@ function checks(ctl: SheetController, st: ActorStats, who?: number) {
 function attacksList(ctl: SheetController, st: ActorStats, who?: number) {
   if (!st.attacks.length) return h("div", { cls: "fe-faint", text: "No attacks" });
   return h("div", { cls: "fe-attacks" },
-    who === undefined && st.kind === "character" ? h("div", { cls: "fe-muted fe-attacks-per", text: `Attacks per action: ${st.attacksPerAction}` }) : null,
+    who === undefined && st.kind === "character" && st.attacksPerAction > 1 ? h("div", { cls: "fe-muted fe-attacks-per", text: `Attacks per action: ${st.attacksPerAction}` }) : null,
     ...st.attacks.map((a, ai) => h("div", { cls: "fe-attack" },
     h("span", { cls: "fe-grow", text: a.name, ...whyData(a.why ? `why:attack:${ai}` : undefined) }),
     a.toHit !== undefined ? rollButton(ctl, sgn(a.toHit), `${a.name} to hit`, a.toHit, a.target, who, a.why?.hit ? `why:attack:${ai}:hit` : undefined) : h("span", { cls: "fe-faint", text: "" }),
@@ -124,16 +124,21 @@ export const RENDER: Record<string, Render> = {
   "spell-slots": (ctl, st) => card("Spell slots", ...st.slots.map(s => h("div", { cls: "fe-kv" },
     h("span", { text: s.level === "pact" ? `Pact (level ${s.pactLevel})` : `Level ${s.level}` }),
     pips(s.max, s.used, n => ctl.dispatch({ type: "slot", level: s.level, used: n }))))),
-  resources: ctl => { const c = ctl.character!, r = ctl.host.registry;
+  resources: (ctl, st) => { const c = ctl.character!, r = ctl.host.registry;
     const charged = c.inventory.map((e, i) => ({ e, i, it: e.id ? r.get<ItemData>("item", e.id)?.data : undefined })).filter(x => x.it?.charges && (!x.it.attunement || x.e.attuned));
-    return card("Resources and charges",
+    const derived = st.resources.filter(x => x.derived);
+    const el = card("Resources and charges",
+      ...derived.map(x => h("div", { cls: "fe-kv", data: { resource: x.id } }, h("span", { text: x.unlimited ? x.name : `${x.name}: ${Math.max(0, x.max - x.used)} of ${x.max} left` }),
+        usesPips(x, n => ctl.dispatch({ type: "uses", id: x.id, used: n })))),
       ...c.resources.map((res, i) => {
         // `track: progress` (downtime, training, crafting) counts up toward max instead of spending uses down.
         const progress = (res as { track?: string }).track === "progress", setUsed = (n: number) => ctl.dispatch({ type: "resource", index: i, used: n });
         return h("div", { cls: "fe-kv" }, h("span", { text: progress ? res.name : `${res.name} (${res.reset})` }),
           progress ? bar(res.max, res.used, setUsed, "progress") : pips(res.max, res.used, setUsed));
       }),
-      ...charged.map(x => h("div", { cls: "fe-kv" }, h("span", { text: `${x.it!.name} charges` }), pips(x.it!.charges!.max, x.e.charges?.used ?? 0, n => ctl.dispatch({ type: "charges", index: x.i, used: n }))))); },
+      ...charged.map(x => h("div", { cls: "fe-kv" }, h("span", { text: `${x.it!.name} charges` }), pips(x.it!.charges!.max, x.e.charges?.used ?? 0, n => ctl.dispatch({ type: "charges", index: x.i, used: n })))));
+    if (!derived.length && !c.resources.length && !charged.length) el.hidden = true;
+    return el; },
   rests: ctl => h("div", { cls: "fe-rests" }, ...activeRests(ctl.rules()).map(r => btn(r.label, () => ctl.open({ kind: "rest", id: r.id })))),
   inventory: (ctl, st) => { const c = ctl.character!, r = ctl.host.registry;
     return card("Inventory", ...c.inventory.map((e, i) => {

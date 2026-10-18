@@ -202,6 +202,13 @@ export function apply(c0: Character, a: Action, lim: Limits): Applied {
       const wasDown = c.hp.current === 0;
       const r = hpStep(c.hp, c.conditions, a, lim.self, lim, c.concentration);
       if (a.type === "heal" && wasDown && c.hp.current > 0) c.deathSaves = { successes: 0, failures: 0 };
+      // Unconscious means incapacitated: concentration ends on its own, and so does a Rage.
+      if (a.type === "damage" && !wasDown && c.hp.current === 0 && c.conditions.unconscious) {
+        const notes = r.note ? [r.note] : [], spell = c.concentration;
+        if (spell) { delete c.concentration; notes.push(`You drop to 0 hit points and stop concentrating on ${lim.ctx?.registry.get<SpellData>("spell", spell)?.data.name ?? spell}.`); }
+        if (c.active.rage) { delete c.active.rage; notes.push("Your Rage ends."); }
+        return { value: c, ...(notes.length ? { note: notes.join(" ") } : {}) };
+      }
       return { value: c, ...(r.note ? { note: r.note } : {}), ...(r.concentrationCheck ? { concentrationCheck: r.concentrationCheck } : {}) };
     }
     case "condition": {

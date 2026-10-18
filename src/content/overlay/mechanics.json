@@ -55,6 +55,10 @@
     "option:*:dueling": {
       "effects": { "modifiers": [{ "target": "damage", "value": 2, "on": "attack:melee+weapon:one-handed" }] }
     },
+    "class:*:extra-attack": { "effects": { "attacks": 2 } },
+    "subclass:*:extra-attack": { "effects": { "attacks": 2 } },
+    "class:fighter:extra-attack-2": { "effects": { "attacks": 3 } },
+    "class:fighter:extra-attack-3": { "effects": { "attacks": 4 } },
     "subclass:champion:improved-critical": {
       "effects": { "critRange": 19 }
     },

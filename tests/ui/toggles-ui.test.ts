@@ -23,7 +23,7 @@ for (const mobile of [false, true]) describe(`toggle buttons (${mobile ? "mobile
     const card = s.q('[data-toggle-card="fury"]');
     expect(s.q('[data-feature="toggles"]')).toBeTruthy(); expect(s.q('[data-feature="toggles"]').hidden).toBe(false);
     expect((card.querySelector("button") as HTMLElement).textContent).toBe("Start Fury");
-    expect(card.textContent).toContain("Costs 1 Fury.");
+    expect(card.textContent).toContain("Costs 1 Fury (2 of 2 left).");
     expect(card.textContent).toContain("Ends after a long rest.");
     expect(s.q('[data-toggle-card="high-stance"]').textContent).toContain("Only one of these can be on at a time.");
   });
@@ -94,11 +94,18 @@ for (const mobile of [false, true]) describe(`attacks card (${mobile ? "mobile" 
     crit.click();
     expect(s.ctl.host.log[0].title).toBe("Longsword critical damage");
   });
-  it("a plain character says 1", () => {
-    expect(setup({}, mobile).q(".fe-attacks-per").textContent).toBe("Attacks per action: 1");
+  it("a plain character with one attack hides the line rather than say 1", () => {
+    expect(setup({}, mobile).root.querySelector(".fe-attacks-per")).toBeNull();
   });
   it("the built-in Unarmed Strike is there", () => {
     const names = [...setup({}, mobile).root.querySelectorAll(".fe-attack .fe-grow")].map(e => e.textContent);
     expect(names).toContain("Unarmed Strike");
+  });
+});
+
+for (const mobile of [false, true]) describe(`resources card (${mobile ? "mobile" : "desktop"})`, () => {
+  it("lists derived class resources with how many are left", () => {
+    const s = setup({ uses: { fury: 1 } }, mobile);
+    expect(s.q('[data-feature="resources"] [data-resource="fury"]').textContent).toContain("Fury: 1 of 2 left");
   });
 });

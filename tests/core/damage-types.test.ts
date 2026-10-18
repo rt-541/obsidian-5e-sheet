@@ -93,9 +93,9 @@ describe("concentration prompt", () => {
     expect(dmg(conc(), 30).concentrationCheck).toEqual({ dc: 15, spell: "bless" });
     expect(dmg(conc(), 8).value.concentration).toBe("bless");                       // the player rolls; nothing ends on its own
   });
-  it("dropping to 0 also asks, because the character stops concentrating if they fail", () => {
+  it("dropping to 0 ends concentration at once, with no save to roll (Unconscious is incapacitated)", () => {
     const out = dmg(conc(), 40);
-    expect(out.value.hp.current).toBe(0); expect(out.concentrationCheck).toEqual({ dc: 20, spell: "bless" });
+    expect(out.value.hp.current).toBe(0); expect(out.concentrationCheck).toBeUndefined(); expect(out.value.concentration).toBeUndefined();
   });
   it("no prompt when not concentrating, when no damage got through, or for healing", () => {
     expect(dmg(char(), 8).concentrationCheck).toBeUndefined();

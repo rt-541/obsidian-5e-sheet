@@ -74,11 +74,12 @@ describe("keeping concentration", () => {
     s.click('[data-feature="hp-controls"] .fe-btn'); s.click('[data-act="end-concentration"]');
     expect(s.q('[data-feature="concentration"]').textContent).not.toContain("Make a Constitution save");
   });
-  it("dropping to 0 shows the prompt and the Unconscious condition", () => {
+  it("dropping to 0 shows the Unconscious condition and ends concentration without a prompt", () => {
     const s = setup({ ...conc, hp: { max: 43, current: 3, temp: 0 } }, false);
     s.click('[data-feature="hp-controls"] .fe-btn');
     expect((s.ctl.value as Character).conditions.unconscious).toBe(1);
-    expect(s.q('[data-feature="concentration"]').textContent).toContain("DC 10");
+    expect(s.q('[data-feature="concentration"]').textContent).not.toContain("DC 10");
+    expect((s.ctl.value as Character).concentration).toBeUndefined();
   });
 });
 
