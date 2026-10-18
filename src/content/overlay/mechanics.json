@@ -110,7 +110,7 @@
     "class:paladin:improved-divine-smite": {
       "effects": { "extraDamage": [{ "dice": "1d8", "type": "radiant", "on": "attack:melee+attack:weapon" }] }
     },
-    "subclass:devotion:channel-divinity-sacred-weapon": {
+    "subclass:devotion:sacred-weapon": {
       "name": "Sacred Weapon",
       "toggle": { "id": "sacred-weapon", "cost": { "resource": "Channel Divinity" }, "endsOn": "short" },
       "effects": { "modifiers": [{ "target": "attack", "value": "max(1, cha)", "on": "attack:weapon" }] }
