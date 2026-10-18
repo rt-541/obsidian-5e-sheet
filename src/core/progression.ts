@@ -78,7 +78,13 @@ interface Src {
 /** Another class's option list, written `<class id>:<list id>` (Fighting Initiate takes a Fighter fighting style), or a list a built-in entry carries. */
 export function resolveOptionList(registry: Registry, list: string): OptionDef[] | undefined {
   const m = /^([a-z0-9-]+):([a-z0-9-]+)$/.exec(list);
-  const cross = m ? registry.get<ClassData>("class", m[1])?.data.options?.[m[2]] : undefined;
+  const opts = m ? registry.get<ClassData>("class", m[1])?.data.options : undefined;
+  let cross = opts?.[m?.[2] ?? ""];
+  if (opts && m && !cross) {
+    // Sources name the same list differently: `fighter-fighting-style` / `fighting-style`, `metamagic-1` / `metamagic`.
+    const bare = m[2].replace(new RegExp(`^${m[1]}-`), "").replace(/-\d+$/, "");
+    cross = opts[bare] ?? Object.entries(opts).find(([k]) => k.replace(/-\d+$/, "") === bare)?.[1];
+  }
   return cross ?? overlayOptionList(list);
 }
 
