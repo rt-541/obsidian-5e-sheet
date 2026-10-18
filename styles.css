@@ -127,3 +127,27 @@
 .fe-toggle-value { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .fe-attacks-per { margin-bottom: 4px; }
 .fe-sheet button.fe-crit { flex: none; }
+
+/* combos: coaching cards with ordered steps, action badges and live buttons */
+.fe-combos { display: grid; gap: var(--fe-gap); align-content: start; }
+.fe-sheet button.fe-combo-empty { width: 100%; min-height: 48px; font-weight: 600; }
+.fe-combo.is-short { border-color: var(--background-modifier-error); }
+.fe-ready { font-size: var(--font-ui-smaller); color: var(--text-success, var(--text-muted)); font-weight: 600; }
+.fe-ready.is-short { color: var(--text-error); }
+.fe-steps { list-style: none; margin: 6px 0; padding: 0; display: grid; gap: 6px; }
+.fe-step { display: flex; align-items: flex-start; gap: 8px; flex-wrap: wrap; padding: 6px 0; border-bottom: 1px solid var(--background-modifier-border); }
+.fe-step.is-out { color: var(--text-error); }
+.fe-step.is-out .fe-src, .fe-sheet button.is-out { color: var(--text-error); border-color: var(--background-modifier-error); }
+.fe-step-ctl { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.fe-step-problem { color: var(--text-error); font-size: var(--font-ui-smaller); }
+.fe-badge { flex: none; min-width: 5.5em; text-align: center; padding: 1px 8px; border-radius: 999px; font-size: var(--font-ui-smaller); font-weight: 600; background: var(--background-modifier-border); color: var(--text-normal); }
+.fe-badge.is-action { background: var(--color-blue, var(--interactive-accent)); color: var(--text-on-accent); }
+.fe-badge.is-bonus-action { background: var(--color-orange, var(--interactive-accent)); color: var(--text-on-accent); }
+.fe-badge.is-reaction { background: var(--color-purple, var(--interactive-accent)); color: var(--text-on-accent); }
+.fe-badge.is-move { background: var(--color-green, var(--interactive-accent)); color: var(--text-on-accent); }
+.fe-combo-form { display: grid; gap: 8px; }
+.fe-field { display: grid; gap: 2px; }
+.fe-field select, .fe-field input, .fe-field textarea { width: 100%; }
+.fe-form-step { display: grid; gap: 6px; padding: 8px; border: 1px solid var(--background-modifier-border); border-radius: var(--radius-m, 6px); }
+.fe-mobile .fe-combo-form select, .fe-mobile .fe-combo-form input, .fe-mobile .fe-combo-form textarea { min-height: 44px; }
+.fe-mobile .fe-step-ctl button.fe-btn, .fe-mobile .fe-step-ctl button.fe-roll { min-height: 44px; }

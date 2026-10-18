@@ -2,7 +2,8 @@ import type { Registry } from "../content/registry";
 import { slug } from "../content/registry";
 import type { CampaignData, ItemData, LevelingMode, SpellData } from "../content/types";
 import { apply, applyNpc, type Action, type Limits } from "../core/actions";
-import type { Character, Npc, Parsed } from "../core/character";
+import type { Character, Combo, Npc, Parsed } from "../core/character";
+import { blankCombo, validateCombo } from "../core/combos";
 import { deriveCharacter, deriveCompanion, deriveNpc, type ActorStats } from "../core/derive";
 import { rollD20, rollDice } from "../core/dice";
 import { critInfo, d20Rules, rollSources } from "../core/effects";
@@ -31,7 +32,9 @@ export interface SheetHost {
 export type Panel =
   | { kind: "conditions"; who?: number } | { kind: "log" } | { kind: "rest"; id: string }
   | { kind: "compendium" } | { kind: "add-companion" } | { kind: "customize" }
-  | { kind: "cast"; spell: string } | { kind: "add-spell" } | { kind: "details"; ref: string } | { kind: "level-up" };
+  | { kind: "cast"; spell: string } | { kind: "add-spell" } | { kind: "details"; ref: string } | { kind: "level-up" } | { kind: "combo-edit" };
+/** The combo form: `index` is the combo being changed, or null for a new one. Typing changes the draft without redrawing. */
+export interface ComboDraft { index: number | null; combo: Combo; error?: string; confirmDelete?: boolean; }
 /** The level-up wizard: `level` adds a class level, `resolve` only answers choices a note still owes. */
 export interface LevelUpView { featOpen: Set<string>; spellQuery: string; featQuery: string; }
 export interface LevelUpState {
@@ -49,6 +52,7 @@ export class SheetController {
   damageType = "";
   /** After damage while concentrating: the save the player is asked to make. */
   concentrationCheck: { dc: number; spell: string } | null = null;
+  comboDraft: ComboDraft | null = null;
   panel: Panel | null = null; levelUp: LevelUpState | null = null; confirmUndo = false; lastRoll?: RollResult; restOpts: RestOptions = { samePlace: true, safeHaven: false };
   private subs = new Set<() => void>();
   private collapsed?: Set<string>;
@@ -129,6 +133,51 @@ export class SheetController {
     this.host.notify(`Concentration lost: ${name} ends.`);
   }
   dismissConcentrationCheck() { this.concentrationCheck = null; this.emit(); }
+
+  // ---- combos
+
+  /** Open the combo form on combo `index`, or on a blank one when `index` is null. */
+  startComboEdit(index: number | null) {
+    const c = this.character; if (!c || !this.guard()) return;
+    const existing = index === null ? undefined : c.combos[index];
+    if (index !== null && !existing) return;
+    this.comboDraft = { index, combo: existing ? structuredClone(existing) : blankCombo() }; this.open({ kind: "combo-edit" });
+  }
+  /** Change the draft in a way that needs the form drawn again (a step added, moved or removed, a different pick). */
+  touchComboDraft(mut: (d: Combo) => void) { const d = this.comboDraft; if (!d) return; mut(d.combo); delete d.error; delete d.confirmDelete; this.emit(); }
+  saveComboDraft(): boolean {
+    const d = this.comboDraft; if (!d) return false;
+    const bad = validateCombo(d.combo);
+    if (bad) { d.error = bad; this.emit(); return false; }
+    if (!this.dispatch({ type: "combo", combo: d.combo, ...(d.index !== null ? { index: d.index } : {}) }).ok) return false;
+    this.comboDraft = null; this.close(); return true;
+  }
+  cancelComboEdit() { this.comboDraft = null; this.close(); }
+  /** Deleting asks twice: the first tap changes the button to "Tap again to delete". */
+  deleteComboDraft(): boolean {
+    const d = this.comboDraft; if (!d || d.index === null) return false;
+    if (!d.confirmDelete) { d.confirmDelete = true; this.emit(); return false; }
+    if (!this.dispatch({ type: "comboRemove", index: d.index }).ok) return false;
+    this.comboDraft = null; this.close(); return true;
+  }
+  /** Move the combo being edited one place earlier or later in the list. */
+  moveComboDraft(by: -1 | 1) {
+    const d = this.comboDraft; if (!d || d.index === null || !this.character?.combos[d.index + by]) return;
+    if (this.dispatch({ type: "comboMove", index: d.index, by }).ok) { d.index += by; this.emit(); }
+  }
+  pinCombo(index: number, on: boolean) { this.dispatch({ type: "comboPin", index, on }); }
+
+  /** Spend `amount` of a resource by name (a combo step) and say in words when there is not enough. */
+  spendResource(name: string, amount: number): boolean {
+    const st = this.stats(), r = st?.resources.find(x => slug(x.name) === slug(name));
+    if (!st || !r) { this.host.notify(`${name} is not on this sheet.`); return false; }
+    const plain = { crit: false, fumble: false, sources: { adv: [], dis: [], fail: [] } };
+    if (r.unlimited) { this.record({ title: `${r.name} used`, total: 0, dice: [], detail: r.unlimited, ...plain }); return true; }
+    if (r.used + amount > r.max) { this.host.notify(`No ${r.name} left. Take a rest first.`); return false; }
+    const ok = r.derived ? this.dispatch({ type: "uses", id: r.id, used: r.used + amount }).ok : this.dispatch({ type: "resource", index: Number(r.id.split(":")[1]), used: r.used + amount }).ok;
+    if (ok) this.record({ title: `${r.name} -${amount}`, total: 0, dice: [], detail: `${r.max - r.used - amount} of ${r.max} left`, ...plain });
+    return ok;
+  }
 
   /** Cast a spell (own, or from item `item`) and show what it cost. */
   cast(spell: string, level?: number, item?: number) {

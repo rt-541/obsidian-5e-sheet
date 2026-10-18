@@ -40,7 +40,7 @@ function pinButton(ctl: SheetController, r: SpellRow): HTMLElement {
   el.title = on ? "Shown on the main page (click to unpin)" : "Show on the main page";
   return el;
 }
-function castButton(ctl: SheetController, r: SpellRow): HTMLElement | null {
+export function castButton(ctl: SheetController, r: SpellRow): HTMLElement | null {
   if (!r.known) return null;
   if (r.source.kind === "item") { const idx = r.source.itemIndex; return btn("Cast", () => ctl.cast(r.id, r.castLevel !== r.level ? r.castLevel : undefined, idx), "", { act: "cast" }); }
   return btn("Cast", () => r.level >= 1 ? ctl.open({ kind: "cast", spell: r.id }) : ctl.cast(r.id), "", { act: "cast" });

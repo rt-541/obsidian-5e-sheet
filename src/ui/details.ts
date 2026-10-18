@@ -1,6 +1,7 @@
 import { sourceLabel, type Entry, type Registry } from "../content/registry";
 import type { ClassData, ConditionData, CreatureData, FeatData, GrantsData, ItemData, Op, SpellData, SubclassData, SubraceData } from "../content/types";
 import type { Effects } from "../core/types";
+import { comboViews } from "../core/combos";
 import { diceAt } from "../core/spells";
 import type { SheetController } from "./controller";
 import { describeEffects, sourceBadge } from "./widgets";
@@ -144,6 +145,14 @@ export function entryCard(reg: Registry, e: Entry, body?: string): HTMLElement {
   }
 }
 
+/** A combo in full: when to use it, every step with its action type, and the notes. */
+function comboCard(index: number, ctl: SheetController): HTMLElement | null {
+  const st = ctl.stats(), c = ctl.character; if (!st || !c) return null;
+  const v = comboViews(c, st, ctl.companionStats(), ctl.ctx())[index]; if (!v) return null;
+  const lines = [v.readyText, ...v.steps.map((s, i) => `${i + 1}. ${s.step.action}${s.who ? ` (${s.who})` : ""}: ${s.step.text}`)];
+  return card(v.combo.name, v.combo.when ? `When to use it: ${v.combo.when}` : "Combo", lines, v.combo.notes);
+}
+
 /** A detail card for `ref` (item:, spell:, condition:, trait:<creature>:<index>, effect:<source>), or null if it is not known. All text goes in as text nodes. */
 export function detailCard(ref: string, ctl: SheetController): HTMLElement | null {
   const i = ref.indexOf(":"); if (i < 0) return null;
@@ -154,6 +163,7 @@ export function detailCard(ref: string, ctl: SheetController): HTMLElement | nul
     case "condition": { const e = reg.get<ConditionData>("condition", rest) ?? reg.get<ConditionData>("injury", rest); return e ? conditionCard(e, ctl.value.conditions[rest] ?? 0) : null; }
     case "effect": return effectCard(rest, ctl);
     case "feature": return featureCard(rest, ctl);
+    case "combo": return comboCard(Number(rest), ctl);
     case "subclass": { const e = reg.get<SubclassData>("subclass", rest); return e ? subclassCard(reg, e) : null; }
     case "feat": { const e = reg.get<FeatData>("feat", rest); return e ? featCard(e) : null; }
     case "trait": { const j = rest.lastIndexOf(":"); return j < 0 ? null : traitCard(rest.slice(0, j), Number(rest.slice(j + 1)), ctl); }

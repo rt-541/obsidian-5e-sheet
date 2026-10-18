@@ -3,6 +3,7 @@ import type { ConditionData, CreatureData, ItemData } from "../content/types";
 import type { CompanionKind } from "../core/character";
 import { MODULES } from "../rules";
 import type { Panel, SheetController } from "./controller";
+import { comboForm } from "./combos-ui";
 import { describeEffects, sourceBadge } from "./widgets";
 import { detailCard } from "./details";
 import { h } from "./h";
@@ -94,12 +95,12 @@ function logPanel(ctl: SheetController): HTMLElement {
   return h("div", {}, ...ctl.host.log.map(r => h("div", { cls: "fe-log" }, h("div", { text: r.title }), h("b", { text: String(r.total) }), " ", h("span", { cls: "fe-mono", text: r.detail }))));
 }
 
-const TITLES: Record<Panel["kind"], string> = { conditions: "Conditions", log: "Roll log", rest: "Rest", compendium: "Item compendium", "add-companion": "Add companion", customize: "Customize sheet", cast: "Cast spell", "add-spell": "Add spell", details: "Details", "level-up": "Level up" };
+const TITLES: Record<Panel["kind"], string> = { conditions: "Conditions", log: "Roll log", rest: "Rest", compendium: "Item compendium", "add-companion": "Add companion", customize: "Customize sheet", cast: "Cast spell", "add-spell": "Add spell", details: "Details", "level-up": "Level up", "combo-edit": "Combo" };
 
 export function renderPanel(ctl: SheetController, p: Panel, features: readonly string[]): HTMLElement {
   const body = p.kind === "conditions" ? conditionsPanel(ctl, p.who) : p.kind === "rest" ? restPanel(ctl, p.id) : p.kind === "compendium" ? compendiumPanel(ctl)
-    : p.kind === "details" ? detailsPanel(ctl, p.ref) : p.kind === "cast" ? castPanel(ctl, p.spell) : p.kind === "add-spell" ? addSpellPanel(ctl) : p.kind === "add-companion" ? addCompanionPanel(ctl) : p.kind === "customize" ? customizePanel(ctl, features) : p.kind === "level-up" ? levelUpPanel(ctl) : logPanel(ctl);
+    : p.kind === "details" ? detailsPanel(ctl, p.ref) : p.kind === "cast" ? castPanel(ctl, p.spell) : p.kind === "add-spell" ? addSpellPanel(ctl) : p.kind === "add-companion" ? addCompanionPanel(ctl) : p.kind === "customize" ? customizePanel(ctl, features) : p.kind === "level-up" ? levelUpPanel(ctl) : p.kind === "combo-edit" ? comboForm(ctl) : logPanel(ctl);
   return h("div", { cls: "fe-panel", data: { panel: p.kind } },
-    h("div", { cls: "fe-panel-head" }, h("span", { cls: "fe-grow fe-name", text: TITLES[p.kind] }), h("button", { cls: "fe-btn", text: "Close", on: { click: () => ctl.close() } })),
+    h("div", { cls: "fe-panel-head" }, h("span", { cls: "fe-grow fe-name", text: TITLES[p.kind] }), h("button", { cls: "fe-btn", text: "Close", on: { click: () => (p.kind === "combo-edit" ? ctl.cancelComboEdit() : ctl.close()) } })),
     h("div", { cls: "fe-panel-body" }, body));
 }

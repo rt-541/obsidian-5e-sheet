@@ -48,6 +48,7 @@ export function mountSheet(root: HTMLElement, ctl: SheetController, mobile: bool
   const render = () => {
     const features = ctl.isNpc ? NPC_FEATURES : CHARACTER_FEATURES;
     const layout = layoutFor(ctl.isNpc, mobile), visible = new Set(ctl.visible([...features])), st = ctl.stats();
+    const body = root.querySelector<HTMLElement>(".fe-panel-body"), was = body ? { kind: (body.parentElement as HTMLElement).dataset.panel, top: body.scrollTop } : undefined;
     hidePopover(); clear(root);
     root.className = `fe-sheet ${mobile ? "fe-mobile" : "fe-desktop"} ${ctl.editing ? "is-editing" : ""}`;
     if (ctl.errors.length) root.append(h("div", { cls: "fe-banner", data: { feature: "problems" } },
@@ -67,7 +68,12 @@ export function mountSheet(root: HTMLElement, ctl: SheetController, mobile: bool
       const pane = h("div", { cls: "fe-pane", data: { pane: t.id } }, ...t.columns.map(col => h("div", { cls: "fe-col" }, ...col.map(slot))));
       pane.hidden = t !== active; root.append(pane);
     }
-    if (ctl.panel) root.append(h("div", { cls: "fe-scrim", on: { click: () => ctl.close() } }), renderPanel(ctl, ctl.panel, features));
+    if (ctl.panel) {
+      const panel = renderPanel(ctl, ctl.panel, features);
+      root.append(h("div", { cls: "fe-scrim", on: { click: () => ctl.close() } }), panel);
+      // a form that redraws (a step added) stays scrolled where it was
+      if (was && was.kind === ctl.panel.kind) panel.querySelector<HTMLElement>(".fe-panel-body")!.scrollTop = was.top;
+    }
     const r = ctl.lastRoll;
     const toast = h("div", { cls: `fe-toast ${r ? (r.crit ? "is-crit" : r.fumble ? "is-fumble" : "") : ""}`, data: { feature: "roll-result" } },
       r ? h("div", { cls: "fe-muted", text: r.title }) : null, r && (r.dice.length || r.total !== 0) ? h("div", { cls: "fe-toast-total", text: String(r.total) }) : null, r ? h("div", { cls: "fe-mono", text: r.detail }) : null);

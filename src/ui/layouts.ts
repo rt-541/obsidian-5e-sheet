@@ -2,7 +2,7 @@
 export const CHARACTER_FEATURES = [
   "identity", "inspiration", "prof", "xp", "level-up", "ac", "initiative", "speed", "passive-perception",
   "hp", "hp-controls", "hit-dice", "death-saves", "conditions", "concentration", "toggles", "active-effects",
-  "abilities", "saves", "skills", "attacks", "pinned-spells", "spell-dc", "spell-slots", "spells", "resources", "traits", "rests",
+  "abilities", "saves", "skills", "attacks", "pinned-spells", "pinned-combos", "combos", "spell-dc", "spell-slots", "spells", "resources", "traits", "rests",
   "features", "inventory", "companions", "roll-mode", "roll-log", "play-edit", "notes",
 ] as const;
 export const NPC_FEATURES = [
@@ -18,7 +18,8 @@ export const DESKTOP: LayoutSpec = {
     { id: "main", label: "Main", columns: [
       ["abilities", "saves", "skills"],
       ["ac", "initiative", "speed", "passive-perception", "hp", "hp-controls", "hit-dice", "death-saves", "conditions", "concentration", "active-effects"],
-      ["toggles", "attacks", "pinned-spells", "spell-dc", "spell-slots", "resources", "traits"]] },
+      ["toggles", "attacks", "pinned-spells", "pinned-combos", "spell-dc", "spell-slots", "resources", "traits"]] },
+    { id: "combos", label: "Combos", columns: [["combos"]] },
     { id: "spells", label: "Spells", columns: [["spells"]] },
     { id: "features", label: "Features", columns: [["features"]] },
     { id: "inventory", label: "Inventory", columns: [["inventory"]] },
@@ -29,7 +30,8 @@ export const DESKTOP: LayoutSpec = {
 export const MOBILE: LayoutSpec = {
   pinned: ["identity", "hp", "ac", "initiative", "speed", "level-up", "roll-mode", "conditions", "concentration", "roll-log"],
   tabs: [
-    { id: "combat", label: "Combat", columns: [["toggles", "hp-controls", "attacks", "pinned-spells", "spell-dc", "spell-slots", "resources", "traits", "hit-dice", "death-saves", "rests"]] },
+    { id: "combat", label: "Combat", columns: [["toggles", "hp-controls", "attacks", "pinned-spells", "pinned-combos", "spell-dc", "spell-slots", "resources", "traits", "hit-dice", "death-saves", "rests"]] },
+    { id: "combos", label: "Combos", columns: [["combos"]] },
     { id: "checks", label: "Checks", columns: [["abilities", "saves", "skills", "passive-perception"]] },
     { id: "spells", label: "Spells", columns: [["spells"]] },
     { id: "gear", label: "Gear", columns: [["inventory"]] },
