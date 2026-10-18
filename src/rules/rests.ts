@@ -20,6 +20,22 @@ function shortParts(ctx: RestCtx, c: Character | null): string[] {
       if (c) { if (r.used - back) c.uses[r.id] = r.used - back; else delete c.uses[r.id]; if (r.refill.oncePer === "long") c.choices[flag] = true; }
     }
   }
+  // Warlock Pact Magic slots come back on a short rest.
+  if (ctx.stats.slots.some(sl => sl.level === "pact" && sl.used > 0)) { out.push("Pact Magic spell slots return"); if (c) delete c.spellSlots.pact; }
+  return out;
+}
+
+/** Dawn resets are on a long rest unless the holy-days rule is on, which moves them to the holy-day rest. */
+const dawnOnLongRest = (ctx: RestCtx) => !ctx.rules["holy-days"];
+const resetsOn = (reset: string, dawnToo: boolean) => reset === "short" || reset === "long" || (reset === "dawn" && dawnToo);
+
+/** What a dawn on a holy day restores: resources and item charges that reset at dawn, nothing else. Pass c=null for a preview. */
+function dawnParts(ctx: RestCtx, c: Character | null): string[] {
+  const out: string[] = [];
+  ctx.c.resources.forEach((r, i) => { if (r.reset === "dawn" && r.used) { out.push(`${r.name} recharges`); if (c) c.resources[i].used = 0; } });
+  for (const r of ctx.stats.resources) if (r.derived && r.reset === "dawn" && r.used) { out.push(`${r.name} recharges`); if (c) delete c.uses[r.id]; }
+  ctx.c.inventory.forEach((e, i) => { const it = itemName(ctx, e.id);
+    if (it?.charges?.reset === "dawn" && e.charges?.used) { out.push(`${it.name}: charges restored`); if (c) c.inventory[i].charges = { used: 0 }; } });
   return out;
 }
 
@@ -28,8 +44,9 @@ function bigParts(ctx: RestCtx, c: Character | null, allHitDice: boolean): strin
   const out: string[] = [], ex = ctx.c.conditions.exhaustion ?? 0;
   if (ex) out.push(`Exhaustion ${ex} -> ${ex - 1}`);
   out.push(`HP to ${hpMaxAfterExhaustion(ctx)}`, "All spell slots");
-  ctx.c.resources.forEach(r => { if (r.used && r.reset !== "none" && r.reset !== "dawn") out.push(`${r.name} recharges`); });
-  ctx.stats.resources.forEach(r => { if (r.derived && r.used && r.reset !== "none" && r.reset !== "dawn") out.push(`${r.name} recharges`); });
+  const dawn = dawnOnLongRest(ctx);
+  ctx.c.resources.forEach(r => { if (r.used && r.reset !== "none" && (r.reset !== "dawn" || dawn)) out.push(`${r.name} recharges`); });
+  ctx.stats.resources.forEach(r => { if (r.derived && r.used && r.reset !== "none" && (r.reset !== "dawn" || dawn)) out.push(`${r.name} recharges`); });
   const total = ctx.stats.hitDice.reduce((a, h) => a + h.max, 0), used = ctx.stats.hitDice.reduce((a, h) => a + h.used, 0);
   let regain = Math.min(used, allHitDice ? used : Math.max(1, Math.floor(total / 2)));
   if (regain) out.push(allHitDice ? "All Hit Dice" : `Regain ${regain} Hit Dice`);
@@ -41,8 +58,8 @@ function bigParts(ctx: RestCtx, c: Character | null, allHitDice: boolean): strin
     exhaustionDown(c);
     c.hp = { max: c.hp.max, current: hpMaxAfterExhaustion(ctx), temp: 0 };
     c.deathSaves = { successes: 0, failures: 0 }; c.spellSlots = {};
-    c.resources.forEach(r => { if (r.reset === "short" || r.reset === "long") r.used = 0; });
-    for (const r of ctx.stats.resources) if (r.derived && (r.reset === "short" || r.reset === "long")) delete c.uses[r.id];
+    c.resources.forEach(r => { if (resetsOn(r.reset, dawn)) r.used = 0; });
+    for (const r of ctx.stats.resources) if (r.derived && resetsOn(r.reset, dawn)) delete c.uses[r.id];
     for (const k of Object.keys(c.choices)) if (k.startsWith("refill.")) delete c.choices[k];
     for (const h of [...ctx.stats.hitDice].sort((a, b) => +b.die.slice(1) - +a.die.slice(1))) {
       const back = Math.min(h.used, regain); regain -= back; c.hitDice[h.die] = { used: h.used - back };
@@ -78,5 +95,11 @@ const night: RestDef = {
   },
 };
 
+/** Only offered when the holy-days rule is on: a dawn on a holy day is the one time dawn-reset magic comes back. */
+export const holyDay: RestDef = {
+  id: "holy-day", label: "Holy day dawn",
+  preview: ctx => { const p = dawnParts(ctx, null); return p.length ? p : ["Nothing that resets at dawn is spent"]; },
+  apply: ctx => { const c = structuredClone(ctx.c); return { value: c, summary: dawnParts(ctx, c) }; },
+};
 export const restStandard: RuleModule = { id: "rest-standard", title: "Standard rests (short and long)", defaultOn: true, excludes: ["rest-excursion"], rests: [short, long], sections: [] };
 export const restExcursion: RuleModule = { id: "rest-excursion", title: "Excursion resting (night's rest and good rest)", defaultOn: false, excludes: ["rest-standard"], rests: [night], sections: [] };
