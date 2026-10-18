@@ -6,8 +6,15 @@ const exhaustionDown = (c: Character) => { if (c.conditions.exhaustion) { c.cond
 const hpMaxAfterExhaustion = (ctx: RestCtx) => (ctx.c.conditions.exhaustion ?? 0) - 1 >= 4 ? Math.floor(ctx.c.hp.max / 2) : ctx.c.hp.max;
 const itemName = (ctx: RestCtx, id?: string) => (id && ctx.registry.get<ItemData>("item", id)?.data) || undefined;
 
-function shortParts(ctx: RestCtx, c: Character | null): string[] {
+/** Switches (Rage, stances) that end with this kind of rest; a long rest ends the short ones too. */
+function endToggles(ctx: RestCtx, c: Character | null, kinds: ("short" | "long")[]): string[] {
   const out: string[] = [];
+  for (const t of ctx.stats.toggles) if (t.on && t.def.endsOn !== "never" && kinds.includes(t.def.endsOn)) { out.push(`${t.name} ends`); if (c) delete c.active[t.id]; }
+  return out;
+}
+
+function shortParts(ctx: RestCtx, c: Character | null): string[] {
+  const out: string[] = endToggles(ctx, c, ["short"]);
   (c ?? ctx.c).resources.forEach(r => { if (r.reset === "short" && r.used) { out.push(`${r.name} recharges`); if (c) r.used = 0; } });
   ctx.c.inventory.forEach((e, i) => { const it = itemName(ctx, e.id); if (it?.charges?.reset === "short" && e.charges?.used) { out.push(`${it.name}: charges restored`); if (c) c.inventory[i].charges = { used: 0 }; } });
   for (const r of ctx.stats.resources) {
@@ -41,7 +48,7 @@ function dawnParts(ctx: RestCtx, c: Character | null): string[] {
 
 /** Long rest (allHitDice=false) and Good Rest (allHitDice=true). Pass c=null for a preview. */
 function bigParts(ctx: RestCtx, c: Character | null, allHitDice: boolean): string[] {
-  const out: string[] = [], ex = ctx.c.conditions.exhaustion ?? 0;
+  const out: string[] = endToggles(ctx, c, ["short", "long"]), ex = ctx.c.conditions.exhaustion ?? 0;
   if (ex) out.push(`Exhaustion ${ex} -> ${ex - 1}`);
   out.push(`HP to ${hpMaxAfterExhaustion(ctx)}`, "All spell slots");
   const dawn = dawnOnLongRest(ctx);

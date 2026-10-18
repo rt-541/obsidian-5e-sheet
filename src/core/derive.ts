@@ -1,12 +1,13 @@
 import type { CompanionEntry, Character, Npc } from "./character";
 import type { ClassData, CreatureData, ItemData } from "../content/types";
 import { collectEffects, damageTraits, itemWorks, missingIds, notes, sumModifier, type EffectContext, type ModOpts, type SourcedEffects } from "./effects";
-import { filterGated, gateStateOf, NO_GATES } from "./gates";
+import { filterGated, gateHolds, gateStateOf, NO_GATES } from "./gates";
 import { abilityMod, profBonus } from "./abilities";
 import { evalFormula } from "./formula";
 import { emptyProgress, formulaVars, progress, type Progress, type DerivedResource } from "./progression";
 import { slotTable } from "./slots";
-import { ABILS, SKILLS, type Abil, type Modifier, type RollTarget } from "./types";
+import { ABILS, SKILLS, type Abil, type Effects, type Modifier, type RollTarget } from "./types";
+import type { ToggleDef } from "../content/types";
 
 export interface AttackStat { name: string; toHit?: number; save?: { abil: Abil; dc: number }; damage?: string; note?: string; target: RollTarget;
   /** Set (false) only when the character lacks the weapon proficiency, so the proficiency bonus is not in toHit. */
@@ -32,6 +33,12 @@ export function weaponProficiency(other: string[], known: boolean) {
   };
 }
 export interface ResourceRow { id: string; name: string; max: number; used: number; reset: "short" | "long" | "dawn" | "none"; derived: boolean; source?: string; refill?: DerivedResource["refill"]; unlimited?: string; }
+/** A switch on the sheet (Rage, a stance, a flame aura): `on` is what the note says, `suppressed` means it is on but its own conditions fail right now. */
+export interface ToggleRow {
+  id: string; name: string; source: string; text?: string; def: ToggleDef; effects: Effects; on: boolean; suppressed: boolean;
+  /** The number set while it is on (a value toggle), else 1 when on. */
+  value: number; /** Set for a toggle that belongs to an inventory item. */ itemIndex?: number;
+}
 export interface CasterStat { name: string; abil: Abil; dc: number; attack: number; progression: string; }
 export interface ActorStats {
   kind: "character" | "companion" | "npc"; name: string; label: string;
@@ -51,6 +58,7 @@ export interface ActorStats {
   carry: { weight: number; capacity: number };
   traits: { resist: string[]; immune: string[]; vulnerable: string[] };
   notes: { source: string; text: string }[]; effects: SourcedEffects[]; missing: string[]; attunedCount: number;
+  toggles: ToggleRow[];
   /** Manual resources followed by those derived from class operations. */
   resources: ResourceRow[]; casters: CasterStat[];
   /** Features, scales, class DCs, pending choices and so on, replayed from race, background, feats and class levels. */
@@ -90,7 +98,15 @@ export function deriveCharacter(c: Character, ctx: EffectContext): ActorStats {
   const missing = [...missingIds(c, r), ...classData.filter(x => !x.d).map(x => `class:${x.k.class}`)];
   const items = c.inventory.map(e => ({ e, it: e.id ? r.get<ItemData>("item", e.id)?.data : undefined }));
   // Effects blocks with a `while` gate (armor, shield, two weapons, a toggle, concentrating) count only while the gate holds.
-  const fx = filterGated([...collectEffects(c, ctx), ...prog.effects], gateStateOf(items, c.active, !!c.concentration));
+  const gates = gateStateOf(items, c.active, !!c.concentration);
+  const fx = filterGated([...collectEffects(c, ctx), ...prog.effects], gates);
+  const toggleRow = (id: string, name: string, source: string, def: ToggleDef, effects: Effects, text?: string, itemIndex?: number): ToggleRow => {
+    const v = c.active[id], on = v !== undefined && v !== false && v !== 0 && v !== "";
+    return { id, name, source, def, effects, on, suppressed: on && !(def.while ?? []).every(g => gateHolds(g, gates)), value: typeof v === "number" ? v : on ? 1 : 0,
+      ...(text !== undefined ? { text } : {}), ...(itemIndex !== undefined ? { itemIndex } : {}) };
+  };
+  const toggles: ToggleRow[] = [...prog.toggles.map(t => toggleRow(t.id, t.name, t.source, t.def, t.effects, t.text)),
+    ...items.flatMap(({ e, it }, i) => it?.toggle && itemWorks(e, it) && !prog.toggles.some(t => t.id === it.toggle!.id) ? [toggleRow(it.toggle.id, it.name, "Item", it.toggle, it.effects, it.rules, i)] : [])];
 
   const armor = items.find(x => x.it?.armor && itemWorks(x.e, x.it));
   // acAbility replaces Dex in the AC formula (still capped by the armor); the best of Dex and the granted ability is used.
@@ -155,7 +171,7 @@ export function deriveCharacter(c: Character, ctx: EffectContext): ActorStats {
     ...(spellcasting ? { spellcasting } : {}), slots, hitDice,
     carry: { weight, capacity: Math.max(0, c.abilities.str * 15 + carryMod.add) * (carryMod.double ? 2 : 1) / (carryMod.half ? 2 : 1) },
     traits: damageTraits(fx), notes: notes(fx), effects: fx, missing, attunedCount: c.inventory.filter(e => e.attuned).length,
-    resources, casters, progress: prog, maxScores, ...(crits[0] ? { crit: { range: crits[0].effects.critRange!, ...(crits[0].effects.critVs ? { vs: crits[0].effects.critVs } : {}) } } : {}),
+    toggles, resources, casters, progress: prog, maxScores, ...(crits[0] ? { crit: { range: crits[0].effects.critRange!, ...(crits[0].effects.critVs ? { vs: crits[0].effects.critVs } : {}) } } : {}),
     languages: mergeLanguages(prog.languages, c.languages),
     ...(prog.darkvision !== undefined ? { darkvision: prog.darkvision } : {}),
   };
@@ -181,7 +197,7 @@ export function deriveCreature(b: CreatureData, st: { name: string; hp: { max?: 
       ...(a.damage ? { damage: a.damage } : {}), ...(a.note ? { note: a.note } : {}), target: { kind: "attack" } })),
     slots: [], hitDice: [], carry: { weight: 0, capacity: b.abilities.str * 15 }, traits: damageTraits(fx), notes: notes(fx), effects: fx,
     missing: missingIds({ conditions: st.conditions }, ctx.registry), attunedCount: 0,
-    resources: [], casters: [], progress: emptyProgress(), maxScores: { str: 20, dex: 20, con: 20, int: 20, wis: 20, cha: 20 },
+    toggles: [], resources: [], casters: [], progress: emptyProgress(), maxScores: { str: 20, dex: 20, con: 20, int: 20, wis: 20, cha: 20 },
   };
 }
 

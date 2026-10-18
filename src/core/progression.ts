@@ -1,16 +1,16 @@
 import type { Registry } from "../content/registry";
 import { slug } from "../content/registry";
-import type { ActionDef, ClassData, FeatData, GrantsData, Op, OptionDef, Progression, Reset, SubclassData, SubraceData, TableRow } from "../content/types";
+import type { ActionDef, ClassData, FeatData, GrantsData, Op, OptionDef, Progression, Reset, SubclassData, SubraceData, TableRow, ToggleDef } from "../content/types";
 import { abilityMod, profBonus } from "./abilities";
 import type { Character } from "./character";
-import type { SourcedEffects } from "./effects";
+import { gatedByToggle, type SourcedEffects } from "./effects";
 import { evalFormula, isUnlimitedWord, UNLIMITED, type Formula } from "./formula";
 import { ABILS, SKILLS, type Abil, type Effects } from "./types";
 
 export interface FeatureRow {
   /** `<source>:<level>:<op id>`; the same key a choice for this op is stored under. */
   key: string; source: string; sourceKind: "race" | "subrace" | "background" | "feat" | "class" | "subclass" | "option";
-  level: number; name: string; text?: string; effects: Effects; action?: ActionDef;
+  level: number; name: string; text?: string; effects: Effects; action?: ActionDef; toggle?: ToggleDef;
 }
 export interface DerivedResource {
   id: string; name: string; max: number; used: number; reset: Reset; source: string;
@@ -31,15 +31,20 @@ export interface Progress {
   options: Record<string, string[]>; spellcasting: CasterEntry[];
   grantedSpells: { id: string; source: string }[]; grantedItems: { id: string; source: string }[];
   pending: PendingChoice[]; effects: SourcedEffects[];
+  /** Every switch a feature or option declares (Rage, a stance); its effects are in `effects` only while it is on. */
+  toggles: DeclaredToggle[];
   /** Content ids the character names that are not in the compendium (race:x, feat:y, subclass:z). */
   unknown: string[];
   /** Bad homebrew that was skipped: formulas that do not evaluate, picks that are not allowed, and so on. */
   problems: string[];
 }
 
+/** A switch declared by a feature or option: `effects` count only while it is on. */
+export interface DeclaredToggle { id: string; name: string; source: string; text?: string; def: ToggleDef; effects: Effects; }
+
 export const emptyProgress = (): Progress => ({
   features: [], resources: [], scales: {}, dcs: [], proficiencies: { saves: [], skills: [], expertise: [], other: [] }, languages: [],
-  options: {}, spellcasting: [], grantedSpells: [], grantedItems: [], pending: [], effects: [], unknown: [], problems: [],
+  options: {}, spellcasting: [], grantedSpells: [], grantedItems: [], pending: [], effects: [], toggles: [], unknown: [], problems: [],
 });
 
 const own = (o: object, k: string) => Object.prototype.hasOwnProperty.call(o, k);
@@ -86,9 +91,13 @@ export function progress(c: Character, registry: Registry): Progress {
       else seen.other.add(p);
     }
   };
-  const feature = (src: Src, key: string, name: string, text: string | undefined, effects: Effects, action: ActionDef | undefined, kind = src.kind) => {
-    out.features.push({ key, source: src.label, sourceKind: kind, level: src.level, name, effects, ...(text !== undefined ? { text } : {}), ...(action ? { action } : {}) });
-    if (Object.keys(effects).length) out.effects.push({ source: name, effects });
+  const feature = (src: Src, key: string, name: string, text: string | undefined, effects: Effects, action: ActionDef | undefined, kind = src.kind, toggle?: ToggleDef) => {
+    out.features.push({ key, source: src.label, sourceKind: kind, level: src.level, name, effects, ...(text !== undefined ? { text } : {}), ...(action ? { action } : {}), ...(toggle ? { toggle } : {}) });
+    if (toggle) {
+      if (out.toggles.some(t => t.id === toggle.id)) problem(`${name}: another switch is already called "${toggle.id}"`);
+      else out.toggles.push({ id: toggle.id, name, source: src.label, def: toggle, effects, ...(text !== undefined ? { text } : {}) });
+    }
+    if (Object.keys(effects).length) out.effects.push({ source: name, effects: toggle ? gatedByToggle(effects, toggle) : effects });
   };
 
   function run(ops: Op[], src: Src) {
@@ -105,7 +114,7 @@ export function progress(c: Character, registry: Registry): Progress {
           break;
         case "feature":
           // an optional feature is only there when the level-up (or the note's choices) says it was taken
-          if (!op.optional || choice(key, src.classId, src.level) === true) feature(src, key, op.name, op.text, op.effects, op.action);
+          if (!op.optional || choice(key, src.classId, src.level) === true) feature(src, key, op.name, op.text, op.effects, op.action, undefined, op.toggle);
           break;
         case "effect": if (Object.keys(op.effects).length) out.effects.push({ source: src.label, effects: op.effects }); break;
         case "resource": {
@@ -180,7 +189,7 @@ export function progress(c: Character, registry: Registry): Progress {
               const d = defs!.find(x => x.id === id)!;
               if (d.minLevel !== undefined && d.minLevel > src.classLevel) { problem(`${src.label}: ${d.name} needs level ${d.minLevel}`); continue; }
               (out.options[list] ??= []).push(id);
-              feature(src, `${key}:${id}`, d.name, d.text, d.effects, d.action, "option");
+              feature(src, `${key}:${id}`, d.name, d.text, d.effects, d.action, "option", d.toggle);
             }
           }
           break;

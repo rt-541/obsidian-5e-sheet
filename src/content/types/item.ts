@@ -3,6 +3,7 @@ import { parseDice } from "../../core/dice";
 import { bool, isObj, num, oneOf, str, type Errs, type Raw } from "../check";
 import type { TypeDef } from "../registry";
 import { validateEffects } from "./effects";
+import { validateToggle, type ToggleDef } from "./toggle";
 
 export interface ArmorData { base: number; dex: "full" | "max2" | "none"; stealthDis?: boolean; strReq?: number; }
 export interface WeaponData { dmg: string; type: string; ab: "str" | "dex" | "finesse"; range: "melee" | "ranged"; bonus?: number; extraDamage?: string;
@@ -12,7 +13,8 @@ export interface WeaponData { dmg: string; type: string; ab: "str" | "dex" | "fi
   props?: string[]; }
 export interface GrantedSpell { id: string; cost: { kind: "charges"; amount: number } | { kind: "perDay"; uses: number } | { kind: "atWill" }; level?: number; dc?: number; attack?: number; }
 export interface ItemData { name: string; kind: "armor" | "shield" | "weapon" | "wondrous" | "gear" | "consumable"; rarity?: string; attunement: boolean; weight: number; /** Price in copper pieces. */ value?: number;
-  armor?: ArmorData; weapon?: WeaponData; charges?: { max: number; reset: "dawn" | "short" | "long" | "none" }; heal?: string; effects: Effects; rules?: string; grants?: { spells: GrantedSpell[] }; }
+  armor?: ArmorData; weapon?: WeaponData; charges?: { max: number; reset: "dawn" | "short" | "long" | "none" }; heal?: string; effects: Effects; rules?: string; grants?: { spells: GrantedSpell[] };
+  /** A switch the player turns on and off; the item's effects count only while it is on (and the item works). */ toggle?: ToggleDef; }
 
 const whole = (v: unknown, at: string, e: Errs): number | undefined => {
   if (typeof v === "number" && Number.isInteger(v) && v >= 1) return v;
@@ -85,6 +87,7 @@ export const itemType: TypeDef<ItemData> = {
         }
       }
     }
+    if (raw.toggle !== undefined) { const t = validateToggle(raw.toggle, "toggle", name ?? "", e); if (t) out.toggle = t; }
     if (raw.heal !== undefined) { const h = dice(raw.heal, "heal", e); if (h) out.heal = h; }
     if (e.length || !name) return { errors: e };
     return { errors: e, value: out as ItemData };

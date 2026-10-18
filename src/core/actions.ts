@@ -2,6 +2,9 @@ import type { Character, CompanionEntry, Npc } from "./character";
 import type { ActorStats } from "./derive";
 import type { ConditionData, ItemData, SpellData } from "../content/types";
 import { itemWorks, type EffectContext } from "./effects";
+import { slug } from "../content/registry";
+import { evalFormula } from "./formula";
+import { formulaVars } from "./progression";
 import type { Abil } from "./types";
 
 export type Who = { companion: number } | undefined;
@@ -24,7 +27,9 @@ export type Action =
   | { type: "xp"; value: number }
   | { type: "languages"; value: string[] }
   /** Switch a class DC to its alternate ability (stored as character.choices["dc.<id>.alt"]). */
-  | { type: "dcAlt"; id: string; on: boolean };
+  | { type: "dcAlt"; id: string; on: boolean }
+  /** Switch a toggle (Rage, a stance) on or off. Starting spends its cost and ends the others in its group; `value` sets a value toggle's number. */
+  | { type: "toggle"; id: string; on: boolean; value?: number };
 export interface Limits {
   self: ActorStats; companions: (ActorStats | undefined)[]; chargesMax: (index: number) => number;
   /** Re-derive after a condition change so stored HP can be clamped to the new effective max. */
@@ -130,6 +135,46 @@ function cast(c0: Character, c: Character, a: Extract<Action, { type: "cast" }>,
   return { value: c, ...(note ? { note } : {}) };
 }
 
+/** Switch a toggle: starting it spends its cost (refusing in words when nothing is left) and ends the others in its group; ending it is free. */
+function toggle(c0: Character, c: Character, a: Extract<Action, { type: "toggle" }>, lim: Limits): Applied {
+  const fail = (error: string) => ({ value: c0, error });
+  const t = lim.self.toggles.find(x => x.id === a.id);
+  if (!t) return fail("That switch isn't on this character.");
+  const v = t.def.value, setValue = (n: number | undefined): true | number => v ? clamp(n ?? v.min, v.min, v.max) : true;
+  if (!a.on) { delete c.active[a.id]; return { value: c, note: `${t.name} ended.` }; }
+  if (t.on) { if (v && a.value !== undefined) c.active[a.id] = setValue(a.value); return { value: c }; }
+  const cost = t.def.cost; let spent = "";
+  if (cost && "resource" in cost) {
+    const id = slug(cost.resource), r = lim.self.resources.find(x => x.id === id || (!x.derived && slug(x.name) === id));
+    if (!r) return fail(`${t.name} needs ${cost.resource}, which this character doesn't have.`);
+    if (r.unlimited) spent = `${r.name} is unlimited`;
+    else {
+      let n: number;
+      try { n = cost.amount === undefined ? 1 : Math.max(0, Math.floor(evalFormula(cost.amount, formulaVars(c, lim.self.progress.scales)))); }
+      catch (x) { return fail(`${t.name}: ${(x as Error).message}`); }
+      if (r.used + n > r.max) return fail(`No ${r.name} left, so ${t.name} can't start. Take a rest first.`);
+      if (r.derived) { c.uses[r.id] = r.used + n; } else { const i = Number(r.id.split(":")[1]); if (c.resources[i]) c.resources[i].used = r.used + n; }
+      spent = `${n} ${r.name} spent`;
+    }
+  } else if (cost && "slot" in cost) {
+    const lvl = (s: { level: string; pactLevel?: number }) => (s.level === "pact" ? s.pactLevel ?? 0 : Number(s.level));
+    const slot = lim.self.slots.filter(s => s.used < s.max && lvl(s) >= cost.slot).sort((x, y) => lvl(x) - lvl(y))[0];
+    if (!slot) return fail(`No spell slot of level ${cost.slot} or higher left, so ${t.name} can't start.`);
+    c.spellSlots[slot.level] = { ...c.spellSlots[slot.level], used: slot.used + 1 };
+    spent = `a level ${lvl(slot)} spell slot spent`;
+  } else if (cost && "charges" in cost) {
+    const e = t.itemIndex !== undefined ? c.inventory[t.itemIndex] : undefined;
+    if (!e) return fail(`${t.name} needs item charges, but isn't on an item.`);
+    const used = e.charges?.used ?? 0;
+    if (used + cost.charges > lim.chargesMax(t.itemIndex!)) return fail(`Not enough charges left, so ${t.name} can't start.`);
+    e.charges = { ...e.charges, used: used + cost.charges }; spent = `${cost.charges} charge${cost.charges === 1 ? "" : "s"} spent`;
+  }
+  const ended: string[] = [];
+  if (t.def.group) for (const o of lim.self.toggles) if (o.id !== t.id && o.on && o.def.group === t.def.group) { delete c.active[o.id]; ended.push(o.name); }
+  c.active[a.id] = setValue(a.value);
+  return { value: c, note: [`${t.name} started`, spent, ended.length ? `${ended.join(" and ")} ended` : ""].filter(Boolean).join(". ") + "." };
+}
+
 export function apply(c0: Character, a: Action, lim: Limits): Applied {
   const c = structuredClone(c0);
   const who = "who" in a ? a.who : undefined;
@@ -177,6 +222,7 @@ export function apply(c0: Character, a: Action, lim: Limits): Applied {
     case "addCompanion": c.companions.push({ creature: a.creature, name: a.name, kind: a.kind, hp: { temp: 0 }, conditions: {} }); break;
     case "removeCompanion": c.companions.splice(a.index, 1); break;
     case "cast": return cast(c0, c, a, lim);
+    case "toggle": return toggle(c0, c, a, lim);
     case "endConcentration": delete c.concentration; break;
     case "addSpell": if (!c.spells.some(x => x.id === a.id)) c.spells.push({ id: a.id, prepared: false }); break;
     case "removeSpell": { const gone = c.spells.splice(a.index, 1)[0]; if (gone) c.mainSpells = c.mainSpells.filter(k => k !== gone.id); break; }

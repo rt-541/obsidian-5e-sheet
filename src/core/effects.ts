@@ -1,9 +1,12 @@
 import type { Registry } from "../content/registry";
-import type { CampaignData, ConditionData, ItemData } from "../content/types";
+import type { CampaignData, ConditionData, ItemData, ToggleDef } from "../content/types";
 import type { InventoryEntry } from "./character";
 import { evalFormula } from "./formula";
 import { matchesTag } from "./roll-tags";
 import type { Effects, Modifier, RollTarget } from "./types";
+
+/** The effects of a toggled feature or item, gated so they apply only while its switch is on (and its own `while` gates hold). */
+export const gatedByToggle = (effects: Effects, t: ToggleDef): Effects => ({ ...effects, while: [...(effects.while ?? []), `toggle:${t.id}`, ...(t.while ?? [])] });
 
 export interface SourcedEffects { source: string; effects: Effects; }
 export interface EffectContext { registry: Registry; campaign?: CampaignData; }
@@ -25,7 +28,7 @@ export function collectEffects(a: ActorLike, ctx: EffectContext): SourcedEffects
   for (const e of a.inventory ?? []) {
     if (!e.id) continue;
     const it = r.get<ItemData>("item", e.id)?.data;
-    if (it && itemWorks(e, it) && Object.keys(it.effects).length) out.push({ source: it.name, effects: it.effects });
+    if (it && itemWorks(e, it) && Object.keys(it.effects).length) out.push({ source: it.name, effects: it.toggle ? gatedByToggle(it.effects, it.toggle) : it.effects });
   }
   for (const m of a.modifiers) out.push({ source: m.source ?? "Modifier", effects: { modifiers: [m] } });
   const w = ctx.campaign?.weather;
