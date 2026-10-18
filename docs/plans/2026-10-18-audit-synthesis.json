@@ -1,0 +1,870 @@
+{
+ "newEffects": [
+  {
+   "keyword": "modifiers[] (extended, not new)",
+   "shape": "{ target: ModTarget | 'passive', value: number | 'half' | 'zero' | 'double' | Formula, on?: RollTag, source? }",
+   "semantics": "value may be any Formula (evaluated with formulaVars: prof, level, total, ability mods, numeric scales, toggle_<id>, dc_<id>); 'double' is valid for carry. on scopes the modifier to rolls or attack rows matching a tag (same matches() grammar as adv/dis plus the new weapon:* and passive:* tags, '+' joins tags with AND, e.g. 'attack:melee+str'). hpMax and carry numeric/Formula values become additive (fixes the dropped-value bug); target 'passive' with on 'passive:perception|investigation|insight' adds to passives. Check modifiers flow into raw ability checks and initiative.",
+   "covers": [
+    "Archery, Dueling, Thrown Weapon Fighting, Defense (with while)",
+    "Rage damage, Feral Might, Aura of Hate, Sacred Weapon",
+    "Tough, Dwarven Toughness, Draconic Resilience HP, Stensia",
+    "Alert, Tactical Wit, Temporal Awareness, Dread Ambusher, Rakish Audacity, Hare-Trigger, Aura of the Sentinel, Ambush Doctrine",
+    "Observant passives, Unerring Perception, Otherworldly Glamour, Emissary of Peace",
+    "Unarmored Movement scaling, Fast Movement, Mobile, Aura of Alacrity",
+    "Powerful Build / Peerless Athlete / Bear aspect carry",
+    "Sharpshooter / GWM -5/+10 (with toggle)",
+    "Kensei Sharpen the Blade (toggle_value)"
+   ]
+  },
+  {
+   "keyword": "while",
+   "shape": "while?: Gate[] where Gate = 'armor:none' | 'armor:worn' | 'armor:light|medium|heavy' | 'shield:none' | 'shield:worn' | 'wield:dual' | 'toggle:<id>' | 'concentrating', each optionally prefixed '!'",
+   "semantics": "Effects-level gate: the whole effects block applies only when every gate holds. derive.ts evaluates armor/shield/wield gates from equipped items before summing; toggle gates read character.active. collectEffects filters gated blocks once per derive.",
+   "covers": [
+    "Defense style (armor:worn)",
+    "Fast Movement (!armor:heavy)",
+    "Unarmored Movement (armor:none, shield:none)",
+    "Rage riders on subclass features (toggle:rage): Mindless Rage, Bear/Elk totem, Divine Fury, Storm Aura, Giant's Havoc",
+    "Resilient Hide +1 AC unless heavy armor",
+    "Dual Wielder +1 AC (wield:dual)",
+    "War Magic Durable Magic (concentrating)",
+    "Aarakocra flight not in medium/heavy armor"
+   ]
+  },
+  {
+   "keyword": "acFormula",
+   "shape": "acFormula: { base: number, abils?: Abil[], noShield?: boolean, withArmor?: boolean }",
+   "semantics": "An alternate AC base: base + sum of listed ability mods. Used only when no body armor works unless withArmor: true (then max with the armor formula). With noShield, a worn shield disables it. derive takes the max of the normal formula and every applicable acFormula; shield and ac modifiers still add.",
+   "covers": [
+    "Monk Unarmored Defense (10+dex+wis, noShield)",
+    "Barbarian Unarmored Defense (10+dex+con)",
+    "Draconic Resilience (13+dex)",
+    "Armor of Shadows / Mage Armor toggle (13+dex)",
+    "Dragon Hide feat (13+dex)",
+    "Lizardfolk/Thri-kreen/Autognome 13+dex, Locathah 12+dex, Loxodon 12+con (withArmor), Tortle 17 flat, Grit 11+dex"
+   ]
+  },
+  {
+   "keyword": "armorDexMax",
+   "shape": "armorDexMax: number",
+   "semantics": "Raises the Dex cap of 'max2' (medium) armor to this value; highest wins.",
+   "covers": [
+    "Medium Armor Master"
+   ]
+  },
+  {
+   "keyword": "weaponRule",
+   "shape": "weaponRule: [{ match: string[] ('monk' | 'unarmed' | 'offhand' | 'pact' | 'magic' | 'all' | weapon ids), abils?: Abil[], die?: dice|'{scale}', magical?: boolean, addMod?: boolean, note? }]",
+   "semantics": "Rewrites matching attack rows: ability = best of the row's normal ability and abils; damage die = the larger of the weapon die and die; magical tags the row; addMod restores the ability mod on off-hand rows. 'monk' = shortsword plus simple melee weapons without two-handed/heavy. derive.ts always emits an Unarmed Strike row (1 + Str, proficient) and an Off-hand row for a second equipped light melee weapon (no positive mod) so rules can target them.",
+   "covers": [
+    "Monk Martial Arts + Ki-Empowered Strikes + Dedicated Weapon",
+    "Kensei weapons",
+    "Astral Arms (abils [wis])",
+    "Hex Warrior (pact, [cha])",
+    "Battle Smith Battle Ready (magic, [int])",
+    "Two-Weapon Fighting style (offhand addMod)",
+    "Unarmed Fighting style (die 1d6)",
+    "Tavern Brawler (unarmed die 1d4)"
+   ]
+  },
+  {
+   "keyword": "weapons",
+   "shape": "weapons: [{ name, dmg: dice|'{scale}', type, ab: Abil | 'finesse' | Abil[], range?: 'melee'|'ranged', bonus?: Formula, tag?: string }]",
+   "semantics": "Adds natural-weapon/feature-weapon attack rows built exactly like an equipped item row (prof + ability + attack modifiers, scoped damage modifiers, extraDamage). Combine with toggle for timed forms.",
+   "covers": [
+    "Racial natural weapons: Bite, Claws, Horns, Hooves, Talons, Vampiric Bite (con), Trunk",
+    "Dragon Hide claws",
+    "Hybrid Transformation predatory strikes",
+    "Beast Form of the Beast, Battlerager spikes",
+    "Soulknife Psychic Blades",
+    "Radiant Sun Bolt, Hand of Harm",
+    "Armorer Thunder Gauntlets / Lightning Launcher"
+   ]
+  },
+  {
+   "keyword": "extraDamage",
+   "shape": "extraDamage: [{ dice: dice | Formula | '{scale}', type: string | 'weapon', on?: RollTag (e.g. attack:melee, weapon:pact, attack:weapon), per?: 'turn' | 'hit', note? }]",
+   "semantics": "Appended to every matching attack row's damage text and roll (like item weapon.extraDamage); per: turn shown as '(once/turn)'.",
+   "covers": [
+    "Improved Divine Smite",
+    "Lifedrinker",
+    "Divine Strike / Blessed Strikes",
+    "Crimson Rite (toggle)",
+    "Planar Warrior, Dreadful Strikes, Gathered Swarm, Slayer's Prey, Dread Ambusher, Colossus Slayer",
+    "Divine Fury, Elemental Cleaver, Giant's Might",
+    "Hexblade's Curse +prof, Genie's Wrath",
+    "Symbiotic Entity, Enhanced Bond",
+    "Storm charge on Stormweave Voidblade (item, toggle)"
+   ]
+  },
+  {
+   "keyword": "critDice",
+   "shape": "critDice: { extra: Formula, on?: RollTag }",
+   "semantics": "Extra weapon damage dice rolled on a crit for matching attack rows; summed across sources.",
+   "covers": [
+    "Brutal Critical",
+    "Savage Attacks",
+    "Half-Orc variants"
+   ]
+  },
+  {
+   "keyword": "spellDamage",
+   "shape": "spellDamage: [{ spell?: id, level?: number, school?: string, damageType?: string[], class?: string, add: Formula | dice, perBeam?: boolean }]",
+   "semantics": "Adds to matching spell rows' damage in core/spells spellRows (per beam for eldritch blast).",
+   "covers": [
+    "Agonizing Blast",
+    "Potent Spellcasting (cleric)",
+    "Empowered Evocation",
+    "Elemental Affinity",
+    "Radiant Soul",
+    "Alchemical Savant",
+    "Potent Cantrips (sidekick)",
+    "Arcane Firearm"
+   ]
+  },
+  {
+   "keyword": "halfProf",
+   "shape": "halfProf: { on: RollTag[], roundUp?: boolean }",
+   "semantics": "Adds floor (or ceil) of prof/2 to matching checks the character is not proficient in: skills, raw ability checks and initiative.",
+   "covers": [
+    "Jack of All Trades",
+    "Remarkable Athlete"
+   ]
+  },
+  {
+   "keyword": "d20Rule",
+   "shape": "d20Rule: [{ on: RollTag, min?: number, reroll?: number, proficient?: boolean }]",
+   "semantics": "In dice.ts: a natural d20 at or below reroll is rerolled once (keep new); a d20 below min counts as min; proficient restricts to skills the character is proficient in.",
+   "covers": [
+    "Reliable Talent",
+    "Silver Tongue",
+    "Ear for Deceit",
+    "Starry Form Dragon (toggle)",
+    "Halfling Lucky"
+   ]
+  },
+  {
+   "keyword": "senses",
+   "shape": "senses: { darkvision?: n, darkvisionAdd?: n, blindsight?: n, tremorsense?: n, truesight?: n, telepathy?: n }",
+   "semantics": "Max-merged into ActorStats; darkvisionAdd is added only if another source already grants darkvision (otherwise darkvision applies). grant.darkvision folds into the same pool.",
+   "covers": [
+    "Devil's Sight",
+    "Blind Fighting",
+    "Blindsense",
+    "Umbral Sight",
+    "Keenness of the Stone Giant",
+    "Stone Rune, Astral Visage, Eyes of Night, Eyes of the Dark",
+    "Mutagen Nighteye",
+    "Grimlock blindsight, Kalashtar telepathy"
+   ]
+  },
+  {
+   "keyword": "speeds",
+   "shape": "speeds: { fly?: n|'walk', swim?: n|'walk', climb?: n|'walk', burrow?: n|'walk', hover?: boolean }",
+   "semantics": "Max-merged and written to speed.other for characters ('walk' resolves to the derived walking speed). Also accepted on grant.",
+   "covers": [
+    "Aarakocra, Owlin, Fairy, Winged Tiefling flight",
+    "Triton/Sea Elf/Lizardfolk/Locathah swim",
+    "Tabaxi climb, Second-Story Work, Bestial Soul",
+    "Dragon Wings, Otherworldly Wings, Wings Unfurled, Avenging Angel (toggles)",
+    "Roving, Gift of the Depths",
+    "Vampiric Exultation, Mutagen Aether"
+   ]
+  },
+  {
+   "keyword": "attacks",
+   "shape": "attacks: number | Formula",
+   "semantics": "Attacks per Attack action; highest wins; shown on the Attacks card header.",
+   "covers": [
+    "Extra Attack (all classes, Valor, Swords, Bladesinging, Armorer, Battle Smith, Blood Hunter, War Mind)",
+    "Fighter Extra Attack (2)/(3)",
+    "Thirsting Blade",
+    "Awakened Astral Self, Invincible Conqueror (toggle)"
+   ]
+  },
+  {
+   "keyword": "conditionImmune",
+   "shape": "conditionImmune: string[]",
+   "semantics": "Listed under traits; collectEffects skips those condition ids when the actor toggles them (incl. 'disease' for kind disease).",
+   "covers": [
+    "Purity of Body",
+    "Divine Health",
+    "Aura of Courage, Aura of Devotion, Mindless Rage (toggle)",
+    "Yuan-ti, Warforged-like constructs, Undead Nature",
+    "Fungal Body, Beguiling Defenses, Nature's Ward",
+    "Mutagen Mobility",
+    "Petrified"
+   ]
+  },
+  {
+   "keyword": "abilityBonus",
+   "shape": "abilityBonus: Partial<Record<Abil, Formula>>",
+   "semantics": "Added to the score before mods are computed (after builder scores), capped by maxScores; maxScore becomes a list so one block can raise several caps.",
+   "covers": [
+    "Primal Champion",
+    "Ultimate Knowing",
+    "Mutagens Potency/Celerity/Sagacity (toggle)"
+   ]
+  },
+  {
+   "keyword": "roll-tag vocabulary additions",
+   "shape": "'concentration' (also matched by save:con), 'weapon:thrown|light|heavy|two-handed|versatile|one-handed|monk|unarmed|offhand|pact|magic|<id>', 'passive:<skill>', and '+' for AND",
+   "semantics": "validRollTarget/matches() accept them; attack rows carry the weapon tags; a Concentration save button is added next to the tracker.",
+   "covers": [
+    "War Caster, Eldritch Mind, Bladesong concentration bonus",
+    "Reckless Attack (attack:melee+str)",
+    "Dueling/Thrown/GWM scopes",
+    "Observant"
+   ]
+  }
+ ],
+ "toggles": "One mechanism for every state that changes numbers while active.\n\nDeclaration: an optional `toggle` on a feature op, an OptionDef and an item: `toggle: { id?: string (default slug of the name), cost?: Cost, group?: string, while?: Gate[], value?: { min, max, label }, form?: FormDef, endsOn?: 'short'|'long'|'never' (default long) }`. When a feature/option/item has `toggle`, its own `effects` (and `weapons`, `extraDamage` and so on) are pushed into fx ONLY while the toggle is on; without `toggle` they stay always-on as today. Any other effects block can ride a toggle declared elsewhere with `while: ['toggle:<id>']`, which is how subclass riders attach to Rage (Bear totem, Mindless Rage, Divine Fury, Storm Aura), to Hybrid Transformation sub-features, and to Starry Form constellations.\n\nState: a new character field `active: Record<string, true | number | { form: string; hp: number }>` in the note frontmatter (not `choices`, which are level-up decisions). The Features tab and an 'Active' strip at the top of the sheet show a switch per declared toggle. Turning one on spends `cost` (resource, Ki amount, item charges, or a spell slot) via the existing action pipeline and refuses when empty; turning off is free. `group` makes toggles mutually exclusive (Formations, Starry Form shapes, Arcane Armor model). `while` on the toggle auto-suppresses its effects (Rage in heavy armor) without clearing it. `value` stores a number for the formula var `toggle_<id>` (Sharpen the Blade +1..+3, Focused Aim). A rest of type endsOn clears it; incapacitating conditions clear toggles flagged concentration.\n\nMutagens and other picked options: the choose op still means 'known'; an OptionDef with `toggle` shows a switch on its feature row, so known and active are separate.\n\nForms (Wild Shape, Circle Forms, Elemental Wild Shape): `toggle.form = { type: 'beast', maxCr: Formula, swim?/fly? gates by level }`. Switching on asks for a creature note within the CR; deriveCharacter then takes str/dex/con, AC, speeds, senses, attacks and a separate HP pool (active[id].hp) from deriveCreature, keeps int/wis/cha, proficiencies (higher of own and beast skill/save), class features and toggles; damage hits the form HP first and overflow carries to the druid on drop. Archdruid sets the Wild Shape resource to Unlimited via modify.\n\nItem toggles: Embercladding Flame Aura, Voidblade storm charge and Crimson Rite on a chosen weapon use the same switch; an item toggle can carry an end-of-turn action (selfDamage) shown while on.",
+ "overlay": "A bundled `src/content/overlay/mechanics.json` (plain data, validated with the same validators as notes) that supplies mechanics for features whose source has none.\n\nKey scheme: `<kind>:<owner>:<feature>` where kind = class | subclass | race | subrace | feat | background | option | item | condition; owner = slug of the class/subclass/race/option-list id or name ('*' for any owner, e.g. race:*:relentless-endurance, option:*:archery); feature = slug of the feature/option name. Matching is case-insensitive, strips source suffixes ('(XGE)', ' (TCE)'), parenthetical counts ('Extra Attack (2)' also tries an exact entry first), and normalizes apostrophes and hyphens. Owner aliases map library/SRD/homebrew ids (path-of-the-berserker vs berserker, fighting-style vs fighter-fighting-style vs additional-fighting-style). Feat/background/item/condition keys omit the owner (feat::tough).\n\nWhat an entry holds: any subset of { effects, toggle, action, actions, ops } where ops are progression ops (resource, scale, dc, grant, choose, spells, modify) run at the feature's level with the feature's Src.\n\nPrecedence, applied in progress() when a feature/option row is created: (1) field-level fill, never override: overlay effects/toggle/action are used only when the note's op leaves that field empty; (2) overlay ops are skipped when the note already declares the same resource/scale/dc (by slug) or the same grant value; (3) a note that declares a field wins outright, so curated SRD content and homebrew that already carry mechanics are untouched; (4) when both note and overlay have effects the note wins and the overlay entry is reported once in Progress.problems as 'overlay skipped: note has effects' so drift is visible.\n\nOpt-out: frontmatter `mechanics: manual` on a whole note (class, race, feat, item) disables the overlay for everything it contributes; per-op `overlay: false` on a feature op or OptionDef; a plugin setting 'Built-in mechanics' (on by default). Rows filled by the overlay show a small 'built-in' badge with the entry key so players can see where numbers came from.\n\nOrdering: overlay lookups happen once per progress() and are cached by key; entries are versioned with the plugin, so fixing an entry fixes every character on reload without touching vault notes.",
+ "overlayEntries": [
+  {
+   "feature": "Unarmored Defense (Barbarian)",
+   "match": "class:barbarian:unarmored-defense",
+   "effects": "{ acFormula: { base: 10, abils: [dex, con] } }",
+   "priority": "high"
+  },
+  {
+   "feature": "Unarmored Defense (Monk)",
+   "match": "class:monk:unarmored-defense",
+   "effects": "{ acFormula: { base: 10, abils: [dex, wis], noShield: true } }",
+   "priority": "high"
+  },
+  {
+   "feature": "Rage",
+   "match": "class:barbarian:rage",
+   "effects": "toggle { id: rage, cost: { resource: Rage }, while: ['!armor:heavy'], endsOn: long }; effects { adv: [check:str, save:str], resist: [bludgeoning, piercing, slashing], modifiers: [{ target: damage, value: rage_damage, on: 'attack:melee+str' }], note: 'No spellcasting or concentration while raging' }; ops: scale Rage Damage {1:2,9:3,16:4} if missing (numeric)",
+   "priority": "high"
+  },
+  {
+   "feature": "Reckless Attack",
+   "match": "class:barbarian:reckless-attack",
+   "effects": "toggle { id: reckless, endsOn: short }; effects { adv: ['attack:melee+str'], note: 'Attacks against you have advantage until your next turn' }",
+   "priority": "medium"
+  },
+  {
+   "feature": "Danger Sense",
+   "match": "class:barbarian:danger-sense",
+   "effects": "{ adv: [save:dex], note: 'Only effects you can see; not while blinded, deafened or incapacitated' }",
+   "priority": "medium"
+  },
+  {
+   "feature": "Fast Movement",
+   "match": "class:barbarian:fast-movement",
+   "effects": "{ while: ['!armor:heavy'], modifiers: [{ target: speed, value: 10 }] }",
+   "priority": "high"
+  },
+  {
+   "feature": "Feral Instinct",
+   "match": "class:barbarian:feral-instinct",
+   "effects": "{ adv: [initiative] }",
+   "priority": "medium"
+  },
+  {
+   "feature": "Brutal Critical",
+   "match": "class:barbarian:brutal-critical",
+   "effects": "{ critDice: { extra: brutal_critical_dice, on: 'attack:melee' } }; ops: scale Brutal Critical Dice {9:1,13:2,17:3} if missing",
+   "priority": "medium"
+  },
+  {
+   "feature": "Extra Attack (all classes and subclasses: Barbarian, Fighter, Monk, Paladin, Ranger, Valor, Swords, Bladesinging, Armorer, Battle Smith, Blood Hunter, War Mind)",
+   "match": "class:*:extra-attack, subclass:*:extra-attack",
+   "effects": "{ attacks: 2 }",
+   "priority": "medium"
+  },
+  {
+   "feature": "Fighter Extra Attack (2) / (3)",
+   "match": "class:fighter:extra-attack-2, class:fighter:extra-attack-3",
+   "effects": "{ attacks: 3 } / { attacks: 4 }",
+   "priority": "medium"
+  },
+  {
+   "feature": "Martial Arts",
+   "match": "class:monk:martial-arts",
+   "effects": "{ weaponRule: [{ match: [monk, unarmed], abils: [str, dex], die: '{martial-arts}' }] }; ops: scale Martial Arts {1:1d4,5:1d6,11:1d8,17:1d10} if missing",
+   "priority": "high"
+  },
+  {
+   "feature": "Ki-Empowered Strikes",
+   "match": "class:monk:ki-empowered-strikes",
+   "effects": "{ weaponRule: [{ match: [unarmed], magical: true }] }",
+   "priority": "medium"
+  },
+  {
+   "feature": "Unarmored Movement",
+   "match": "class:monk:unarmored-movement",
+   "effects": "{ while: [armor:none, shield:none], modifiers: [{ target: speed, value: unarmored_movement }] }; ops: numeric scale Unarmored Movement {2:10,6:15,10:20,14:25,18:30} (replaces the text scale)",
+   "priority": "high"
+  },
+  {
+   "feature": "Ki (spend buttons)",
+   "match": "class:monk:ki, class:monk:flurry-of-blows, class:monk:patient-defense, class:monk:step-of-the-wind, class:monk:stunning-strike",
+   "effects": "actions: Flurry of Blows {cost: {resource: Ki, amount: 1}}, Patient Defense {cost Ki 1}, Step of the Wind {cost Ki 1}, Stunning Strike {cost Ki 1, save: {abil: con, dc: Ki}}; resource alias Ki == Ki Points",
+   "priority": "medium"
+  },
+  {
+   "feature": "Diamond Soul",
+   "match": "class:monk:diamond-soul",
+   "effects": "ops: grant proficiencies [save:str, save:dex, save:con, save:int, save:wis, save:cha]; action { name: Reroll save, cost: { resource: Ki, amount: 1 } }",
+   "priority": "medium"
+  },
+  {
+   "feature": "Purity of Body",
+   "match": "class:monk:purity-of-body",
+   "effects": "{ immune: [poison], conditionImmune: [poisoned, disease] }",
+   "priority": "medium"
+  },
+  {
+   "feature": "Empty Body",
+   "match": "class:monk:empty-body",
+   "effects": "toggle { cost: { resource: Ki, amount: 4 } }; effects { resist: [acid, bludgeoning, cold, fire, lightning, necrotic, piercing, poison, psychic, radiant, slashing, thunder], adv: [attack], note: 'Invisible for 1 minute' }",
+   "priority": "medium"
+  },
+  {
+   "feature": "Jack of All Trades",
+   "match": "class:bard:jack-of-all-trades",
+   "effects": "{ halfProf: { on: [check, initiative] } }",
+   "priority": "high"
+  },
+  {
+   "feature": "Magical Secrets / Additional Magical Secrets",
+   "match": "class:bard:magical-secrets, subclass:lore:additional-magical-secrets",
+   "effects": "ops: spells { id: magical-secrets, count: 2, from: '*' } at 10/14/18 (and 6 for Lore); the bard spells op at those levels is reduced by 2",
+   "priority": "high"
+  },
+  {
+   "feature": "Bardic Inspiration",
+   "match": "class:bard:bardic-inspiration",
+   "effects": "action { name: Bardic Inspiration, cost: { resource: Bardic Inspiration }, damage: '1{bardic-inspiration-die}' }; ops: scale Bardic Inspiration Die {1:d6,5:d8,10:d10,15:d12} and Song of Rest Die {2:d6,9:d8,13:d10,17:d12} if missing",
+   "priority": "medium"
+  },
+  {
+   "feature": "Font of Inspiration",
+   "match": "class:bard:font-of-inspiration",
+   "effects": "ops: resource { name: Bardic Inspiration, max: 'max(1, cha)', reset: short }",
+   "priority": "medium"
+  },
+  {
+   "feature": "Wild Shape",
+   "match": "class:druid:wild-shape",
+   "effects": "toggle { id: wild-shape, cost: { resource: Wild Shape }, form: { type: beast, maxCr: wild_shape_max_cr } }; ops: scale Wild Shape Max CR {2:0.25,4:0.5,8:1} if missing",
+   "priority": "high"
+  },
+  {
+   "feature": "Circle Forms",
+   "match": "subclass:circle-of-the-moon:circle-forms",
+   "effects": "ops: scale Wild Shape Max CR formula 'max(1, floor(level/3))' (overrides the base scale)",
+   "priority": "medium"
+  },
+  {
+   "feature": "Archdruid",
+   "match": "class:druid:archdruid",
+   "effects": "ops: modify { resource: Wild Shape, set: Unlimited }",
+   "priority": "medium"
+  },
+  {
+   "feature": "Second Wind",
+   "match": "class:fighter:second-wind",
+   "effects": "action { name: Second Wind, cost: { resource: Second Wind }, heal: '1d10+{level}' }",
+   "priority": "medium"
+  },
+  {
+   "feature": "Fighting Style: Archery",
+   "match": "option:*:archery",
+   "effects": "{ modifiers: [{ target: attack, value: 2, on: 'attack:ranged' }] }",
+   "priority": "high"
+  },
+  {
+   "feature": "Fighting Style: Defense",
+   "match": "option:*:defense",
+   "effects": "{ while: ['armor:worn'], modifiers: [{ target: ac, value: 1 }] }",
+   "priority": "high"
+  },
+  {
+   "feature": "Fighting Style: Dueling",
+   "match": "option:*:dueling",
+   "effects": "{ modifiers: [{ target: damage, value: 2, on: 'weapon:one-handed+melee' }] }",
+   "priority": "high"
+  },
+  {
+   "feature": "Fighting Style: Thrown Weapon Fighting",
+   "match": "option:*:thrown-weapon-fighting",
+   "effects": "{ modifiers: [{ target: damage, value: 2, on: 'weapon:thrown+attack:ranged' }] }",
+   "priority": "medium"
+  },
+  {
+   "feature": "Fighting Style: Two-Weapon Fighting",
+   "match": "option:*:two-weapon-fighting",
+   "effects": "{ weaponRule: [{ match: [offhand], addMod: true }] }",
+   "priority": "medium"
+  },
+  {
+   "feature": "Fighting Style: Blind Fighting",
+   "match": "option:*:blind-fighting",
+   "effects": "{ senses: { blindsight: 10 } }",
+   "priority": "medium"
+  },
+  {
+   "feature": "Fighting Style: Unarmed Fighting",
+   "match": "option:*:unarmed-fighting",
+   "effects": "{ weaponRule: [{ match: [unarmed], die: 1d6, note: '1d8 with no weapon or shield; 1d4 to a grappled creature' }] }",
+   "priority": "medium"
+  },
+  {
+   "feature": "Fighting Style: Superior Technique / Blessed Warrior / Druidic Warrior",
+   "match": "option:*:superior-technique, option:*:blessed-warrior, option:*:druidic-warrior",
+   "effects": "ops: resource { name: Superiority Dice (Style), max: 1, reset: short } + scale d6 + choose option list maneuvers; spells { cantrips: 2, from: cleric | druid }",
+   "priority": "medium"
+  },
+  {
+   "feature": "Improved Critical / Superior Critical",
+   "match": "subclass:champion:improved-critical, subclass:champion:superior-critical",
+   "effects": "{ critRange: 19 } / { critRange: 18 }",
+   "priority": "high"
+  },
+  {
+   "feature": "Remarkable Athlete",
+   "match": "subclass:champion:remarkable-athlete",
+   "effects": "{ halfProf: { on: [check:str, check:dex, check:con, initiative], roundUp: true } }",
+   "priority": "medium"
+  },
+  {
+   "feature": "Channel Divinity: Turn Undead",
+   "match": "class:cleric:channel-divinity, class:cleric:turn-undead",
+   "effects": "ops: dc { name: Channel Divinity, abil: wis }; action { name: Turn Undead, cost: { resource: Channel Divinity }, save: { abil: wis, dc: Channel Divinity } }; scale Destroy Undead CR {5:'1/2',8:1,11:2,14:3,17:4} if missing",
+   "priority": "medium"
+  },
+  {
+   "feature": "Divine Strike / Blessed Strikes",
+   "match": "subclass:*:divine-strike, class:cleric:blessed-strikes",
+   "effects": "{ extraDamage: [{ dice: '{divine-strike}', type: <domain type: life/light/order... radiant, war weapon, tempest thunder, death necrotic, forge fire, nature cold|fire|thunder>, on: 'attack:weapon', per: turn }] }; ops: scale Divine Strike {8:1d8,14:2d8}; Blessed Strikes { dice: 1d8, type: radiant, per: turn } and replaces Divine Strike/Potent Spellcasting",
+   "priority": "high"
+  },
+  {
+   "feature": "Potent Spellcasting",
+   "match": "subclass:*:potent-spellcasting",
+   "effects": "{ spellDamage: [{ level: 0, class: cleric, add: wis }] }",
+   "priority": "medium"
+  },
+  {
+   "feature": "Aura of Protection",
+   "match": "class:paladin:aura-of-protection",
+   "effects": "{ saveBonus: [{ abils: [str, dex, con, int, wis, cha], value: 'max(1, cha)' }] }; ops: scale Aura Range {6:10,18:30} if missing",
+   "priority": "high"
+  },
+  {
+   "feature": "Lay on Hands",
+   "match": "class:paladin:lay-on-hands",
+   "effects": "action { name: Lay on Hands, cost: { resource: Lay on Hands, amount: ask }, heal: '{spent}' }",
+   "priority": "medium"
+  },
+  {
+   "feature": "Divine Smite",
+   "match": "class:paladin:divine-smite",
+   "effects": "action { name: Divine Smite, cost: { slot: any }, damage: 'min(5, {slot}+1)d8 radiant', text: '+1d8 vs undead or fiend' }",
+   "priority": "high"
+  },
+  {
+   "feature": "Improved Divine Smite",
+   "match": "class:paladin:improved-divine-smite",
+   "effects": "{ extraDamage: [{ dice: 1d8, type: radiant, on: 'attack:melee+weapon' }] }",
+   "priority": "high"
+  },
+  {
+   "feature": "Divine Health / Aura of Courage / Aura of Devotion",
+   "match": "class:paladin:divine-health, class:paladin:aura-of-courage, subclass:oath-of-devotion:aura-of-devotion",
+   "effects": "{ conditionImmune: [disease] } / { conditionImmune: [frightened] } / { conditionImmune: [charmed] }",
+   "priority": "medium"
+  },
+  {
+   "feature": "Sacred Weapon",
+   "match": "subclass:oath-of-devotion:channel-divinity-sacred-weapon",
+   "effects": "toggle { cost: { resource: Channel Divinity } }; effects { modifiers: [{ target: attack, value: 'max(1, cha)', on: 'attack:weapon' }] }",
+   "priority": "high"
+  },
+  {
+   "feature": "Aura of Hate / Supernatural Resistance",
+   "match": "subclass:oathbreaker:aura-of-hate, subclass:oathbreaker:supernatural-resistance",
+   "effects": "{ modifiers: [{ target: damage, value: 'max(1, cha)', on: 'attack:melee' }] } / { resist: ['nonmagical bludgeoning', 'nonmagical piercing', 'nonmagical slashing'] }",
+   "priority": "high"
+  },
+  {
+   "feature": "Aura of Alacrity / Superior Mobility",
+   "match": "subclass:oath-of-glory:aura-of-alacrity, subclass:scout:superior-mobility",
+   "effects": "{ modifiers: [{ target: speed, value: 10 }] } (Scout also speeds climb/swim +10 when present)",
+   "priority": "medium"
+  },
+  {
+   "feature": "Dread Ambusher",
+   "match": "subclass:gloom-stalker:dread-ambusher",
+   "effects": "{ modifiers: [{ target: initiative, value: wis }], extraDamage: [{ dice: 1d8, type: weapon, on: 'attack:weapon', note: 'first turn only' }] }",
+   "priority": "high"
+  },
+  {
+   "feature": "Umbral Sight",
+   "match": "subclass:gloom-stalker:umbral-sight",
+   "effects": "{ senses: { darkvision: 60, darkvisionAdd: 30 } }",
+   "priority": "medium"
+  },
+  {
+   "feature": "Planar Warrior / Slayer's Prey / Dreadful Strikes / Gathered Swarm / Colossus Slayer",
+   "match": "subclass:horizon-walker:planar-warrior, subclass:monster-slayer:slayers-prey, subclass:fey-wanderer:dreadful-strikes, subclass:swarmkeeper:gathered-swarm, option:hunters-prey:colossus-slayer",
+   "effects": "{ extraDamage: [{ dice: '{planar-warrior}' force | 1d6 | '{dreadful-strikes}' psychic | '{gathered-swarm}' | 1d8, per: turn }] } + scales {3:1d8,11:2d8} / {3:1d4,11:1d6} / {3:1d6,11:1d8}",
+   "priority": "high"
+  },
+  {
+   "feature": "Sneak Attack",
+   "match": "class:rogue:sneak-attack",
+   "effects": "action { name: Sneak Attack, damage: '{sneak-attack}' }; scale Sneak Attack formula 'ceil(level/2)d6' if missing",
+   "priority": "high"
+  },
+  {
+   "feature": "Reliable Talent",
+   "match": "class:rogue:reliable-talent",
+   "effects": "{ d20Rule: [{ on: skill, proficient: true, min: 10 }] }",
+   "priority": "medium"
+  },
+  {
+   "feature": "Slippery Mind",
+   "match": "class:rogue:slippery-mind",
+   "effects": "ops: grant { proficiencies: [save:wis] }",
+   "priority": "medium"
+  },
+  {
+   "feature": "Rakish Audacity",
+   "match": "subclass:swashbuckler:rakish-audacity",
+   "effects": "{ modifiers: [{ target: initiative, value: cha }] }",
+   "priority": "high"
+  },
+  {
+   "feature": "Ambush Master / Second-Story Work",
+   "match": "subclass:scout:ambush-master, subclass:thief:second-story-work",
+   "effects": "{ adv: [initiative] } / { speeds: { climb: walk } }",
+   "priority": "medium"
+  },
+  {
+   "feature": "Draconic Resilience",
+   "match": "subclass:draconic-bloodline:draconic-resilience",
+   "effects": "{ acFormula: { base: 13, abils: [dex] }, modifiers: [{ target: hpMax, value: level }] }",
+   "priority": "high"
+  },
+  {
+   "feature": "Elemental Affinity",
+   "match": "subclass:draconic-bloodline:elemental-affinity",
+   "effects": "{ spellDamage: [{ damageType: [<ancestry type>], add: cha }] } (type from the dragon-ancestor option)",
+   "priority": "medium"
+  },
+  {
+   "feature": "Dragon Wings",
+   "match": "subclass:draconic-bloodline:dragon-wings",
+   "effects": "toggle {}; effects { speeds: { fly: walk } }",
+   "priority": "medium"
+  },
+  {
+   "feature": "Agonizing Blast",
+   "match": "option:eldritch-invocations:agonizing-blast",
+   "effects": "{ spellDamage: [{ spell: eldritch-blast, add: cha, perBeam: true }] }",
+   "priority": "high"
+  },
+  {
+   "feature": "Armor of Shadows",
+   "match": "option:eldritch-invocations:armor-of-shadows",
+   "effects": "toggle {}; effects { acFormula: { base: 13, abils: [dex] } }",
+   "priority": "medium"
+  },
+  {
+   "feature": "Devil's Sight",
+   "match": "option:eldritch-invocations:devils-sight",
+   "effects": "{ senses: { darkvision: 120 }, note: 'Sees normally in magical darkness' }",
+   "priority": "medium"
+  },
+  {
+   "feature": "Thirsting Blade",
+   "match": "option:eldritch-invocations:thirsting-blade",
+   "effects": "{ attacks: 2, note: 'pact weapon only' }",
+   "priority": "medium"
+  },
+  {
+   "feature": "Lifedrinker",
+   "match": "option:eldritch-invocations:lifedrinker",
+   "effects": "{ extraDamage: [{ dice: 'max(1, cha)', type: necrotic, on: 'weapon:pact' }] }",
+   "priority": "high"
+  },
+  {
+   "feature": "Eldritch Smite",
+   "match": "option:eldritch-invocations:eldritch-smite",
+   "effects": "action { cost: { slot: pact }, damage: '(1+{slot})d8 force', text: 'Huge or smaller: prone' }",
+   "priority": "high"
+  },
+  {
+   "feature": "Hex Warrior",
+   "match": "subclass:the-hexblade:hex-warrior",
+   "effects": "{ weaponRule: [{ match: [pact], abils: [cha] }] }; ops: grant proficiencies [Medium Armor, Shields, Martial Weapons]",
+   "priority": "high"
+  },
+  {
+   "feature": "Hexblade's Curse",
+   "match": "subclass:the-hexblade:hexblades-curse",
+   "effects": "toggle { cost: { resource: Hexblade's Curse } }; effects { critRange: 19, critVs: 'cursed target', extraDamage: [{ dice: prof, type: weapon, note: 'vs cursed target' }] }; ops resource max 1 reset short",
+   "priority": "medium"
+  },
+  {
+   "feature": "Bladesong",
+   "match": "subclass:bladesinging:bladesong",
+   "effects": "toggle { cost: { resource: Bladesong }, while: ['!armor:medium', '!armor:heavy', 'shield:none'] }; effects { modifiers: [{ target: ac, value: 'max(1, int)' }, { target: speed, value: 10 }], adv: ['skill:acrobatics'], saveBonus via modifiers [{ target: save, value: 'max(1, int)', on: concentration }] }; ops resource max prof reset long",
+   "priority": "high"
+  },
+  {
+   "feature": "Empowered Evocation",
+   "match": "subclass:school-of-evocation:empowered-evocation",
+   "effects": "{ spellDamage: [{ school: evocation, class: wizard, add: int }] }",
+   "priority": "medium"
+  },
+  {
+   "feature": "Tactical Wit / Temporal Awareness",
+   "match": "subclass:war-magic:tactical-wit, subclass:chronurgy-magic:temporal-awareness",
+   "effects": "{ modifiers: [{ target: initiative, value: int }] }",
+   "priority": "high"
+  },
+  {
+   "feature": "Dwarven Toughness",
+   "match": "subrace:hill-dwarf:dwarven-toughness, race:*:dwarven-toughness",
+   "effects": "{ modifiers: [{ target: hpMax, value: total }] }",
+   "priority": "high"
+  },
+  {
+   "feature": "Racial resistances (Dwarven Resilience, Hellish Resistance, Celestial Resistance, Mountain Born, Psychic Resilience, Necrotic Resistance, Poison Immunity, Undead Nature, Constructed Resilience)",
+   "match": "race:*:<trait>, subrace:*:<trait>",
+   "effects": "Dwarven Resilience { resist: [poison], note: 'adv on saves vs poison' }; Hellish Resistance { resist: [fire] }; Celestial Resistance { resist: [necrotic, radiant] }; Mountain Born { resist: [cold] }; Poison Immunity { immune: [poison], conditionImmune: [poisoned] }; Undead Nature { immune: [poison], conditionImmune: [poisoned, exhaustion, disease] }; Constructed Resilience { resist: [poison], conditionImmune: [disease] }",
+   "priority": "high"
+  },
+  {
+   "feature": "Natural Armor",
+   "match": "race:lizardfolk:natural-armor, race:loxodon:natural-armor, race:tortle:natural-armor, race:locathah:natural-armor, race:thri-kreen:chameleon-carapace, race:autognome:armored-casing",
+   "effects": "Lizardfolk/Thri-kreen/Autognome { acFormula: { base: 13, abils: [dex], withArmor: true } }; Locathah { base: 12, abils: [dex] }; Loxodon { base: 12, abils: [con], withArmor: true }; Tortle { acFormula: { base: 17 }, note: 'cannot wear armor' }",
+   "priority": "high"
+  },
+  {
+   "feature": "Relentless Endurance / Stone's Endurance",
+   "match": "race:*:relentless-endurance, race:*:stones-endurance",
+   "effects": "ops: resource { max: 1 (MPMM prof), reset: long (Stone's: short) }; action { cost: resource } (Stone's damage reduction '1d12+{con}')",
+   "priority": "high"
+  },
+  {
+   "feature": "Breath Weapon",
+   "match": "race:dragonborn:breath-weapon, race:*:breath-weapon",
+   "effects": "ops: dc { name: Breath Weapon, abil: con }; scale Breath Dice {1:2d6,6:3d6,11:4d6,16:5d6} (FTD {1:1d10,5:2d10,11:3d10,17:4d10}); resource { max: 1, reset: short } (FTD prof/long); action { cost: Breath Weapon, save: { abil: <ancestry dex|con>, dc: Breath Weapon }, damage: '{breath-dice}' }",
+   "priority": "high"
+  },
+  {
+   "feature": "Draconic Ancestry",
+   "match": "race:dragonborn:draconic-ancestry, race:*:chromatic-ancestry, race:*:metallic-ancestry, race:*:gem-ancestry",
+   "effects": "options list draconic-ancestry (10 colours) each { effects: { resist: [<type>] } } + choose op; selected type exposed to Breath Weapon/Elemental Affinity",
+   "priority": "high"
+  },
+  {
+   "feature": "Lucky (Halfling)",
+   "match": "race:halfling:lucky",
+   "effects": "{ d20Rule: [{ on: attack, reroll: 1 }, { on: check, reroll: 1 }, { on: save, reroll: 1 }] }",
+   "priority": "medium"
+  },
+  {
+   "feature": "Hare-Trigger",
+   "match": "race:harengon:hare-trigger",
+   "effects": "{ modifiers: [{ target: initiative, value: prof }] }",
+   "priority": "medium"
+  },
+  {
+   "feature": "Integrated Protection",
+   "match": "race:warforged:integrated-protection",
+   "effects": "{ modifiers: [{ target: ac, value: 1 }] }",
+   "priority": "medium"
+  },
+  {
+   "feature": "Racial flight and swim (Flight, Talons-free Aarakocra, Owlin, Fairy, Winged, Triton, Sea Elf, Lizardfolk swim)",
+   "match": "race:aarakocra:flight, race:owlin:flight, race:fairy:flight, race:triton:amphibious, race:*:speed (non-walk)",
+   "effects": "{ while: ['!armor:medium', '!armor:heavy'], speeds: { fly: 50 | walk } } / { speeds: { swim: 30 } }",
+   "priority": "medium"
+  },
+  {
+   "feature": "Shell Defense / Shifting / Celestial Revelation",
+   "match": "race:tortle:shell-defense, race:shifter:shifting, subrace:*:shifting-feature, race:aasimar:celestial-revelation",
+   "effects": "Shell Defense toggle { modifiers: [{ ac, 4 }, { speed, 'zero' }], adv: [save:str, save:con], dis: [save:dex] }; Shifting toggle { cost: resource Shifting } with subrace riders while toggle:shifting (Beasthide ac +1, Swiftstride speed +10, Wildhunt adv check:wis, Longtooth weapons bite 1d6); Celestial Revelation toggle group revelation (Radiant Soul speeds fly walk)",
+   "priority": "high"
+  },
+  {
+   "feature": "Dual Mind / Telepathic Insight / Vedalken Dispassion / Hippo Build",
+   "match": "race:kalashtar:dual-mind, race:*:telepathic-insight, race:vedalken:vedalken-dispassion, race:giff:hippo-build",
+   "effects": "{ adv: [save:wis] } / { adv: [save:wis, save:cha] } / { adv: [save:int, save:wis, save:cha] } / { adv: [check:str, save:str], modifiers: [{ carry, double }] }",
+   "priority": "medium"
+  },
+  {
+   "feature": "Innate racial spellcasting (Infernal Legacy, Drow Magic, Duergar Magic, Githyanki Psionics, Firbolg Magic...)",
+   "match": "race:*:infernal-legacy, subrace:*:drow-magic, race:*:<x>-magic, race:*:<x>-psionics",
+   "effects": "ops: grant spells [cantrip]; grant spells [{ id, resource }] with minLevel 3 and 5; resource per spell max 1 reset long; dc { abil: cha | int, choose: [int, wis, cha] for MPMM }",
+   "priority": "high"
+  },
+  {
+   "feature": "Fey Ancestry / Brave / Gnome Cunning (save reminders)",
+   "match": "race:*:fey-ancestry, race:halfling:brave, race:gnome:gnome-cunning",
+   "effects": "{ note: 'Advantage on saves vs charmed (immune to magical sleep)' } / { note: 'adv vs frightened' } / { adv: ['save:int+vs:magic'] as note }",
+   "priority": "medium"
+  },
+  {
+   "feature": "Tough",
+   "match": "feat::tough",
+   "effects": "{ modifiers: [{ target: hpMax, value: '2*total' }] }",
+   "priority": "high"
+  },
+  {
+   "feature": "Alert",
+   "match": "feat::alert",
+   "effects": "{ modifiers: [{ target: initiative, value: 5 }], note: \"Can't be surprised; hidden attackers gain no advantage\" }",
+   "priority": "high"
+  },
+  {
+   "feature": "Mobile / Squat Nimbleness",
+   "match": "feat::mobile, feat::squat-nimbleness",
+   "effects": "{ modifiers: [{ target: speed, value: 10 }] } / { modifiers: [{ target: speed, value: 5 }] } + ops choose skills from [acrobatics, athletics] count 1",
+   "priority": "high"
+  },
+  {
+   "feature": "Observant",
+   "match": "feat::observant",
+   "effects": "{ modifiers: [{ target: passive, value: 5, on: 'passive:perception' }, { target: passive, value: 5, on: 'passive:investigation' }] }",
+   "priority": "high"
+  },
+  {
+   "feature": "Resilient",
+   "match": "feat::resilient",
+   "effects": "ops: grant { proficiencies: ['save:<increased>'] } (save follows the feat's ability pick)",
+   "priority": "high"
+  },
+  {
+   "feature": "Lucky (feat)",
+   "match": "feat::lucky",
+   "effects": "ops: resource { name: Luck Points, max: 3, reset: long }; action { cost: { resource: Luck Points } }",
+   "priority": "high"
+  },
+  {
+   "feature": "Sharpshooter / Great Weapon Master",
+   "match": "feat::sharpshooter, feat::great-weapon-master",
+   "effects": "toggle { id: power-attack-ss | power-attack-gwm, endsOn: never }; effects { modifiers: [{ attack, -5, on: 'attack:ranged' | 'weapon:heavy+attack:melee' }, { damage, 10, same on }] }; Sharpshooter note 'ignore half/three-quarters cover, no long-range dis'",
+   "priority": "high"
+  },
+  {
+   "feature": "War Caster",
+   "match": "feat::war-caster",
+   "effects": "{ adv: [concentration], note: 'Somatic with hands full; spell as opportunity attack' }",
+   "priority": "medium"
+  },
+  {
+   "feature": "Dragon Hide",
+   "match": "feat::dragon-hide",
+   "effects": "{ acFormula: { base: 13, abils: [dex] }, weapons: [{ name: Claws, dmg: 1d4, type: slashing, ab: str }] }",
+   "priority": "medium"
+  },
+  {
+   "feature": "Medium Armor Master / Dual Wielder",
+   "match": "feat::medium-armor-master, feat::dual-wielder",
+   "effects": "{ armorDexMax: 3, note: 'No Stealth disadvantage from medium armor' } / { while: ['wield:dual'], modifiers: [{ target: ac, value: 1 }] }",
+   "priority": "medium"
+  },
+  {
+   "feature": "Infernal Constitution / Ember of the Fire Giant / Fury of the Frost Giant",
+   "match": "feat::infernal-constitution, feat::ember-of-the-fire-giant, feat::fury-of-the-frost-giant",
+   "effects": "{ resist: [cold, poison], note: 'adv on saves vs poisoned' } / { resist: [fire] } / { resist: [cold] } + prof/long resources with dc abil increased",
+   "priority": "high"
+  },
+  {
+   "feature": "Fighting Initiate / Eldritch Adept / Martial Adept / Metamagic Adept",
+   "match": "feat::fighting-initiate, feat::eldritch-adept, feat::martial-adept, feat::metamagic-adept",
+   "effects": "ops: choose { what: option, list: 'fighter:fighting-style' | 'warlock:eldritch-invocations' | 'fighter:maneuvers' | 'sorcerer:metamagic' } + resources (Superiority Dice (Martial Adept) 1 short, Metamagic Adept Points 2 long)",
+   "priority": "high"
+  },
+  {
+   "feature": "Hybrid Transformation (Blood Hunter Lycan)",
+   "match": "subclass:order-of-the-lycan:hybrid-transformation",
+   "effects": "toggle { id: hybrid, cost: { resource: Hybrid Transformation } }; effects { adv: [check:str, save:str], resist: ['nonmagical bludgeoning','nonmagical piercing','nonmagical slashing'], modifiers: [{ damage, feral_might_damage, on: 'attack:melee' }], weapons: [{ name: Predatory Strike, dmg: '{hybrid-unarmed-die}', type: slashing, ab: [str, dex] }] }; Resilient Hide { while: ['toggle:hybrid', '!armor:heavy'], modifiers: [{ ac, 1 }] }; Stalker's Prowess { while: ['toggle:hybrid'], modifiers: [{ attack, value: stalkers_prowess, on: 'weapon:unarmed' }] }",
+   "priority": "high"
+  },
+  {
+   "feature": "Crimson Rite",
+   "match": "class:blood-hunter:crimson-rite, option:crimson-rites:*",
+   "effects": "each rite option: toggle { group: crimson-rite, cost: { selfDamage: '{hemocraft-die}' } }; effects { extraDamage: [{ dice: '{hemocraft-die}', type: <rite type>, on: 'attack:weapon' }] }; Rite of the Dawn adds resist [necrotic]",
+   "priority": "high"
+  },
+  {
+   "feature": "Mutagens",
+   "match": "option:mutagen-formulas:*",
+   "effects": "each option toggle { group: none, endsOn: short }; Potency/Celerity/Sagacity { abilityBonus: { str|dex|int: 'mutagen_bonus' }, maxScore +same }; Rapidity speed +10; Precision critRange 19; Embers/Gelid/... resist+vulnerable; Mobility conditionImmune [grappled, restrained]; Nighteye senses darkvision 60; Aether speeds fly 20; drawbacks as dis lists",
+   "priority": "high"
+  },
+  {
+   "feature": "Dark Augmentation / Exalted Mutation / Profane Soul Pact Magic (Hemocraft ability)",
+   "match": "class:blood-hunter:dark-augmentation, subclass:order-of-the-mutant:exalted-mutation, subclass:order-of-the-profane-soul:pact-magic",
+   "effects": "replace 'int' with formula var dc_hemocraft (mod of the chosen Hemocraft ability); spellcasting abil 'dc:hemocraft'",
+   "priority": "medium"
+  },
+  {
+   "feature": "Improved Contingency Plan / Unerring Perception (Tactician)",
+   "match": "class:tactician:improved-contingency-plan, subclass:mentalist:unerring-perception",
+   "effects": "ops: resource Perfect Plan Dice re-declared without oncePer / { modifiers: [{ target: check, value: int, on: 'skill:perception' }] }",
+   "priority": "medium"
+  },
+  {
+   "feature": "Flame Aura (Embercladding) / Storm charges (Stormweave Voidblade) / charged item actions",
+   "match": "item::embercladding, item::stormweave-voidblade, item::water-orb, item::lantern-of-the-storm-wild-tides, item::boiler-rig-harness, item::emberheart-warhammer",
+   "effects": "Embercladding toggle with end-of-turn action { cost: { selfDamage: 1d4 } } and aura damage 1d6 fire; Voidblade { extraDamage: [{ dice: 1, type: lightning }] } while charges > 0, action Draconic Charge { gainCharges: 1d4 }, charges.start 0; item actions with cost { charges: n }, save dc 'spell'; Water Orb/Lantern charges.regain 1d3",
+   "priority": "high"
+  },
+  {
+   "feature": "Contagion diseases",
+   "match": "condition::blinding-sickness, condition::filth-fever, condition::flesh-rot, condition::mindfire, condition::seizure, condition::slimy-doom",
+   "effects": "Blinding { dis: [check:wis, save:wis] }; Filth Fever { dis: [check:str, save:str, attack:str] }; Flesh Rot { dis: [check:cha], vulnerable: [all] }; Mindfire { dis: [check:int, save:int] }; Seizure { dis: [check:dex, save:dex, attack:dex] }; Slimy Doom { dis: [check:con, save:con] } (requires diseases to be toggleable)",
+   "priority": "medium"
+  }
+ ],
+ "engineBugs": [
+  "derive.ts hpOf (and carry) read only 'half'/'zero': numeric hpMax and carry modifiers pass validation and are silently dropped (Tough, Dwarven Toughness, Aid, Festering Wound, carry bonuses); ac/attack/damage/save/check also ignore 'half'/'zero'.",
+  "Initiative = dex + 'initiative' modifiers only; 'check' modifiers are skipped there and on the raw ability-check buttons (components.ts:49), while effects.ts matches() applies check adv/dis to initiative, so number and roll disagree.",
+  "dice.ts sets crit only on natural 20; the derived critRange (Champion, Hexblade's Curse, Warrior Sidekick) never flags a 19/18 as a crit.",
+  "Every feature/option effects block is pushed unconditionally (progression.ts feature()), so toggled states cannot carry effects; attack/damage/ac modifiers have no scope or armor condition, so fighting styles and rage damage cannot be entered correctly (War Mind Defense already misapplies +1 AC unarmored).",
+  "levelup.ts spellOptions filters by e.data.classes.includes(op.from) and applies op.schools to cantrips and free picks: Magical Secrets can never be taken, and Eldritch Knight/Arcane Trickster cantrips and free-school picks at 3/8/14/20 are wrongly restricted.",
+  "choose what: option fails in race/subrace/feat/background grants ('no options list'): the grants OpsCtx passes options {} and GrantsData has no options; OptionDef cannot carry ops, so option picks cannot grant spells, resources, senses or proficiencies.",
+  "Optional features (optional: true) gate only their own row: sibling resource/scale/choose ops still apply and the replaced feature still shows (Blessed Strikes vs Divine Strike, Favored Foe, Deft Explorer, Primal Awareness).",
+  "Artificer: 'half' progression gives 0 slots at level 1 and floors in multiclass; RAW is two 1st-level slots and round up. Class validator accepts no other progression.",
+  "Sidekick class notes have no hitDie and the class validator requires one, so all three sidekick classes are rejected; companions cannot take class levels.",
+  "rests.ts shortParts never restores c.spellSlots['pact'] (Warlock Pact Magic does not return on a short rest).",
+  "rests.ts excludes reset 'dawn' resources from long rests and nothing else resets them (holy-days module not registered), so dawn resources stay spent forever; dice-based regain (1d3 at dawn) refills to max.",
+  "derive.ts adds +prof to every equipped weapon regardless of weapon proficiency; weapon/armor proficiency, armor stealthDis and strReq are parsed but never read.",
+  "passivePerception ignores adv/dis sources (+/-5) so Exhaustion/Poisoned/Observant never change it; there is no passive Investigation/Insight.",
+  "actions.ts damage has no type and ignores resist/immune/vulnerable; dropping to 0 HP sets no Unconscious and prompts no concentration save; incapacitating conditions do not end concentration; condition immunities are display-only.",
+  "panels.ts filters condition_kind disease out of the toggle list, so diseases can never be applied; compendium Concentration/Surprised appear as effect-less toggles.",
+  "deriveCreature ignores damage modifiers, saveBonus, acAbility, critRange and checkAdd on raw checks for companions and NPCs.",
+  "Resources and DCs from all sources share one slug(name) namespace (resDefs/dcDefs/c.uses): two feats naming 'Misty Step' overwrite each other and share pips.",
+  "Attunement counter hard-coded to /3 in components.ts.",
+  "Content: SRD races.json/subraces.json have no ability field (no racial ASI); SRD Warlock picks 1 invocation total (RAW 2 rising to 8); SRD Fiend grants expanded spells as always-prepared and 'Dark One's Own Luck' is max(1,cha)/long instead of 1/short; library Bard never switches Bardic Inspiration to short rest at 5; Archdruid never makes Wild Shape unlimited; library Warrior Sidekick Indomitable copies Fighter scaling; library Champion lacks critRange; vault Open Hand lacks Wholeness of Body, vault Lore lacks its 3 skills, vault Life lacks Heavy Armor; Circle of the Land vault note grants all eight terrains' spells; Tactician Improved Contingency Plan and Ultimate Knowing not applied; Hemocraft Wis alternate ignored outside the DC; Voidblade starts with 4 charges instead of 0.",
+  "Content: library scales are text ('+10 ft.', '+2'), producing '1d8++2' when used as dice placeholders; scales used numerically must be numbers.",
+  "Converter (dnd-compendium ft_classes.py:348-352) gives Ancestral Guardian, Giant and Four Elements a spurious third-caster wizard spellcasting op; drops subclass features nested in options/entries wrappers (Hunter, Totem Warrior, Storm Herald, Tipsy Sway, Soul Blades, Telekinetic Adept); reads only additionalSpells.prepared (ranger subclass lists and innate cantrips lost); drops race armor/tool/weapon proficiency blocks, non-walk speeds and size; title-cases tool names (\"Navigator'S Tools\") so they never dedupe; House Agent grants all ~21 house tools.",
+  "Champion Additional Fighting Style choose does not exclude the style already taken."
+ ],
+ "deferred": [
+  "Great Weapon Fighting damage reroll and Savage-style die rerolls on damage: needs a damage-dice reroll pass in the roller; low value, keep as note.",
+  "Heavy Armor Master damage reduction and other reduction-by-N: needs typed damage-taking first; note until then.",
+  "Conditional save advantage (advVs: Fey Ancestry, Brave, Gnome Cunning, Steel Will, Magic Resistance): shown via note; a save-dialog reminder chip can come later without engine changes.",
+  "Indomitable Might check floor = Str score, Superior Inspiration / Perfect Self refill on initiative: low priority, notes.",
+  "Sidekick classes (optional hitDie, classes on CompanionEntry) and owner-scaled companion stat blocks (Formula ac/hp/toHit for Steel Defender, Drake, Beast Master): companion pipeline change too large for this build; companions keep fixed numbers.",
+  "Slot conversion and recovery buttons (Font of Magic, Arcane Recovery, Eldritch Master), ask-amount metamagic like Twinned: needs slot<->resource transfer actions; manual tracking for now.",
+  "attuneMax and Soul of Artifice (attuned count var): small but low priority.",
+  "Expanded patron/guild/Divine Soul spell lists (grant.listSpells) and Mystic Arcanum level-restricted picks: medium but depends on the spells-op rewrite; next build after 'from: *'.",
+  "Ammunition decrement, versatile second damage button, thrown rows, heavy-for-Small disadvantage, armor/weapon proficiency penalties and Str requirement: need the weapon.properties/category item schema and an inventory migration; schedule as the item-rules build right after this one (the weapon:* roll tags are added now so content written today keeps working).",
+  "Healing restrictions from diseases (Sewer Plague, Ghoul Gut) and ability-drain diseases (Bluerot): rare, note only.",
+  "Planar Wanderer per-rest rotating choice and Fiendish Resilience: modeled as a toggle group the player re-picks; no automated rotation.",
+  "Concentration save prompt on damage and 0-HP Unconscious: listed as engine bugs, but typed damage application is its own task; the concentration roll tag ships now so War Caster/Eldritch Mind apply when the player rolls it."
+ ],
+ "summary": "Synthesized the 8 audits (about 327 applied, about 676 reference, roughly 230 expressible/new-effect rows) into one build. Engine work, in order:\n(1) Extend `modifiers`: Formula values, an `on` roll-tag scope with AND (`+`), additive hpMax/carry, 'double', and passive targets. Feed check modifiers into raw checks and initiative.\n(2) Add a `while` gate on effects (armor, shield, wield and toggle states).\n(3) Add toggles on features, options and items, with state in a new `character.active`, cost on activation, groups, a value var, and a minimal Wild Shape form swap.\n(4) Add 15 small Effects keywords: acFormula, armorDexMax, weaponRule (plus a built-in Unarmed Strike row and an Off-hand row), weapons, extraDamage, critDice, spellDamage, halfProf, d20Rule, senses, speeds, attacks, conditionImmune and abilityBonus, plus roll tags for concentration, weapon:* and passive:*.\n(5) Non-effect op changes:\n- OptionDef.ops, and options lists on race, feat and background grants\n- op `when`/`replaces` for optional features\n- ActionDef extensions: an actions list, cost lists, amount 'ask' with {spent}, slot cost with {slot}, Formula placeholders in heal/damage/temp, and tempHp\n- item actions with charge costs and dice regain\n- spells `from: '*'` and object-form grant.spells (atWill/resource, minLevel)\n- an artificer 'half-up' progression\n- dc `abil: increased|choose`, and a `dc_<id>` formula var\n- grant.feats, choose feat and choose saves\n(6) Crit range respected in dice.ts.\n\nA bundled mechanics overlay keyed `<kind>:<owner>:<feature>` fills only the fields a note leaves empty. Authors opt out per note (`mechanics: manual`), per op (`overlay: false`) or with a global setting. 86 overlay entries cover the well-known high and medium gaps. 22 deduplicated engine, content and converter bugs are listed. Item-property rules (versatile, thrown, ammo, proficiency), companion scaling, damage-typed HP and the low-value roller tweaks are deferred to the next build. The audit was read-only; no files were changed. Core files read: /docker/homelab-config/.claude/worktrees/dnd-sheet-spec/obsidian-5e-sheet/src/core/types.ts, src/content/types/effects.ts, src/core/effects.ts, src/core/derive.ts, src/core/progression.ts, src/content/types/ops.ts and src/core/dice.ts."
+}
