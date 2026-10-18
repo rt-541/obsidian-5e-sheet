@@ -43,7 +43,7 @@ export function buildAttacks(i: AttackInputs): AttackStat[] {
     const w = it!.weapon!, works = itemWorks(e, it), bonus = works ? (w.bonus ?? 0) : 0;
     const oneHanded = w.range === "melee" && meleeInHand === 1 && !(w.props ?? []).includes("two-handed");
     rows.push({ name: it!.name, dmg: w.dmg, type: w.type, abils: w.ab === "finesse" ? ["dex", "str"] : [w.ab], range: w.range, bonus, trained: i.weaponProf(it!.name, e.id, w.category),
-      tags: [...(e.id ? [e.id] : []), ...(w.props ?? []), ...(oneHanded && !(w.props ?? []).includes("one-handed") ? ["one-handed"] : []), ...(isMonkWeapon(e.id, w) ? ["monk"] : []), ...(bonus > 0 || it!.rarity ? ["magic"] : [])],
+      tags: [...(e.id ? [e.id] : []), ...(w.props ?? []), ...(oneHanded && !(w.props ?? []).includes("one-handed") ? ["one-handed"] : []), ...(isMonkWeapon(e.id, w) ? ["monk"] : []), ...(bonus > 0 || (it!.rarity && !/^(mundane|none)$/i.test(it!.rarity)) ? ["magic"] : [])],
       ...(works && w.extraDamage ? { itemExtra: w.extraDamage } : {}), dieRules: [], notes: [] });
   }
   rows.push({ name: "Unarmed Strike", dmg: "1", type: "bludgeoning", abils: ["str"], range: "melee", bonus: 0, trained: true, tags: ["unarmed"], dieRules: [], notes: [] });
