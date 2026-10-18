@@ -19,7 +19,7 @@ describe("deriveCharacter", () => {
     expect(s.slots).toEqual([{ level: "1", max: 4, used: 1 }, { level: "2", max: 3, used: 0 }, { level: "3", max: 2, used: 1 }]);
     expect(s.hitDice).toEqual([{ die: "d8", max: 5, used: 2 }]);
     expect(s.attacks).toEqual([
-      { name: "Warhammer", toHit: 5, damage: "1d8+2 bludgeoning", critDamage: "2d8+2 bludgeoning", target: { kind: "attack", abil: "str", range: "melee", tags: ["warhammer", "versatile"] } },
+      { name: "Warhammer", toHit: 5, damage: "1d8+2 bludgeoning", critDamage: "2d8+2 bludgeoning", target: { kind: "attack", abil: "str", range: "melee", tags: ["warhammer", "versatile", "one-handed"] } },
       // every character gets the built-in Unarmed Strike: 1 + Strength modifier damage, always proficient
       { name: "Unarmed Strike", toHit: 5, damage: "3 bludgeoning", target: { kind: "attack", abil: "str", range: "melee", tags: ["unarmed"] } }]);
     expect(s.carry).toEqual({ weight: 63, capacity: 210 }); expect(s.attunedCount).toBe(1); expect(s.missing).toEqual([]);

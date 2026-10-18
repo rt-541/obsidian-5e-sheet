@@ -1,5 +1,7 @@
 import type { Registry } from "../content/registry";
 import { slug } from "../content/registry";
+import { findOverlay, overlayOptionList, type OverlayEntry, type OverlayKind } from "../content/overlay";
+import { abilityKey } from "./ability-increase";
 import type { ActionDef, ClassData, FeatData, GrantsData, Op, OptionDef, Progression, Reset, SubclassData, SubraceData, TableRow, ToggleDef } from "../content/types";
 import { abilityMod, profBonus } from "./abilities";
 import type { Character } from "./character";
@@ -11,6 +13,8 @@ export interface FeatureRow {
   /** `<source>:<level>:<op id>`; the same key a choice for this op is stored under. */
   key: string; source: string; sourceKind: "race" | "subrace" | "background" | "feat" | "class" | "subclass" | "option";
   level: number; name: string; text?: string; effects: Effects; action?: ActionDef; toggle?: ToggleDef;
+  /** Key of the built-in mechanics entry that filled in this row's effects, switch or action (the sheet shows a "built-in" badge). */
+  overlay?: string;
 }
 export interface DerivedResource {
   id: string; name: string; max: number; used: number; reset: Reset; source: string;
@@ -37,6 +41,8 @@ export interface Progress {
   unknown: string[];
   /** Bad homebrew that was skipped: formulas that do not evaluate, picks that are not allowed, and so on. */
   problems: string[];
+  /** Built-in mechanics: keys of the entries that filled something in, and of those skipped because the note has its own effects (not a problem, just visible). */
+  overlay: { used: string[]; skipped: string[] };
 }
 
 /** A switch declared by a feature or option: `effects` count only while it is on. */
@@ -44,7 +50,7 @@ export interface DeclaredToggle { id: string; name: string; source: string; /** 
 
 export const emptyProgress = (): Progress => ({
   features: [], resources: [], scales: {}, dcs: [], proficiencies: { saves: [], skills: [], expertise: [], other: [] }, languages: [],
-  options: {}, spellcasting: [], grantedSpells: [], grantedItems: [], pending: [], effects: [], toggles: [], unknown: [], problems: [],
+  options: {}, spellcasting: [], grantedSpells: [], grantedItems: [], pending: [], effects: [], toggles: [], unknown: [], problems: [], overlay: { used: [], skipped: [] },
 });
 
 const own = (o: object, k: string) => Object.prototype.hasOwnProperty.call(o, k);
@@ -66,6 +72,14 @@ interface DcDef { id: string; name: string; base: Abil; alt?: Abil; varLevel: nu
 interface Src {
   kind: FeatureRow["sourceKind"]; label: string; keyBase: string; classId?: string; classLevel: number; level: number;
   options?: Record<string, OptionDef[]>; fallbackOptions?: Record<string, OptionDef[]>; subclass?: string | undefined;
+  /** The note that owns these rows has `overlay: false`. */ noOverlay?: boolean;
+}
+
+/** Another class's option list, written `<class id>:<list id>` (Fighting Initiate takes a Fighter fighting style), or a list a built-in entry carries. */
+export function resolveOptionList(registry: Registry, list: string): OptionDef[] | undefined {
+  const m = /^([a-z0-9-]+):([a-z0-9-]+)$/.exec(list);
+  const cross = m ? registry.get<ClassData>("class", m[1])?.data.options?.[m[2]] : undefined;
+  return cross ?? overlayOptionList(list);
 }
 
 export function progress(c: Character, registry: Registry): Progress {
@@ -91,13 +105,65 @@ export function progress(c: Character, registry: Registry): Progress {
       else seen.other.add(p);
     }
   };
-  const feature = (src: Src, key: string, name: string, text: string | undefined, effects: Effects, action: ActionDef | undefined, kind = src.kind, toggle?: ToggleDef) => {
-    out.features.push({ key, source: src.label, sourceKind: kind, level: src.level, name, effects, ...(text !== undefined ? { text } : {}), ...(action ? { action } : {}), ...(toggle ? { toggle } : {}) });
+  const feature = (src: Src, key: string, name: string, text: string | undefined, effects: Effects, action: ActionDef | undefined, kind = src.kind, toggle?: ToggleDef, overlay?: string) => {
+    out.features.push({ key, source: src.label, sourceKind: kind, level: src.level, name, effects, ...(text !== undefined ? { text } : {}), ...(action ? { action } : {}), ...(toggle ? { toggle } : {}), ...(overlay ? { overlay } : {}) });
     if (toggle) {
       if (out.toggles.some(t => t.id === toggle.id)) problem(`${name}: another switch is already called "${toggle.id}"`);
       else out.toggles.push({ id: toggle.id, name, source: src.label, key, def: toggle, effects, ...(text !== undefined ? { text } : {}) });
     }
     if (Object.keys(effects).length) out.effects.push({ source: name, effects: toggle ? gatedByToggle(effects, toggle) : effects });
+  };
+
+  // ---- built-in mechanics: fill what a feature or option row leaves empty from the bundled entry for it
+  const overlayDone = new Set<string>();
+  /** The ids that own a source (the class, the subclass, the race and its parent race, the feat), most specific first. */
+  const ownerOf = (src: Src, kind: OverlayKind, list?: string): string[] => {
+    if (kind === "option") return list ? [list] : [];
+    if (kind === "class") return [src.classId ?? ""];
+    const id = src.keyBase.slice(src.keyBase.indexOf(":") + 1);
+    return kind === "subrace" ? [id, ...(c.race ? [c.race] : [])] : [id];
+  };
+  /**
+   * The row as the character sees it: the note's own effects, switch and action, with the built-in entry filling only what the note leaves empty.
+   * A note with its own effects keeps them and the entry is skipped. Each entry's effects and switch count once, however many rows (levels) carry the feature.
+   */
+  const withOverlay = (src: Src, kind: OverlayKind, list: string | undefined, name: string, id: string | undefined, off: boolean | undefined,
+    effects: Effects, action: ActionDef | undefined, toggle: ToggleDef | undefined) => {
+    const same = { effects, action, toggle, entry: undefined as OverlayEntry | undefined, key: undefined as string | undefined };
+    const entry = off || src.noOverlay ? undefined : findOverlay(kind, ownerOf(src, kind, list), name, id);
+    if (!entry) return same;
+    const first = !overlayDone.has(entry.key);
+    overlayDone.add(entry.key);
+    if (!first) return { ...same, entry };
+    const mine = Object.keys(effects).length > 0, wantsMech = Object.keys(entry.effects).length > 0 || !!entry.toggle;
+    if (mine && wantsMech && !out.overlay.skipped.includes(entry.key)) out.overlay.skipped.push(entry.key);
+    const useMech = !mine && wantsMech, useAction = !action && !!entry.action;
+    if ((useMech || useAction || entry.ops.length) && !out.overlay.used.includes(entry.key)) out.overlay.used.push(entry.key);
+    return { effects: useMech ? entry.effects : effects, toggle: toggle ?? (useMech ? entry.toggle : undefined), action: action ?? entry.action, entry,
+      key: useMech || useAction ? entry.key : undefined };
+  };
+  /** The extra ops of an entry (resources, scales, picks): run with the owner's source, skipping what the note already declares. */
+  const overlayOps = (src: Src, entry: OverlayEntry) => {
+    const withLists: Src = entry.options ? { ...src, options: { ...src.options, ...entry.options } } : src;
+    for (const { op, at } of entry.ops) {
+      if (at !== undefined && src.classLevel < at) continue;
+      if (op.op === "scale" && scaleDefs.has(slug(op.name))) continue;
+      if (op.op === "resource" && resDefs.has(slug(op.name))) continue;
+      if (op.op === "dc" && dcDefs.has(slug(op.name))) continue;
+      if (op.op === "choose" && op.what === "option" && op.list && !withLists.options?.[op.list] && !withLists.fallbackOptions?.[op.list] && !resolveOptionList(registry, op.list)) continue;
+      if (op.op === "grant") {
+        // Resilient: the save follows the ability the player raised with the feat.
+        const pick = choice(abilityKey("feat", src.keyBase.slice(5), 0));
+        const profs = op.proficiencies.flatMap(p => p === "save:<increased>" ? (Array.isArray(pick) && typeof pick[0] === "string" ? [`save:${pick[0]}`] : []) : [p])
+          .filter(p => !seen.other.has(p) && !(p.startsWith("save:") && seen.saves.has(p.slice(5) as Abil)));
+        const spells = op.spells.filter(id => !out.grantedSpells.some(g => g.id === id));
+        const items = op.items.filter(id => !out.grantedItems.some(g => g.id === id));
+        if (!profs.length && !op.languages.length && !spells.length && !items.length && op.speed === undefined && op.darkvision === undefined && !op.speeds) continue;
+        run([{ ...op, proficiencies: profs, spells, items }], withLists);
+        continue;
+      }
+      run([op], withLists);
+    }
   };
 
   function run(ops: Op[], src: Src) {
@@ -115,7 +181,11 @@ export function progress(c: Character, registry: Registry): Progress {
           break;
         case "feature":
           // an optional feature is only there when the level-up (or the note's choices) says it was taken
-          if (!op.optional || choice(key, src.classId, src.level) === true) feature(src, key, op.name, op.text, op.effects, op.action, undefined, op.toggle);
+          if (!op.optional || choice(key, src.classId, src.level) === true) {
+            const o = withOverlay(src, src.kind === "option" ? "class" : src.kind, undefined, op.name, op.id, op.overlay === false, op.effects, op.action, op.toggle);
+            feature(src, key, op.name, op.text, o.effects, o.action, undefined, o.toggle, o.key);
+            if (o.entry) overlayOps(src, o.entry);
+          }
           break;
         case "effect": if (Object.keys(op.effects).length) out.effects.push({ source: src.label, effects: op.effects }); break;
         case "resource": {
@@ -174,7 +244,7 @@ export function progress(c: Character, registry: Registry): Progress {
           if (!isStrs(v) || v.length !== op.count) { if (v !== undefined) problem(`${src.label}: the saved pick for ${op.id} does not have ${op.count} entries`); pend(); break; }
           let defs: OptionDef[] | undefined;
           if (op.what === "option") {
-            defs = src.options?.[op.list ?? ""] ?? src.fallbackOptions?.[op.list ?? ""];
+            defs = src.options?.[op.list ?? ""] ?? src.fallbackOptions?.[op.list ?? ""] ?? resolveOptionList(registry, op.list ?? "");
             if (!defs) { problem(`${src.label}: no options list called ${op.list}`); pend(); break; }
           }
           const allowed = defs ? defs.map(d => d.id) : op.from ?? (op.what === "skills" || op.what === "expertise" ? Object.keys(SKILLS) : undefined);
@@ -190,7 +260,9 @@ export function progress(c: Character, registry: Registry): Progress {
               const d = defs!.find(x => x.id === id)!;
               if (d.minLevel !== undefined && d.minLevel > src.classLevel) { problem(`${src.label}: ${d.name} needs level ${d.minLevel}`); continue; }
               (out.options[list] ??= []).push(id);
-              feature(src, `${key}:${id}`, d.name, d.text, d.effects, d.action, "option", d.toggle);
+              const o = withOverlay(src, "option", list, d.name, d.id, d.overlay === false, d.effects, d.action, d.toggle);
+              feature(src, `${key}:${id}`, d.name, d.text, o.effects, o.action, "option", o.toggle, o.key);
+              if (o.entry) overlayOps(src, o.entry);
             }
           }
           break;
@@ -204,13 +276,13 @@ export function progress(c: Character, registry: Registry): Progress {
     let best = 0; for (const k of Object.keys(t ?? {})) { const n = Number(k); if (n <= level && n > best) best = n; }
     return best ? t![best] : undefined;
   };
-  const originSrc = (kind: "race" | "subrace" | "background" | "feat", id: string, name: string): Src =>
-    ({ kind, label: `${kind[0].toUpperCase()}${kind.slice(1)}: ${name}`, keyBase: `${kind}:${id}`, classLevel: total, level: 0 });
+  const originSrc = (kind: "race" | "subrace" | "background" | "feat", id: string, name: string, noOverlay?: boolean): Src =>
+    ({ kind, label: `${kind[0].toUpperCase()}${kind.slice(1)}: ${name}`, keyBase: `${kind}:${id}`, classLevel: total, level: 0, ...(noOverlay ? { noOverlay } : {}) });
   const origin = <T extends GrantsData>(kind: "race" | "subrace" | "background" | "feat", id: string | undefined) => {
     if (!id) return undefined;
     const e = registry.get<T>(kind, id);
     if (!e) { out.unknown.push(`${kind}:${id}`); return undefined; }
-    run(e.data.grants, originSrc(kind, id, e.data.name));
+    run(e.data.grants, originSrc(kind, id, e.data.name, e.data.overlay === false));
     return e;
   };
 
@@ -230,7 +302,7 @@ export function progress(c: Character, registry: Registry): Progress {
     if (k.subclass && !sub) out.unknown.push(`subclass:${k.subclass}`);
     if (sub && sub.data.class !== k.class) problem(`subclass ${sub.data.name} belongs to ${sub.data.class}, not ${k.class}`);
     const goodSub = sub && sub.data.class === k.class ? sub : undefined;
-    const base = { kind: "class" as const, keyBase: `class:${k.class}`, classId: k.class, classLevel: n, ...(d.options ? { options: d.options } : {}), subclass: k.subclass };
+    const base = { kind: "class" as const, keyBase: `class:${k.class}`, classId: k.class, classLevel: n, ...(d.options ? { options: d.options } : {}), subclass: k.subclass, ...(d.overlay === false ? { noOverlay: true } : {}) };
     if (d.spellcasting) casters.set(`${k.class}:class`, { class: k.class, className: d.name, from: "class", abil: d.spellcasting.abil, progression: d.spellcasting.progression, level: n });
     for (let L = 1; L <= n; L++) {
       const src: Src = { ...base, label: `${d.name} ${L}`, level: L };
@@ -244,7 +316,7 @@ export function progress(c: Character, registry: Registry): Progress {
       run(d.levels?.[L] ?? [], src);
       if (goodSub) {
         const ssrc: Src = { ...src, kind: "subclass", keyBase: `subclass:${k.subclass}`, label: `${goodSub.data.name} (${d.name} ${L})`,
-          ...(goodSub.data.options ? { options: goodSub.data.options } : {}), ...(d.options ? { fallbackOptions: d.options } : {}) };
+          ...(goodSub.data.options ? { options: goodSub.data.options } : {}), ...(d.options ? { fallbackOptions: d.options } : {}), ...(goodSub.data.overlay === false ? { noOverlay: true } : { noOverlay: false }) };
         run(goodSub.data.levels[L] ?? [], ssrc);
       }
     }

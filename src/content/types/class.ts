@@ -1,7 +1,7 @@
 import { ABILS, SKILLS, type Abil } from "../../core/types";
 import { isObj, num, oneOf, str, type Errs, type Raw } from "../check";
 import type { TypeDef } from "../registry";
-import { validateLevels, validateOptions, type OptionDef, type Op } from "./ops";
+import { optOut, validateLevels, validateOptions, type OptionDef, type Op } from "./ops";
 
 export type AbilReq = Partial<Record<Abil, number>>;
 export interface ClassData {
@@ -14,6 +14,7 @@ export interface ClassData {
   /** Starting equipment: one list of item ids per choice (A/B), or starting gold as dice such as 4d4*10. */
   equipment?: string[][]; gold?: string;
   options?: Record<string, OptionDef[]>; subclassLevel?: number; levels?: Record<number, Op[]>;
+  /** false: the built-in mechanics never fill in this class's features. */ overlay?: false;
 }
 
 export function abilReq(v: unknown, at: string, e: Errs): AbilReq {
@@ -96,6 +97,7 @@ export const classType: TypeDef<ClassData> = {
     if (Object.keys(options).length) extra.options = options;
     const levels = validateLevels(raw.levels, "levels", { kind: "class", options: Object.fromEntries(Object.entries(options).map(([k, v]) => [k, v.length])) }, e);
     if (Object.keys(levels).length) extra.levels = levels;
+    const overlay = optOut(raw.overlay, "overlay", e); if (overlay === false) extra.overlay = overlay;
     if (e.length || !name || !hitDie) return { errors: e };
     return { errors: e, value: { name, hitDie, saves, ...(spellcasting ? { spellcasting } : {}), ...extra } };
   },

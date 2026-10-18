@@ -15,6 +15,7 @@ export interface ActionDef {
   attack?: Formula; save?: { abil: Abil; dc: string }; damage?: string; heal?: string;
 }
 export interface OptionDef { id: string; name: string; text?: string; minLevel?: number; effects: Effects; action?: ActionDef;
+  /** false: the built-in mechanics never fill this option in. */ overlay?: false;
   /** A switch the player turns on and off; the effects count only while it is on. */ toggle?: ToggleDef; }
 /** One row of a custom spellcasting table: slots[0] is the number of 1st-level slots. */
 export interface TableRow { cantrips?: number; known?: number; slots?: number[]; pact?: { slots: number; level: number }; }
@@ -23,7 +24,8 @@ export type Progression = "full" | "half" | "third" | "pact" | "table";
 interface Base { id: string; }
 export type Op =
   | (Base & { op: "grant"; proficiencies: string[]; languages: string[]; spells: string[]; items: string[]; speed?: number; darkvision?: number; /** Extra movement modes (fly, swim, climb, burrow); same as the speeds effect. */ speeds?: NonNullable<Effects["speeds"]> })
-  | (Base & { op: "feature"; name: string; text?: string; effects: Effects; action?: ActionDef; /** Not applied unless the player takes it (the level-up asks). */ optional?: boolean; /** A switch the player turns on and off; the effects count only while it is on. */ toggle?: ToggleDef })
+  | (Base & { op: "feature"; name: string; text?: string; effects: Effects; action?: ActionDef; /** Not applied unless the player takes it (the level-up asks). */ optional?: boolean; /** A switch the player turns on and off; the effects count only while it is on. */ toggle?: ToggleDef;
+      /** false: the built-in mechanics never fill this feature in. */ overlay?: false })
   | (Base & { op: "resource"; name: string; max: Formula; reset: Reset; refill?: { on: "short"; amount: Formula; oncePer?: "long" } })
   | (Base & { op: "scale"; name: string; values?: Record<number, string | number>; formula?: Formula })
   | (Base & { op: "dc"; name: string; abil: Abil; alt?: Abil })
@@ -75,6 +77,13 @@ const dice = (v: unknown, at: string, e: Errs): string => {
   e.push(`${at}: must be dice such as 1d6+2 or {scale-id}`); return "";
 };
 
+/** `overlay: false` switches the built-in mechanics off for the thing that carries it; `true` or absent leaves them on. */
+export function optOut(v: unknown, at: string, e: Errs): false | undefined {
+  if (v === undefined || v === true) return undefined;
+  if (v === false) return false;
+  e.push(`${at}: must be true or false`); return undefined;
+}
+
 export function validateAction(v: unknown, at: string, e: Errs): ActionDef | undefined {
   if (v === undefined) return undefined;
   if (!isObj(v)) { e.push(`${at}: must be a mapping`); return undefined; }
@@ -116,6 +125,7 @@ export function validateOptions(v: unknown, at: string, e: Errs): Record<string,
       if (o.minLevel !== undefined) { if (whole(o.minLevel, 1) && (o.minLevel as number) <= MAX_LEVEL) def.minLevel = o.minLevel as number; else e.push(`${q}.minLevel: must be a level from 1 to ${MAX_LEVEL}`); }
       const action = validateAction(o.action, `${q}.action`, e); if (action) def.action = action;
       const toggle = validateToggle(o.toggle, `${q}.toggle`, name, e); if (toggle) def.toggle = toggle;
+      const overlay = optOut(o.overlay, `${q}.overlay`, e); if (overlay === false) def.overlay = overlay;
       opts.push(def);
     });
     out[list] = opts;
@@ -168,7 +178,8 @@ function validateOp(raw: unknown, at: string, index: number, ctx: OpsCtx, e: Err
       const effects = validateEffects(raw.effects, `${at}.effects`, e), action = validateAction(raw.action, `${at}.action`, e);
       const optional = bool(raw.optional, `${at}.optional`, e);
       const toggle = validateToggle(raw.toggle, `${at}.toggle`, n, e);
-      return done({ id, op: "feature", name: n, effects, ...(text !== undefined ? { text } : {}), ...(action ? { action } : {}), ...(optional ? { optional } : {}), ...(toggle ? { toggle } : {}) });
+      const overlay = optOut(raw.overlay, `${at}.overlay`, e);
+      return done({ id, op: "feature", name: n, effects, ...(text !== undefined ? { text } : {}), ...(action ? { action } : {}), ...(optional ? { optional } : {}), ...(toggle ? { toggle } : {}), ...(overlay === false ? { overlay } : {}) });
     }
     case "resource": {
       const n = reqName(raw.name, `${at}.name`, e), max = formula(raw.max, `${at}.max`, e);

@@ -1,15 +1,15 @@
 import { ABILS, type Abil } from "../../core/types";
 import { isObj, str, type Errs, type Raw } from "../check";
 import type { TypeDef } from "../registry";
-import { validateLevels, validateOps, validateOptions, type Op, type OptionDef } from "./ops";
+import { optOut, validateLevels, validateOps, validateOptions, type Op, type OptionDef } from "./ops";
 
 /** Subclass: picked inside a class; its `levels` are keyed by the CLASS level at which they apply. */
-export interface SubclassData { name: string; class: string; options?: Record<string, OptionDef[]>; levels: Record<number, Op[]>; }
+export interface SubclassData { name: string; class: string; options?: Record<string, OptionDef[]>; levels: Record<number, Op[]>; /** false: the built-in mechanics never fill in this subclass. */ overlay?: false; }
 /** Ability score increase of a race, subrace or feat: fixed amounts plus "pick `count` of `from`, +`amount` each" groups. */
 export interface AbilityChoose { from: Abil[]; count: number; amount: number; }
 export interface AbilityIncrease { fixed: Partial<Record<Abil, number>>; choose: AbilityChoose[]; }
 /** Race, subrace, background and feat: a flat list of grants. */
-export interface GrantsData { name: string; grants: Op[]; ability?: AbilityIncrease; }
+export interface GrantsData { name: string; grants: Op[]; ability?: AbilityIncrease; /** false: the built-in mechanics never fill in this note. */ overlay?: false; }
 export interface SubraceData extends GrantsData { race: string; }
 export interface FeatData extends GrantsData { prerequisite?: string; }
 
@@ -52,8 +52,9 @@ export const subclassType: TypeDef<SubclassData> = {
     const name = str(raw.name, "name", e), cls = str(raw.class, "class", e);
     const options = validateOptions(raw.options, "options", e);
     const levels = validateLevels(raw.levels, "levels", { kind: "subclass", options: sizes(options) }, e);
+    const overlay = optOut(raw.overlay, "overlay", e);
     if (e.length || !name || !cls) return { errors: e };
-    return { errors: e, value: { name, class: cls, levels, ...(Object.keys(options).length ? { options } : {}) } };
+    return { errors: e, value: { name, class: cls, levels, ...(Object.keys(options).length ? { options } : {}), ...(overlay === false ? { overlay } : {}) } };
   },
 };
 
@@ -65,8 +66,9 @@ function grantsType<T extends GrantsData>(type: string, more: (raw: Raw, e: stri
       const name = str(raw.name, "name", e), extra = more(raw, e);
       const grants = validateOps(raw.grants, "grants", { kind: "grants", options: {} }, e);
       const ability = withAbility ? parseAbilityIncrease(raw.ability, "ability", e) : undefined;
+      const overlay = optOut(raw.overlay, "overlay", e);
       if (e.length || !name) return { errors: e };
-      return { errors: e, value: { name, grants, ...extra, ...(ability ? { ability } : {}) } as T };
+      return { errors: e, value: { name, grants, ...extra, ...(ability ? { ability } : {}), ...(overlay === false ? { overlay } : {}) } as T };
     },
   };
 }

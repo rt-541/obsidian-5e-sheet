@@ -4,7 +4,7 @@ import { abilityMod } from "./abilities";
 import { abilityKey, describeDelta, increaseDelta } from "./ability-increase";
 import type { Character, HpMethod, LevelEntry } from "./character";
 import { deriveCharacter } from "./derive";
-import { progress, type PendingChoice, type Progress } from "./progression";
+import { progress, resolveOptionList, type PendingChoice, type Progress } from "./progression";
 import { slotTable } from "./slots";
 import { ABILS, SKILLS, type Abil, type Rng } from "./types";
 
@@ -139,7 +139,7 @@ function stepOf(p: PendingChoice, env: Env, maxScores: () => Record<Abil, number
     case "choose": {
       let options: StepOption[] = [], free = false;
       if (op.what === "option") {
-        const defs = optionLists(env, key)?.[op.list ?? ""]; if (!defs) return undefined;
+        const defs = optionLists(env, key)?.[op.list ?? ""] ?? resolveOptionList(env.registry, op.list ?? ""); if (!defs) return undefined;
         const lvl = classLevelOf(env, key);
         options = defs.map(d => ({ id: d.id, name: d.name, ...(d.text !== undefined ? { text: d.text } : {}),
           ...(d.minLevel !== undefined && d.minLevel > lvl ? { disabled: `Needs level ${d.minLevel}` } : prog.options[op.list!]?.includes(d.id) ? { disabled: "Already chosen" } : {}) }));
