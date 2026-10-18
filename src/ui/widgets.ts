@@ -103,6 +103,12 @@ function combatWords(e: Effects): string[] {
 }
 
 export function describeEffects(e: Effects): string {
+  const text = effectParts(e).join(" · ");
+  return e.while?.length ? `${text} (only while ${e.while.map(gateWords).join(" and ")})` : text;
+}
+
+/** An effects block as separate plain facts ("+1 AC", "Disadvantage on attacks"), without the `while` condition. */
+export function effectParts(e: Effects): string[] {
   const out: string[] = [];
   if (e.adv?.length) out.push("Advantage on " + e.adv.map(tagWords).join(", "));
   if (e.dis?.length) out.push("Disadvantage on " + e.dis.map(tagWords).join(", "));
@@ -116,8 +122,16 @@ export function describeEffects(e: Effects): string {
   if (e.conditionImmune?.length) out.push("Can't be " + e.conditionImmune.map(titleCase).join(" or ").toLowerCase());
   out.push(...defenseWords(e), ...combatWords(e));
   if (e.note) out.push(e.note);
-  const text = out.join(" · ");
-  return e.while?.length ? `${text} (only while ${e.while.map(gateWords).join(" and ")})` : text;
+  return out;
+}
+
+/** A short tag for an effect's collapsed row: "+1 AC", "Disadvantage on attacks", plus "(and 2 more)" when there is more. */
+export function effectTag(e: Effects): string {
+  const parts = effectParts(e);
+  const num = (e.modifiers ?? []).find(m => typeof m.value === "number" && !m.on);
+  const first = num ? `${sgn(num.value as number)} ${TARGET_WORDS[num.target] ?? num.target}` : parts[0] ?? "";
+  const more = parts.length - 1;
+  return first ? `${first}${more > 0 ? ` (and ${more} more)` : ""}` : "";
 }
 
 /** Uses of a derived resource: pips, or the word for an unlimited one. */

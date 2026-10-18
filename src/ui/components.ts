@@ -8,6 +8,7 @@ import { btn, card, describeEffects, pips, bar } from "./widgets";
 import { featuresFeature, levelUpFeature, xpFeature } from "./features-ui";
 import { combosFeature, pinnedCombosFeature } from "./combos-ui";
 import { traitsFeature } from "./traits-ui";
+import { activeEffectsFeature } from "./effects-ui";
 import { togglesFeature } from "./toggles-ui";
 import { concentrationFeature, pinnedSpellsFeature, spellsFeature } from "./spells-ui";
 
@@ -112,9 +113,7 @@ export const RENDER: Record<string, Render> = {
   "pinned-spells": (ctl, st) => pinnedSpellsFeature(ctl, st),
   combos: (ctl, st) => combosFeature(ctl, st),
   "pinned-combos": (ctl, st) => pinnedCombosFeature(ctl, st),
-  "active-effects": (ctl, st) => card("Active effects",
-    ...(st.effects.length ? st.effects.map(e => h("div", { cls: "fe-kv" }, h("span", { text: e.source, data: { ref: `effect:${e.source}` } }), h("span", { cls: "fe-muted", text: describeEffects(e.effects) }))) : [h("div", { cls: "fe-faint", text: "None" })]),
-    st.missing.length ? h("div", { cls: "fe-warn", text: `Missing from compendium: ${st.missing.join(", ")}` }) : null),
+  "active-effects": (ctl, st) => activeEffectsFeature(ctl, st),
   abilities: (ctl, st) => card("Abilities", checks(ctl, st).abilities),
   saves: (ctl, st) => card("Saving throws", checks(ctl, st).saves),
   skills: (ctl, st) => card("Skills", checks(ctl, st).skills),

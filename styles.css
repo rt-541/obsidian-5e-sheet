@@ -116,6 +116,10 @@
 .fe-trait-group { margin-bottom: 6px; }
 .fe-sheet button.fe-trait-head { display: flex; align-items: center; gap: 6px; width: 100%; text-align: left; background: transparent; box-shadow: none; font-weight: 600; padding: 4px 0; }
 .fe-trait-caret { width: 1em; text-align: center; color: var(--text-muted); }
+.fe-sheet button.fe-effects-head, .fe-sheet button.fe-effect-head { display: flex; align-items: center; gap: 6px; width: 100%; text-align: left; background: transparent; box-shadow: none; padding: 4px 0; }
+.fe-sheet button.fe-effects-head { margin-bottom: 4px; } .fe-effect-tag { white-space: nowrap; }
+.fe-effect-body { display: grid; gap: 2px; padding: 0 0 6px 1.6em; }
+.fe-mobile button.fe-effects-head, .fe-mobile button.fe-effect-head, .fe-tablet button.fe-effects-head, .fe-tablet button.fe-effect-head { min-height: 44px; }
 .fe-trait { display: flex; align-items: center; gap: 8px; padding: 3px 0 3px 1.2em; flex-wrap: wrap; }
 .fe-trait-uses { flex: none; }
 .fe-mobile .fe-sheet button.fe-trait-head, .fe-mobile button.fe-trait-head { min-height: 44px; }
