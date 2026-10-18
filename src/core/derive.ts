@@ -51,6 +51,12 @@ export interface ActorStats {
   skills: { id: string; abil: Abil; mod: number; prof: boolean; expertise: boolean }[];
   /** Ability check totals (ability modifier plus check modifiers), the same numbers the roll buttons use. */
   checks: Record<Abil, number>;
+  /** Attacks per Attack action (Extra Attack): 1 unless a feature says more. */
+  attacksPerAction: number;
+  /** Senses in feet from race, features and items (darkvision, blindsight, tremorsense, truesight, telepathy). */
+  senses: Partial<Record<"darkvision" | "blindsight" | "tremorsense" | "truesight" | "telepathy", number>>;
+  /** Conditions (and `disease`) this actor cannot have. */
+  conditionImmune: string[];
   initiative: number; passivePerception: number; passives: { perception: number; investigation: number; insight: number }; attacks: AttackStat[];
   spellcasting?: { abil: Abil; dc: number; attack: number };
   slots: { level: string; max: number; used: number; pactLevel?: number }[];
@@ -92,7 +98,7 @@ function hpOf(max0: number, current: number, temp: number, fx: SourcedEffects[],
 }
 
 export function deriveCharacter(c: Character, ctx: EffectContext): ActorStats {
-  const r = ctx.registry, prog = progress(c, r), m = mods(c.abilities);
+  const r = ctx.registry, prog = progress(c, r);
   const level = c.classes.reduce((a, k) => a + k.level, 0), prof = profBonus(level);
   const classData = c.classes.map(k => ({ k, d: r.get<ClassData>("class", k.class)?.data }));
   const missing = [...missingIds(c, r), ...classData.filter(x => !x.d).map(x => `class:${x.k.class}`)];
@@ -108,17 +114,35 @@ export function deriveCharacter(c: Character, ctx: EffectContext): ActorStats {
   const toggles: ToggleRow[] = [...prog.toggles.map(t => toggleRow(t.id, t.name, t.source, t.def, t.effects, t.text)),
     ...items.flatMap(({ e, it }, i) => it?.toggle && itemWorks(e, it) && !prog.toggles.some(t => t.id === it.toggle!.id) ? [toggleRow(it.toggle.id, it.name, "Item", it.toggle, it.effects, it.rules, i)] : [])];
 
+  const problem = (msg: string) => { if (!prog.problems.includes(msg)) prog.problems.push(msg); };
+  const vars0 = { ...formulaVars(c, prog.scales), ...Object.fromEntries(prog.dcs.map(d => [`dc_${d.id.replace(/-/g, "_")}`, d.dc])),
+    ...Object.fromEntries(Object.entries(c.active).map(([k, v]) => [`toggle_${k.replace(/-/g, "_")}`, typeof v === "number" ? v : v ? 1 : 0])) };
+  const maxScores = Object.fromEntries(ABILS.map(a => [a, Math.max(20, ...fx.filter(s => s.effects.maxScore?.abil === a).map(s => s.effects.maxScore!.max))])) as Record<Abil, number>;
+  // abilityBonus raises a score before the modifier is worked out, up to the score maximum.
+  const scores = { ...c.abilities };
+  for (const s of fx) for (const [a, f] of Object.entries(s.effects.abilityBonus ?? {})) {
+    try { scores[a as Abil] = Math.min(maxScores[a as Abil], scores[a as Abil] + Math.floor(evalFormula(f, vars0))); }
+    catch (x) { problem(`${s.source}: ${a} bonus ${(x as Error).message}`); }
+  }
+  const m = mods(scores);
+  const vars = { ...vars0, ...m };
+  const opt = (t?: RollTarget): ModOpts => ({ vars, problem, ...(t ? { t } : {}) });
+
   const armor = items.find(x => x.it?.armor && itemWorks(x.e, x.it));
   // acAbility replaces Dex in the AC formula (still capped by the armor); the best of Dex and the granted ability is used.
   let acAbil: Abil = "dex"; let acFrom: string | undefined;
   for (const s of fx) if (s.effects.acAbility && m[s.effects.acAbility] > m[acAbil]) { acAbil = s.effects.acAbility; acFrom = s.source; }
-  const dexA = armor?.it?.armor?.dex === "none" ? 0 : armor?.it?.armor?.dex === "max2" ? Math.min(m[acAbil], 2) : m[acAbil];
-  const vars = { ...formulaVars(c, prog.scales), ...Object.fromEntries(prog.dcs.map(d => [`dc_${d.id.replace(/-/g, "_")}`, d.dc])),
-    ...Object.fromEntries(Object.entries(c.active).map(([k, v]) => [`toggle_${k.replace(/-/g, "_")}`, typeof v === "number" ? v : v ? 1 : 0])) };
-  const problem = (msg: string) => { if (!prog.problems.includes(msg)) prog.problems.push(msg); };
-  const opt = (t?: RollTarget): ModOpts => ({ vars, problem, ...(t ? { t } : {}) });
+  // Medium armor allows +2 Dex unless a feature raises the cap (the highest wins).
+  const dexCap = Math.max(2, ...fx.map(s => s.effects.armorDexMax ?? 0));
+  const dexA = armor?.it?.armor?.dex === "none" ? 0 : armor?.it?.armor?.dex === "max2" ? Math.min(m[acAbil], dexCap) : m[acAbil];
   const acMod = sumModifier(fx, "ac", opt());
-  const ac = { value: (armor ? armor.it!.armor!.base : 10) + dexA + acMod.add, sources: [armor ? armor.it!.name : "Unarmored", ...(acFrom ? [acFrom] : []), ...acMod.sources] };
+  const ac = { value: (armor ? armor.it!.armor!.base : 10) + dexA + acMod.add, sources: [armor ? armor.it!.name : "Unarmored", ...(acFrom ? [acFrom] : []), ...(armor && dexCap > 2 && armor.it!.armor!.dex === "max2" ? [fx.find(s => s.effects.armorDexMax === dexCap)!.source] : []), ...acMod.sources] };
+  // An alternate base (Unarmored Defense, Draconic Resilience) competes with the normal formula; the highest wins.
+  for (const s of fx) {
+    const f = s.effects.acFormula; if (!f || (armor && !f.withArmor) || (f.noShield && gates.shield)) continue;
+    const value = f.base + (f.abils ?? []).reduce((a, k) => a + m[k], 0) + acMod.add;
+    if (value > ac.value) { ac.value = value; ac.sources = [s.source, ...acMod.sources]; }
+  }
 
   const saveProf = new Set<Abil>([...c.proficiencies.saves, ...prog.proficiencies.saves]);
   const skillProf = new Set([...c.proficiencies.skills, ...prog.proficiencies.skills]), expertiseProf = new Set([...c.proficiencies.expertise, ...prog.proficiencies.expertise]);
@@ -161,19 +185,40 @@ export function deriveCharacter(c: Character, ctx: EffectContext): ActorStats {
   const resources: ResourceRow[] = [...c.resources.map((x, i) => ({ id: `manual:${i}`, name: x.name, max: x.max, used: x.used, reset: x.reset, derived: false })),
     ...prog.resources.map(x => ({ ...x, derived: true }))];
   const crits = fx.filter(s => s.effects.critRange !== undefined).sort((a, b) => a.effects.critRange! - b.effects.critRange!);
-  const maxScores = Object.fromEntries(ABILS.map(a => [a, Math.max(20, ...fx.filter(s => s.effects.maxScore?.abil === a).map(s => s.effects.maxScore!.max))])) as Record<Abil, number>;
+  const speedBase = speedOf(prog.speed ?? c.baseSpeed, fx, opt());
+  // Extra movement modes: the best of each; "walk" means the walking speed.
+  const modes: string[] = []; let hover = false;
+  for (const k of ["fly", "swim", "climb", "burrow"] as const) {
+    const all = fx.flatMap(s => s.effects.speeds?.[k] !== undefined ? [s.effects.speeds[k] === "walk" ? speedBase.value : s.effects.speeds[k] as number] : []);
+    if (all.length) modes.push(`${k} ${Math.max(...all)}`);
+  }
+  for (const s of fx) if (s.effects.speeds?.hover) hover = true;
+  // darkvisionAdd only adds to darkvision another source already gives; without one the block's own darkvision applies.
+  const senses: ActorStats["senses"] = {};
+  const plain = Math.max(prog.darkvision ?? 0, ...fx.filter(s => s.effects.senses?.darkvisionAdd === undefined).map(s => s.effects.senses?.darkvision ?? 0));
+  let dv = plain;
+  for (const s of fx) { const e = s.effects.senses; if (e?.darkvisionAdd !== undefined) dv = plain > 0 ? dv + e.darkvisionAdd : Math.max(dv, e.darkvision ?? 0); }
+  if (dv > 0) senses.darkvision = dv;
+  for (const k of ["blindsight", "tremorsense", "truesight", "telepathy"] as const) {
+    const n = Math.max(0, ...fx.map(s => s.effects.senses?.[k] ?? 0)); if (n > 0) senses[k] = n;
+  }
+  let attacksPerAction = 1;
+  for (const s of fx) if (s.effects.attacks !== undefined) {
+    try { attacksPerAction = Math.max(attacksPerAction, Math.floor(evalFormula(s.effects.attacks, vars))); } catch (x) { problem(`${s.source}: attacks ${(x as Error).message}`); }
+  }
   return {
     kind: "character", name: c.name, label: c.classes.map(k => `${k.class} ${k.level}`).join(" / "),
-    abilities: c.abilities, mods: m, prof, level, ac, speed: { ...speedOf(prog.speed ?? c.baseSpeed, fx, opt()), other: "" },
+    abilities: scores, mods: m, prof, level, ac, speed: { ...speedBase, other: modes.join(", ") + (hover && modes.some(x => x.startsWith("fly")) ? " (hover)" : "") },
+    attacksPerAction, senses, conditionImmune: [...new Set(fx.flatMap(s => s.effects.conditionImmune ?? []))],
     hp: hpOf(c.hp.max, c.hp.current, c.hp.temp, fx, opt()), saves, concentrationSave: saveMod("con", true), skills, checks,
     initiative: m.dex + sumModifier(fx, "initiative", opt({ kind: "initiative", abil: "dex" })).add + sumModifier(fx, "check", opt({ kind: "initiative", abil: "dex" })).add,
     passivePerception: passives.perception, passives, attacks,
     ...(spellcasting ? { spellcasting } : {}), slots, hitDice,
-    carry: { weight, capacity: Math.max(0, c.abilities.str * 15 + carryMod.add) * (carryMod.double ? 2 : 1) / (carryMod.half ? 2 : 1) },
+    carry: { weight, capacity: Math.max(0, scores.str * 15 + carryMod.add) * (carryMod.double ? 2 : 1) / (carryMod.half ? 2 : 1) },
     traits: damageTraits(fx), notes: notes(fx), effects: fx, missing, attunedCount: c.inventory.filter(e => e.attuned).length,
     toggles, resources, casters, progress: prog, maxScores, ...(crits[0] ? { crit: { range: crits[0].effects.critRange!, ...(crits[0].effects.critVs ? { vs: crits[0].effects.critVs } : {}) } } : {}),
     languages: mergeLanguages(prog.languages, c.languages),
-    ...(prog.darkvision !== undefined ? { darkvision: prog.darkvision } : {}),
+    ...(senses.darkvision !== undefined ? { darkvision: senses.darkvision } : {}),
   };
 }
 
@@ -184,7 +229,7 @@ export function deriveCreature(b: CreatureData, st: { name: string; hp: { max?: 
   const max = st.hp.max ?? b.hp.average;
   const acMod = sumModifier(fx, "ac");
   return {
-    kind, name: st.name, label, abilities: b.abilities, mods: m, prof: 0, level: 0, concentrationSave: (b.saves.con ?? m.con) + saveAdd,
+    kind, name: st.name, label, attacksPerAction: 1, senses: {}, conditionImmune: [...new Set(fx.flatMap(s => s.effects.conditionImmune ?? []))], abilities: b.abilities, mods: m, prof: 0, level: 0, concentrationSave: (b.saves.con ?? m.con) + saveAdd,
     ac: { value: b.ac + acMod.add, sources: [b.name, ...acMod.sources] },
     speed: { ...speedOf(b.speed.walk, fx), other: (["fly", "swim", "climb"] as const).filter(k => b.speed[k]).map(k => `${k} ${b.speed[k]}`).join(", ") },
     hp: hpOf(max, st.hp.current ?? max, st.hp.temp, fx),

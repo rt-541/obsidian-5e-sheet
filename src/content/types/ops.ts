@@ -22,7 +22,7 @@ export type Progression = "full" | "half" | "third" | "pact" | "table";
 
 interface Base { id: string; }
 export type Op =
-  | (Base & { op: "grant"; proficiencies: string[]; languages: string[]; spells: string[]; items: string[]; speed?: number; darkvision?: number })
+  | (Base & { op: "grant"; proficiencies: string[]; languages: string[]; spells: string[]; items: string[]; speed?: number; darkvision?: number; /** Extra movement modes (fly, swim, climb, burrow); same as the speeds effect. */ speeds?: NonNullable<Effects["speeds"]> })
   | (Base & { op: "feature"; name: string; text?: string; effects: Effects; action?: ActionDef; /** Not applied unless the player takes it (the level-up asks). */ optional?: boolean; /** A switch the player turns on and off; the effects count only while it is on. */ toggle?: ToggleDef })
   | (Base & { op: "resource"; name: string; max: Formula; reset: Reset; refill?: { on: "short"; amount: Formula; oncePer?: "long" } })
   | (Base & { op: "scale"; name: string; values?: Record<number, string | number>; formula?: Formula })
@@ -162,12 +162,12 @@ function validateOp(raw: unknown, at: string, index: number, ctx: OpsCtx, e: Err
   const done = (op: Op): Op | undefined => (e.length > before ? undefined : op);
   switch (name as OpName) {
     case "grant": {
-      const speed = raw.speed, dv = raw.darkvision;
+      const speed = raw.speed, dv = raw.darkvision, speeds = raw.speeds !== undefined ? validateEffects({ speeds: raw.speeds }, at, e).speeds : undefined;
       if (speed !== undefined && !whole(speed)) e.push(`${at}.speed: must be a whole number`);
       if (dv !== undefined && !whole(dv)) e.push(`${at}.darkvision: must be a whole number`);
       return done({ id, op: "grant", proficiencies: texts(raw.proficiencies, `${at}.proficiencies`, e), languages: texts(raw.languages, `${at}.languages`, e),
         spells: texts(raw.spells, `${at}.spells`, e), items: texts(raw.items, `${at}.items`, e),
-        ...(whole(speed) ? { speed: speed as number } : {}), ...(whole(dv) ? { darkvision: dv as number } : {}) });
+        ...(whole(speed) ? { speed: speed as number } : {}), ...(whole(dv) ? { darkvision: dv as number } : {}), ...(speeds ? { speeds } : {}) });
     }
     case "feature": {
       const n = reqName(raw.name, `${at}.name`, e), text = optText(raw.text, `${at}.text`, e);

@@ -63,5 +63,65 @@ export function validateEffects(v: unknown, at: string, e: Errs): Effects {
     if (!isObj(m) || !ABILS.includes(m.abil as Abil) || typeof m.max !== "number" || !Number.isInteger(m.max) || m.max < 20 || m.max > 30) e.push(`${at}.maxScore: must be { abil, max } with max from 20 to 30`);
     else out.maxScore = { abil: m.abil as Abil, max: m.max };
   }
+  parseMovementAndDefense(v, at, e, out);
   return out;
+}
+
+const whole = (n: unknown, min = 0) => typeof n === "number" && Number.isInteger(n) && n >= min;
+const SENSES = ["darkvision", "darkvisionAdd", "blindsight", "tremorsense", "truesight", "telepathy"] as const;
+const SPEEDS = ["fly", "swim", "climb", "burrow"] as const;
+
+/** acFormula, armorDexMax, attacks, senses, speeds and abilityBonus. */
+function parseMovementAndDefense(v: Record<string, unknown>, at: string, e: Errs, out: Effects): void {
+  if (v.acFormula !== undefined) {
+    const f = v.acFormula, p = `${at}.acFormula`;
+    if (!isObj(f)) e.push(`${p}: must be { base, abils, noShield, withArmor }`);
+    else {
+      const before = e.length;
+      if (!whole(f.base)) e.push(`${p}.base: must be a whole number such as 10`);
+      let abils: Abil[] | undefined;
+      if (f.abils !== undefined) {
+        if (Array.isArray(f.abils) && f.abils.every(a => ABILS.includes(a as Abil))) abils = f.abils as Abil[]; else e.push(`${p}.abils: must be a list of abilities`);
+      }
+      for (const k of ["noShield", "withArmor"] as const) if (f[k] !== undefined && typeof f[k] !== "boolean") e.push(`${p}.${k}: must be true or false`);
+      if (e.length === before) out.acFormula = { base: f.base as number, ...(abils ? { abils } : {}), ...(f.noShield === true ? { noShield: true } : {}), ...(f.withArmor === true ? { withArmor: true } : {}) };
+    }
+  }
+  if (v.armorDexMax !== undefined) { if (whole(v.armorDexMax, 2) && (v.armorDexMax as number) <= 10) out.armorDexMax = v.armorDexMax as number; else e.push(`${at}.armorDexMax: must be a whole number from 2 to 10`); }
+  if (v.attacks !== undefined) { const fe = checkFormula(v.attacks); if (fe) e.push(`${at}.attacks: ${fe}`); else out.attacks = v.attacks as number | string; }
+  if (v.senses !== undefined) {
+    if (!isObj(v.senses)) e.push(`${at}.senses: must be a mapping such as { darkvision: 60 }`);
+    else {
+      const s: NonNullable<Effects["senses"]> = {};
+      for (const [k, n] of Object.entries(v.senses)) {
+        if (!(SENSES as readonly string[]).includes(k)) e.push(`${at}.senses.${k}: unknown sense; use ${SENSES.join(", ")}`);
+        else if (!whole(n, 1)) e.push(`${at}.senses.${k}: must be a distance in feet`);
+        else s[k as (typeof SENSES)[number]] = n as number;
+      }
+      if (Object.keys(s).length) out.senses = s;
+    }
+  }
+  if (v.speeds !== undefined) {
+    if (!isObj(v.speeds)) e.push(`${at}.speeds: must be a mapping such as { fly: walk }`);
+    else {
+      const s: NonNullable<Effects["speeds"]> = {};
+      for (const [k, n] of Object.entries(v.speeds)) {
+        if ((SPEEDS as readonly string[]).includes(k)) { if (n === "walk" || whole(n, 1)) s[k as (typeof SPEEDS)[number]] = n as number | "walk"; else e.push(`${at}.speeds.${k}: must be a distance in feet or walk`); }
+        else if (k === "hover") { if (typeof n === "boolean") { if (n) s.hover = true; } else e.push(`${at}.speeds.hover: must be true or false`); }
+        else e.push(`${at}.speeds.${k}: unknown speed; use ${SPEEDS.join(", ")}, hover`);
+      }
+      if (Object.keys(s).length) out.speeds = s;
+    }
+  }
+  if (v.abilityBonus !== undefined) {
+    if (!isObj(v.abilityBonus)) e.push(`${at}.abilityBonus: must be a mapping such as { str: 4 }`);
+    else {
+      const b: NonNullable<Effects["abilityBonus"]> = {};
+      for (const [k, f] of Object.entries(v.abilityBonus)) {
+        if (!ABILS.includes(k as Abil)) { e.push(`${at}.abilityBonus.${k}: unknown ability`); continue; }
+        const fe = checkFormula(f); if (fe) e.push(`${at}.abilityBonus.${k}: ${fe}`); else b[k as Abil] = f as number | string;
+      }
+      if (Object.keys(b).length) out.abilityBonus = b;
+    }
+  }
 }

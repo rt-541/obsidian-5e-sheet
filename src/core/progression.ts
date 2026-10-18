@@ -110,6 +110,7 @@ export function progress(c: Character, registry: Registry): Progress {
           op.spells.forEach(id => out.grantedSpells.push({ id, source: src.label }));
           op.items.forEach(id => out.grantedItems.push({ id, source: src.label }));
           if (op.speed !== undefined) out.speed = op.speed;
+          if (op.speeds) out.effects.push({ source: src.label, effects: { speeds: op.speeds } });
           if (op.darkvision !== undefined) out.darkvision = Math.max(out.darkvision ?? 0, op.darkvision);
           break;
         case "feature":

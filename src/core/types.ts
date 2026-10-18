@@ -38,6 +38,18 @@ export interface Effects {
   critOn?: string;
   /** Conditions (ids, or `disease`) that cannot be put on the actor. */
   conditionImmune?: string[];
+  /** An alternate way to work out armor class: base plus the listed ability modifiers (Unarmored Defense). Used without body armor unless withArmor; noShield turns it off while a shield is worn. */
+  acFormula?: { base: number; abils?: Abil[]; noShield?: boolean; withArmor?: boolean };
+  /** Raises the Dex cap of medium armor to this number (Medium Armor Master). */
+  armorDexMax?: number;
+  /** Attacks per Attack action; the highest source wins (Extra Attack). Number or Formula. */
+  attacks?: number | string;
+  /** Senses in feet. darkvisionAdd is added only to darkvision the character already has. */
+  senses?: { darkvision?: number; darkvisionAdd?: number; blindsight?: number; tremorsense?: number; truesight?: number; telepathy?: number };
+  /** Movement speeds in feet; `walk` means the walking speed. */
+  speeds?: { fly?: number | "walk"; swim?: number | "walk"; climb?: number | "walk"; burrow?: number | "walk"; hover?: boolean };
+  /** Added to the ability score before the modifier is worked out (capped by the score maximum). Each value is a Formula. */
+  abilityBonus?: Partial<Record<Abil, number | string>>;
 }
 export type Rng = () => number;            // returns [0, 1)
 export type RollMode = "normal" | "adv" | "dis";
