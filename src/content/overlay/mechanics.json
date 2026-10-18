@@ -428,9 +428,6 @@
         { "op": "resource", "id": "ov-hybrid-uses", "name": "Hybrid Transformation", "max": 1, "reset": "short" }
       ]
     },
-    "subclass:lycan:resilient-hide": {
-      "effects": { "while": ["toggle:hybrid", "!armor:heavy"], "modifiers": [{ "target": "ac", "value": 1 }] }
-    },
     "class:blood-hunter:crimson-rite": {
       "ops": [{ "op": "scale", "id": "ov-hemocraft-die", "name": "Hemocraft Die", "values": { "1": "1d4", "5": "1d6", "11": "1d8", "17": "1d10" } }]
     },
