@@ -125,11 +125,19 @@ export function effectParts(e: Effects): string[] {
   return out;
 }
 
+/** Longest first part a collapsed effect row shows; a longer one (an item's rules note) is cut at a word with "…". */
+export const EFFECT_TAG_MAX = 40;
+const shorten = (s: string) => {
+  if (s.length <= EFFECT_TAG_MAX) return s;
+  const cut = s.slice(0, EFFECT_TAG_MAX), sp = cut.lastIndexOf(" ");
+  return `${(sp > 10 ? cut.slice(0, sp) : cut).replace(/[\s,.;:(]+$/, "")}…`;
+};
+
 /** A short tag for an effect's collapsed row: "+1 AC", "Disadvantage on attacks", plus "(and 2 more)" when there is more. */
 export function effectTag(e: Effects): string {
   const parts = effectParts(e);
   const num = (e.modifiers ?? []).find(m => typeof m.value === "number" && !m.on);
-  const first = num ? `${sgn(num.value as number)} ${TARGET_WORDS[num.target] ?? num.target}` : parts[0] ?? "";
+  const first = shorten(num ? `${sgn(num.value as number)} ${TARGET_WORDS[num.target] ?? num.target}` : parts[0] ?? "");
   const more = parts.length - 1;
   return first ? `${first}${more > 0 ? ` (and ${more} more)` : ""}` : "";
 }
