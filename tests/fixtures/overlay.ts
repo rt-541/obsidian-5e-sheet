@@ -36,7 +36,7 @@ export function pcSub(cls: string, level: number, subclassId: string, scores: Pa
   return makeChar({ classes: [{ class: cls, level, subclass: subclassId }], abilities: { ...SCORES, ...scores }, ...o });
 }
 export const stats = (c: Character, r: Registry) => derive(c, r);
-export const gear = (...ids: string[]) => ids.map(id => ({ id, equipped: true }));
+export const gear = (...ids: string[]) => ids.map(id => ({ id, qty: 1, equipped: true, attuned: false }));
 /** Switch a toggle on through the real action pipeline (spends its cost). */
 export function switchOn(c: Character, r: Registry, id: string): Character {
   const res = act(c, { type: "toggle", id, on: true }, r);

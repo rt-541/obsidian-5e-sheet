@@ -38,6 +38,7 @@
       "ops": [{ "op": "spells", "id": "ov-additional-magical-secrets", "count": 2, "from": "*" }]
     },
     "class:druid:wild-shape": {
+      "name": "Wild Shape",
       "toggle": { "id": "wild-shape", "cost": { "resource": "Wild Shape" }, "endsOn": "short" },
       "effects": { "note": "You are in a beast shape: use the beast's Strength, Dexterity, Constitution and hit points for now. You keep your mind and your skills." },
       "ops": [
@@ -81,11 +82,11 @@
       "ops": [{ "op": "scale", "id": "ov-divine-strike", "name": "Divine Strike", "values": { "8": "1d8", "14": "2d8" } }]
     },
     "subclass:nature:divine-strike": {
-      "effects": { "extraDamage": [{ "dice": "{divine-strike}", "type": "cold, fire or lightning (your choice)", "on": "attack:weapon", "per": "turn" }] },
+      "effects": { "extraDamage": [{ "dice": "{divine-strike}", "type": "elemental", "on": "attack:weapon", "per": "turn", "note": "choose cold, fire or lightning each time" }] },
       "ops": [{ "op": "scale", "id": "ov-divine-strike", "name": "Divine Strike", "values": { "8": "1d8", "14": "2d8" } }]
     },
     "subclass:*:divine-strike": {
-      "effects": { "extraDamage": [{ "dice": "{divine-strike}", "type": "of your domain's type", "on": "attack:weapon", "per": "turn" }] },
+      "effects": { "extraDamage": [{ "dice": "{divine-strike}", "type": "domain", "on": "attack:weapon", "per": "turn", "note": "the damage type your domain gives" }] },
       "ops": [{ "op": "scale", "id": "ov-divine-strike", "name": "Divine Strike", "values": { "8": "1d8", "14": "2d8" } }]
     },
     "class:cleric:blessed-strikes": {
@@ -106,6 +107,7 @@
       "effects": { "extraDamage": [{ "dice": "1d8", "type": "radiant", "on": "attack:melee+attack:weapon" }] }
     },
     "subclass:devotion:channel-divinity-sacred-weapon": {
+      "name": "Sacred Weapon",
       "toggle": { "id": "sacred-weapon", "cost": { "resource": "Channel Divinity" }, "endsOn": "short" },
       "effects": { "modifiers": [{ "target": "attack", "value": "max(1, cha)", "on": "attack:weapon" }] }
     },

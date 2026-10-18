@@ -105,11 +105,11 @@ export function progress(c: Character, registry: Registry): Progress {
       else seen.other.add(p);
     }
   };
-  const feature = (src: Src, key: string, name: string, text: string | undefined, effects: Effects, action: ActionDef | undefined, kind = src.kind, toggle?: ToggleDef, overlay?: string) => {
+  const feature = (src: Src, key: string, name: string, text: string | undefined, effects: Effects, action: ActionDef | undefined, kind = src.kind, toggle?: ToggleDef, overlay?: string, toggleName?: string) => {
     out.features.push({ key, source: src.label, sourceKind: kind, level: src.level, name, effects, ...(text !== undefined ? { text } : {}), ...(action ? { action } : {}), ...(toggle ? { toggle } : {}), ...(overlay ? { overlay } : {}) });
     if (toggle) {
       if (out.toggles.some(t => t.id === toggle.id)) problem(`${name}: another switch is already called "${toggle.id}"`);
-      else out.toggles.push({ id: toggle.id, name, source: src.label, key, def: toggle, effects, ...(text !== undefined ? { text } : {}) });
+      else out.toggles.push({ id: toggle.id, name: toggleName ?? name, source: src.label, key, def: toggle, effects, ...(text !== undefined ? { text } : {}) });
     }
     if (Object.keys(effects).length) out.effects.push({ source: name, effects: toggle ? gatedByToggle(effects, toggle) : effects });
   };
@@ -129,7 +129,7 @@ export function progress(c: Character, registry: Registry): Progress {
    */
   const withOverlay = (src: Src, kind: OverlayKind, list: string | undefined, name: string, id: string | undefined, off: boolean | undefined,
     effects: Effects, action: ActionDef | undefined, toggle: ToggleDef | undefined) => {
-    const same = { effects, action, toggle, entry: undefined as OverlayEntry | undefined, key: undefined as string | undefined };
+    const same = { effects, action, toggle, entry: undefined as OverlayEntry | undefined, key: undefined as string | undefined, toggleName: undefined as string | undefined };
     const entry = off || src.noOverlay ? undefined : findOverlay(kind, ownerOf(src, kind, list), name, id);
     if (!entry) return same;
     const first = !overlayDone.has(entry.key);
@@ -140,7 +140,7 @@ export function progress(c: Character, registry: Registry): Progress {
     const useMech = !mine && wantsMech, useAction = !action && !!entry.action;
     if ((useMech || useAction || entry.ops.length) && !out.overlay.used.includes(entry.key)) out.overlay.used.push(entry.key);
     return { effects: useMech ? entry.effects : effects, toggle: toggle ?? (useMech ? entry.toggle : undefined), action: action ?? entry.action, entry,
-      key: useMech || useAction ? entry.key : undefined };
+      key: useMech || useAction ? entry.key : undefined, toggleName: !toggle && useMech ? entry.name : undefined };
   };
   /** The extra ops of an entry (resources, scales, picks): run with the owner's source, skipping what the note already declares. */
   const overlayOps = (src: Src, entry: OverlayEntry) => {
@@ -183,7 +183,7 @@ export function progress(c: Character, registry: Registry): Progress {
           // an optional feature is only there when the level-up (or the note's choices) says it was taken
           if (!op.optional || choice(key, src.classId, src.level) === true) {
             const o = withOverlay(src, src.kind === "option" ? "class" : src.kind, undefined, op.name, op.id, op.overlay === false, op.effects, op.action, op.toggle);
-            feature(src, key, op.name, op.text, o.effects, o.action, undefined, o.toggle, o.key);
+            feature(src, key, op.name, op.text, o.effects, o.action, undefined, o.toggle, o.key, o.toggleName);
             if (o.entry) overlayOps(src, o.entry);
           }
           break;
@@ -261,7 +261,7 @@ export function progress(c: Character, registry: Registry): Progress {
               if (d.minLevel !== undefined && d.minLevel > src.classLevel) { problem(`${src.label}: ${d.name} needs level ${d.minLevel}`); continue; }
               (out.options[list] ??= []).push(id);
               const o = withOverlay(src, "option", list, d.name, d.id, d.overlay === false, d.effects, d.action, d.toggle);
-              feature(src, `${key}:${id}`, d.name, d.text, o.effects, o.action, "option", o.toggle, o.key);
+              feature(src, `${key}:${id}`, d.name, d.text, o.effects, o.action, "option", o.toggle, o.key, o.toggleName);
               if (o.entry) overlayOps(src, o.entry);
             }
           }

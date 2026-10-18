@@ -15,7 +15,7 @@ export type OverlayKind = "class" | "subclass" | "race" | "subrace" | "feat" | "
 /** `at`: the op only runs once the character has this many levels (class level for class features, total level for race and feat features). */
 export interface OverlayOp { op: Op; at?: number; }
 export interface OverlayEntry {
-  key: string; effects: Effects; toggle?: ToggleDef; action?: ActionDef;
+  key: string; /** What the switch is called on the sheet when the feature's own name is long ("Wild Shape (CR 1/4 or below, ...)"). */ name?: string; effects: Effects; toggle?: ToggleDef; action?: ActionDef;
   /** Option lists the entry's `choose` ops pick from (Draconic Ancestry has no class to hold them). */
   options?: Record<string, OptionDef[]>; ops: OverlayOp[];
 }
@@ -79,7 +79,7 @@ function build(): NonNullable<typeof loaded> {
     const ops = validateOps(plain.length ? plain : undefined, `${at}.ops`, { kind: "subclass", options: Object.fromEntries(Object.entries(options).map(([k, l]) => [k, l.length])) }, e);
     if (ops.length !== plain.length && !e.length) e.push(`${at}.ops: an op was dropped`);
     if (e.length) { problems.push(...e.map(m => `${key}: ${m}`)); continue; }
-    const entry: OverlayEntry = { key, effects, ops: ops.map((op, i) => ({ op, ...(atOf[i] !== undefined ? { at: atOf[i] } : {}) })),
+    const entry: OverlayEntry = { key, ...(typeof v.name === "string" && v.name.trim() ? { name: v.name.trim() } : {}), effects, ops: ops.map((op, i) => ({ op, ...(atOf[i] !== undefined ? { at: atOf[i] } : {}) })),
       ...(toggle ? { toggle } : {}), ...(action ? { action } : {}), ...(Object.keys(options).length ? { options } : {}) };
     if (!Object.keys(effects).length && !toggle && !action && !ops.length) { problems.push(`${key}: the entry changes nothing`); continue; }
     entries.set(composite(id.kind, id.owner, id.feature), entry);
@@ -88,6 +88,8 @@ function build(): NonNullable<typeof loaded> {
 }
 const load = () => (loaded ??= build());
 
+/** Every entry, for tests and tools. */
+export const overlayEntries = (): OverlayEntry[] => [...load().entries.values()];
 /** Entries that failed validation (empty when the bundled data is sound; a test checks it). */
 export const overlayProblems = (): string[] => load().problems;
 export const overlayKeys = (): string[] => [...load().entries.values()].map(e => e.key);

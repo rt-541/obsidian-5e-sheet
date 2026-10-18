@@ -1,4 +1,4 @@
-import { findOverlay, overlayKeys, overlayNames, overlayOwner, overlayProblems, setBuiltinMechanics } from "../../src/content/overlay";
+import { findOverlay, overlayEntries, overlayKeys, overlayNames, overlayOwner, overlayProblems, setBuiltinMechanics } from "../../src/content/overlay";
 import { Registry } from "../../src/content/registry";
 import { registerBuiltinTypes } from "../../src/content/types";
 import { feat, gear, homebrewFeat, pc, put, srdRegistry, stats, subclass } from "../fixtures/overlay";
@@ -7,6 +7,10 @@ describe("built-in mechanics data", () => {
   it("every bundled entry passes the same validators as notes", () => {
     expect(overlayProblems()).toEqual([]);
     expect(overlayKeys().length).toBeGreaterThan(100);
+  });
+
+  it("extra damage types are a single word, so attack rows can double the dice on a critical hit", () => {
+    for (const e of overlayEntries()) for (const x of e.effects.extraDamage ?? []) expect(x.type, e.key).toMatch(/^[a-z]+$/);
   });
 
   it("looks a feature up by name the way libraries and homebrew spell it", () => {
