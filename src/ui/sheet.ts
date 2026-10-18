@@ -45,7 +45,17 @@ export function mountSheet(root: HTMLElement, ctl: SheetController, mobile: bool
   };
   root.addEventListener("mouseover", onOver); root.addEventListener("mouseout", onOut); root.addEventListener("click", onClick);
   window.addEventListener("scroll", hidePopover, true);
+  /** Nearest ancestor that scrolls (Obsidian's .view-content); re-rendering must not reset its position. */
+  const scrollParent = (): HTMLElement | null => {
+    for (let el = root.parentElement; el; el = el.parentElement) {
+      const o = getComputedStyle(el).overflowY;
+      if (o === "auto" || o === "scroll" || el.classList.contains("view-content")) return el;
+    }
+    return null;
+  };
   const render = () => {
+    const sp = scrollParent(), keepTop = sp?.scrollTop ?? 0;
+    const panelTop = (root.querySelector(".fe-panel-body") as HTMLElement | null)?.scrollTop ?? 0;
     const features = ctl.isNpc ? NPC_FEATURES : CHARACTER_FEATURES;
     const layout = layoutFor(ctl.isNpc, mobile), visible = new Set(ctl.visible([...features])), st = ctl.stats();
     hidePopover(); clear(root);
@@ -75,6 +85,8 @@ export function mountSheet(root: HTMLElement, ctl: SheetController, mobile: bool
     if (fresh) { shownRoll = r; window.clearTimeout(toastTimer); toastTimer = window.setTimeout(() => { toast.hidden = true; }, TOAST_MS); }
     toast.hidden = !fresh;
     root.append(toast);
+    if (sp && keepTop) sp.scrollTop = keepTop;
+    const pb = root.querySelector(".fe-panel-body") as HTMLElement | null; if (pb && panelTop) pb.scrollTop = panelTop;
   };
   const off = ctl.subscribe(render); render();
   return { render, destroy: () => {

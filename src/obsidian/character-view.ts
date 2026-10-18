@@ -62,8 +62,8 @@ export class CharacterView extends FileView {
     if (!file) return;
     const fm = this.app.metadataCache.getFileCache(file)?.frontmatter;
     const parsed = parseNote(this.plugin.store.pending(file.path) ?? fm);
-    this.contentEl.empty();
-    if (parsed.kind === "none") { this.contentEl.createEl("p", { text: "This note is not a 5e character or NPC (frontmatter type: 5e-character or 5e-npc)." }); return; }
+    const keepTop = this.contentEl.scrollTop;   // a rebuild must not jump the reader back to the top
+    if (parsed.kind === "none") { this.contentEl.empty(); this.contentEl.createEl("p", { text: "This note is not a 5e character or NPC (frontmatter type: 5e-character or 5e-npc)." }); return; }
     const prev = this.ctl;
     const body = stripFrontmatter(await this.app.vault.cachedRead(file));
     this.logPath = file.path;
@@ -83,7 +83,9 @@ export class CharacterView extends FileView {
     if (prev) { ctl.tab = prev.tab; ctl.mode = prev.mode; ctl.editing = prev.editing; }
     ctl.subscribe(() => this.plugin.saveLogsSoon());
     this.mounted?.destroy();
+    this.contentEl.empty();
     this.ctl = ctl; this.mounted = mountSheet(this.contentEl, ctl, this.mobile());
+    this.contentEl.scrollTop = keepTop;
   }
 
   /** Called by the plugin when this file's metadata changes. */

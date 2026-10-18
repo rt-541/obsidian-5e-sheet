@@ -23,10 +23,10 @@ export class FiveESettingTab extends PluginSettingTab {
       .addToggle(t => t.setValue(s.autoOpen).onChange(async v => { s.autoOpen = v; await this.plugin.persist(); }));
     new Setting(containerEl).setName("Layout").setDesc("Auto picks the mobile layout on phones and narrow panes.")
       .addDropdown(d => d.addOptions({ auto: "Auto", desktop: "Desktop", mobile: "Mobile" }).setValue(s.layout)
-        .onChange(async v => { s.layout = v as Settings["layout"]; await this.plugin.persist(); this.plugin.refreshViews(); }));
+        .onChange(async v => { s.layout = v as Settings["layout"]; await this.plugin.persist(); this.plugin.refreshViews(true); }));
     containerEl.createEl("h3", { text: "Default rules" });
     containerEl.createEl("p", { text: "Campaign notes and character notes can override these.", cls: "setting-item-description" });
     for (const m of MODULES) new Setting(containerEl).setName(m.title)
-      .addToggle(t => t.setValue(s.ruleDefaults[m.id] ?? m.defaultOn).onChange(async v => { s.ruleDefaults[m.id] = v; await this.plugin.persist(); this.plugin.refreshViews(); }));
+      .addToggle(t => t.setValue(s.ruleDefaults[m.id] ?? m.defaultOn).onChange(async v => { s.ruleDefaults[m.id] = v; await this.plugin.persist(); this.plugin.refreshViews(true); }));
   }
 }

@@ -117,3 +117,32 @@
 .fe-trait { display: flex; align-items: center; gap: 8px; padding: 3px 0 3px 1.2em; flex-wrap: wrap; }
 .fe-trait-uses { flex: none; }
 .fe-mobile .fe-sheet button.fe-trait-head, .fe-mobile button.fe-trait-head { min-height: 44px; }
+
+/* Layout hotfix 2026-10-18: columns and cards may shrink to the pane, and long rows wrap
+   instead of pushing the right column past the pane edge. */
+.fe-sheet { max-width: 100%; box-sizing: border-box; }
+.fe-sheet *, .fe-sheet *::before, .fe-sheet *::after { box-sizing: border-box; }
+.fe-desktop .fe-pane { grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); }
+.fe-pane > *, .fe-col, .fe-col > *, .fe-card, .fe-pinned > * { min-width: 0; max-width: 100%; }
+.fe-card, .fe-note, .fe-rules, .fe-muted, .fe-faint, .fe-name, .fe-inv-name, .fe-spell-name, .fe-kv > span { overflow-wrap: anywhere; }
+.fe-inv, .fe-attack, .fe-row, .fe-hpctl, .fe-rests, .fe-conc, .fe-chips { flex-wrap: wrap; }
+.fe-hpctl { grid-template-columns: minmax(60px, 70px) repeat(3, minmax(0, 1fr)); }
+.fe-sheet button.fe-btn, .fe-sheet button.fe-roll { max-width: 100%; white-space: normal; }
+.fe-abilities { grid-template-columns: repeat(auto-fit, minmax(64px, 1fr)); }
+.fe-sheet table { display: block; max-width: 100%; overflow-x: auto; }
+
+/* Scroll hotfix 2026-10-18: the sheet and compendium panes scroll, and pop-up panels (Add from compendium,
+   Add spell, conditions...) scroll inside their own body instead of growing past the screen. */
+.workspace-leaf-content[data-type="dnd-5e-sheet"] > .view-content,
+.workspace-leaf-content[data-type="dnd-5e-compendium"] > .view-content { overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; }
+.fe-panel { max-height: 85vh; }
+.fe-panel-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
+.fe-panel-head { flex: none; }
+
+/* Progress and pool bars (resources over 12 points, `track: progress` trackers). */
+.fe-barbox { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; flex: 1 1 220px; min-width: 0; }
+.fe-bar.fe-bar-wide { flex: 1 1 120px; height: 10px; border-radius: 5px; }
+.fe-barbox.is-progress .fe-bar-fill { background: var(--interactive-accent); }
+.fe-bar-num { font-variant-numeric: tabular-nums; color: var(--text-muted); font-size: var(--font-ui-smaller); white-space: nowrap; }
+.fe-bar-ctl { display: inline-flex; align-items: center; gap: 4px; }
+.fe-bar-amt { width: 56px; text-align: center; }

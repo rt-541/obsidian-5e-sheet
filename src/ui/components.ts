@@ -4,7 +4,7 @@ import { ABILS, type Abil, type Effects } from "../core/types";
 import { activeRests } from "../rules";
 import type { SheetController } from "./controller";
 import { h, sgn } from "./h";
-import { btn, card, describeEffects, pips } from "./widgets";
+import { btn, card, describeEffects, pips, bar } from "./widgets";
 import { featuresFeature, levelUpFeature, xpFeature } from "./features-ui";
 import { traitsFeature } from "./traits-ui";
 import { concentrationFeature, pinnedSpellsFeature, spellsFeature } from "./spells-ui";
@@ -107,7 +107,12 @@ export const RENDER: Record<string, Render> = {
   resources: ctl => { const c = ctl.character!, r = ctl.host.registry;
     const charged = c.inventory.map((e, i) => ({ e, i, it: e.id ? r.get<ItemData>("item", e.id)?.data : undefined })).filter(x => x.it?.charges && (!x.it.attunement || x.e.attuned));
     return card("Resources and charges",
-      ...c.resources.map((res, i) => h("div", { cls: "fe-kv" }, h("span", { text: `${res.name} (${res.reset})` }), pips(res.max, res.used, n => ctl.dispatch({ type: "resource", index: i, used: n })))),
+      ...c.resources.map((res, i) => {
+        // `track: progress` (downtime, training, crafting) counts up toward max instead of spending uses down.
+        const progress = (res as { track?: string }).track === "progress", setUsed = (n: number) => ctl.dispatch({ type: "resource", index: i, used: n });
+        return h("div", { cls: "fe-kv" }, h("span", { text: progress ? res.name : `${res.name} (${res.reset})` }),
+          progress ? bar(res.max, res.used, setUsed, "progress") : pips(res.max, res.used, setUsed));
+      }),
       ...charged.map(x => h("div", { cls: "fe-kv" }, h("span", { text: `${x.it!.name} charges` }), pips(x.it!.charges!.max, x.e.charges?.used ?? 0, n => ctl.dispatch({ type: "charges", index: x.i, used: n }))))); },
   rests: ctl => h("div", { cls: "fe-rests" }, ...activeRests(ctl.rules()).map(r => btn(r.label, () => ctl.open({ kind: "rest", id: r.id })))),
   inventory: (ctl, st) => { const c = ctl.character!, r = ctl.host.registry;
