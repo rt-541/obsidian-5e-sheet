@@ -15,6 +15,7 @@ import { addToSheet } from "./ui/compendium";
 import { DEFAULT_SETTINGS, FiveESettingTab, type PluginData } from "./obsidian/settings";
 import { healCompendiumFolder } from "./obsidian/heal";
 import { campaignLink, NoteStore } from "./obsidian/store";
+import { newCharacterAction } from "./obsidian/menu";
 import { obsidianCreateNote } from "./obsidian/vault-note";
 import { ObsidianVaultAdapter } from "./obsidian/vault-adapter";
 
@@ -72,6 +73,10 @@ export default class FiveESheetPlugin extends Plugin {
 
     // Right-click (file explorer, tab menu, links): open a character or NPC note as a sheet.
     this.registerEvent(this.app.workspace.on("file-menu", (menu, file) => {
+      // A folder, or a campaign note: start the character builder there.
+      const act = newCharacterAction(file instanceof TFolder ? { kind: "folder", path: file.path }
+        : { kind: "file", basename: file.name.replace(/\.[^.]+$/, ""), folder: file.parent?.path ?? "", ...(file instanceof TFile ? { frontmatter: this.app.metadataCache.getFileCache(file)?.frontmatter } : {}) });
+      if (act) menu.addItem(i => i.setTitle(act.title).setIcon("user-plus").setSection("action-primary").onClick(() => this.openBuilder({ folder: act.folder, ...(act.campaign ? { campaign: act.campaign } : {}) })));
       if (!(file instanceof TFile) || !this.isSheet(file)) return;
       menu.addItem(i => i.setTitle("Open as 5e sheet").setIcon("dice").setSection("open").onClick(() => this.openAsSheet(file)));
       menu.addItem(i => i.setTitle("Open as 5e sheet in new tab").setIcon("dice").setSection("open").onClick(() => this.openAsSheet(file, true)));
@@ -180,8 +185,8 @@ export default class FiveESheetPlugin extends Plugin {
     await leaf.setViewState({ type: VIEW_TYPE, state: { file: file.path }, active: true });
   }
   /** The new-character builder: a modal wizard that writes the note through the Obsidian layer and opens it as a sheet. */
-  openBuilder() {
-    const parent = this.app.workspace.getActiveFile()?.parent, folder = parent instanceof TFolder ? parent.path : "";
+  openBuilder(where?: { folder: string; campaign?: string }) {
+    const parent = this.app.workspace.getActiveFile()?.parent, folder = where ? where.folder : parent instanceof TFolder ? parent.path : "";
     const modal: { close(): void } = { close: () => { /* replaced below */ } };
     const ctl = new BuilderController({
       registry: this.registry, notify: m => this.notice(m), folder: folder === "/" ? "" : folder,
@@ -192,7 +197,8 @@ export default class FiveESheetPlugin extends Plugin {
     });
     // Started from a campaign note (or a character in one): name the campaign up front so the pickers honour its source switches.
     const active = this.app.workspace.getActiveFile(), fm = active && this.app.metadataCache.getFileCache(active)?.frontmatter;
-    if (active && fm?.type === "5e-campaign") ctl.setCampaign(`[[${active.basename}]]`);
+    if (where) { if (where.campaign) ctl.setCampaign(where.campaign); }   // a right-click chose the place: ignore whichever note happens to be open
+    else if (active && fm?.type === "5e-campaign") ctl.setCampaign(`[[${active.basename}]]`);
     else if (typeof fm?.campaign === "string") ctl.setCampaign(fm.campaign);
     const m = new BuilderModal(this.app, ctl);
     modal.close = () => m.close();
