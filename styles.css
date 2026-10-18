@@ -88,6 +88,8 @@
 .fe-sheet [data-ref] { cursor: help; text-decoration: underline dotted var(--text-faint); }
 /* leveling: XP bar, level-up button, wizard pages (one step per screen, 44px targets), Features tab */
 .fe-xp { display: inline-flex; align-items: center; gap: 6px; } .fe-xp .fe-bar { width: 90px; } .fe-xp.is-ready .fe-bar-fill { background: var(--interactive-accent); }
+.fe-change { margin-top: 8px; } .fe-change ul { margin: 0; padding-left: 18px; display: grid; gap: 3px; }
+.fe-undo-diff { grid-column: 1 / -1; display: grid; gap: 4px; }
 .fe-levelup { display: grid; gap: 10px; } .fe-lu-body { display: grid; gap: 6px; align-content: start; min-height: 160px; }
 .fe-lu-nav { position: sticky; bottom: 0; background: var(--background-primary); padding-top: 8px; border-top: 1px solid var(--background-modifier-border); }
 .fe-sheet button.fe-choice { display: block; width: 100%; text-align: left; height: auto; min-height: 44px; white-space: normal; }

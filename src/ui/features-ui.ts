@@ -5,6 +5,7 @@ import type { Abil } from "../core/types";
 import type { SheetController } from "./controller";
 import { h } from "./h";
 import { btn, card, describeEffects, usesPips } from "./widgets";
+import { changeList } from "./levelup-ui";
 
 const ABIL_NAME: Record<Abil, string> = { str: "STR", dex: "DEX", con: "CON", int: "INT", wis: "WIS", cha: "CHA" };
 const sentence = (id: string) => { const t = id.replace(/-/g, " "); return t.charAt(0).toUpperCase() + t.slice(1); };
@@ -36,7 +37,8 @@ export function levelUpFeature(ctl: SheetController): HTMLElement {
   undo[0]?.setAttribute("data-act", "undo-level");
   const builder = !c.classes.length && ctl.host.openBuilder ? btn("New character (builder)", () => ctl.host.openBuilder?.()) : null;
   builder?.setAttribute("data-act", "open-builder");
-  return h("div", { cls: "fe-kv fe-levelup" }, up, ...undo, builder);
+  const diff = ctl.confirmUndo ? h("div", { cls: "fe-undo-diff" }, h("div", { cls: "fe-muted", text: "Undoing the last level would change:" }), ...changeList(ctl.undoChanges())) : null;
+  return h("div", { cls: "fe-kv fe-levelup" }, up, ...undo, builder, diff);
 }
 
 function actionRow(ctl: SheetController, st: ActorStats, f: FeatureRow): HTMLElement {

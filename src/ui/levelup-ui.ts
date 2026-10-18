@@ -162,10 +162,16 @@ export function spellsPage(ctl: PageCtl, s: Pick<"spells">, st: PageState): HTML
     list, s.swap ? h("div", {}, h("div", { cls: "fe-card-title", text: `Swap up to ${s.swap}` }), ...swapRows) : null);
 }
 
+/** The change groups as headings with plain sentences under them. */
+export function changeList(groups: { title: string; lines: string[] }[]): HTMLElement[] {
+  return groups.map(g => h("div", { cls: "fe-change", data: { change: g.title } }, h("div", { cls: "fe-card-title fe-change-title", text: g.title }), h("ul", {}, ...g.lines.map(l => h("li", { text: l })))));
+}
+
 function summaryPage(ctl: SheetController, st: LevelUpState): HTMLElement {
   const pre = ctl.levelUpPreview();
   return h("div", { cls: "fe-lu-body", data: { step: "summary" } }, h("div", { cls: "fe-muted", text: st.mode === "level" ? "This level will:" : "These choices will:" }),
     "error" in pre ? h("div", { cls: "fe-warn", text: pre.error }) : h("ul", {}, ...pre.summary.map(l => h("li", { text: l }))),
+    ...(st.mode === "level" ? [h("div", { cls: "fe-card-title", text: "What changes" }), ...changeList(ctl.levelUpChanges())] : []),
     st.error ? h("div", { cls: "fe-warn", text: st.error }) : null);
 }
 

@@ -7,6 +7,7 @@ import { blankCombo, validateCombo } from "../core/combos";
 import { deriveCharacter, deriveCompanion, deriveNpc, type ActorStats } from "../core/derive";
 import { rollD20, rollDice } from "../core/dice";
 import { critInfo, d20Rules, rollSources } from "../core/effects";
+import { explainChange, type ChangeGroup } from "../core/level-diff";
 import { evalFormula, fillDice } from "../core/formula";
 import { applyLevel, applyResolve, levelFromXp, planLevel, planResolve, rollHitDie, undoLevel, xpProgress, MAX_TOTAL_LEVEL, type LevelPlan, type Step } from "../core/levelup";
 import { formulaVars, type FeatureRow } from "../core/progression";
@@ -284,6 +285,17 @@ export class SheetController {
     if (!c || !st) return { error: "Nothing to apply" };
     const answers = { ...(st.hp ? { hp: st.hp } : {}), choices: st.choices };
     return st.mode === "level" ? applyLevel(c, { class: st.classId ?? "" }, answers, this.pickers(), this.host.rng) : applyResolve(c, answers, this.pickers());
+  }
+  /** Everything the wizard's current picks would change, in plain words (before and after the level). */
+  levelUpChanges(): ChangeGroup[] {
+    const c = this.character, pre = this.levelUpPreview();
+    return c && !("error" in pre) ? explainChange(c, pre.value, this.ctx()) : [];
+  }
+  /** What undoing the last level would change: the same list, reversed. */
+  undoChanges(): ChangeGroup[] {
+    const c = this.character; if (!c || !c.levelLog.length) return [];
+    const r = undoLevel(c, this.host.registry);
+    return "error" in r ? [] : explainChange(c, r.value, this.ctx());
   }
   applyLevelUp(): boolean {
     const c = this.character, st = this.levelUp;
