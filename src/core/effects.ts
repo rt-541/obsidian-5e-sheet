@@ -71,11 +71,18 @@ export function sumModifier(list: SourcedEffects[], target: Modifier["target"], 
   return { add, half, zero, ...(double ? { double } : {}), sources };
 }
 
-/** The lowest crit range among effects that apply to this roll (a natural 20 always counts). */
-export function critRangeFor(list: SourcedEffects[], t: RollTarget): number {
-  let r = 20;
-  for (const s of list) { const c = s.effects.critRange; if (c !== undefined && (s.effects.critOn === undefined || matchesTag(s.effects.critOn, t))) r = Math.min(r, c); }
-  return r;
+/**
+ * The crit range for this roll: the lowest critRange among effects that apply (a natural 20 always counts).
+ * An effect that only works against something ("vs analyzed creatures") cannot be checked here, so it does not move the range;
+ * it comes back as a hint to show with the roll.
+ */
+export function critInfo(list: SourcedEffects[], t: RollTarget): { range: number; hints: string[] } {
+  let range = 20; const hints: string[] = [];
+  for (const s of list) {
+    const c = s.effects.critRange; if (c === undefined || (s.effects.critOn !== undefined && !matchesTag(s.effects.critOn, t))) continue;
+    if (s.effects.critVs) hints.push(`${c}-20 is a critical hit against ${s.effects.critVs} (${s.source})`); else range = Math.min(range, c);
+  }
+  return { range, hints };
 }
 
 export function damageTraits(list: SourcedEffects[]) {

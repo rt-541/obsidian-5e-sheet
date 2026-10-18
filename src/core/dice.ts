@@ -8,7 +8,7 @@ export function seeded(seed: number): Rng {
   return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
 }
 
-export function rollD20(o: { title: string; mod: number; mode: RollMode; adv?: string[]; dis?: string[]; fail?: string[]; rng?: Rng }): RollResult {
+export function rollD20(o: { title: string; mod: number; mode: RollMode; adv?: string[]; dis?: string[]; fail?: string[]; rng?: Rng; critRange?: number; critNote?: string[] }): RollResult {
   const rng = o.rng ?? Math.random, adv = o.adv ?? [], dis = o.dis ?? [], fail = o.fail ?? [];
   const sources = { adv, dis, fail };
   if (fail.length) return { title: o.title, total: "fail", dice: [], detail: `Automatic failure (${fail.join(", ")})`, crit: false, fumble: false, sources };
@@ -18,8 +18,10 @@ export function rollD20(o: { title: string; mod: number; mode: RollMode; adv?: s
   else if (hasDis && !hasAdv) { dice = [die(20, rng), die(20, rng)]; natural = Math.min(...dice); how = ` dis [${dice.join(", ")}]`; }
   else { dice = [die(20, rng)]; natural = dice[0]; if (hasAdv && hasDis) how = " adv+dis cancel"; }
   const why = [...adv.map(s => "adv: " + s), ...dis.map(s => "dis: " + s)].join(", ");
-  return { title: o.title, total: natural + o.mod, natural, dice, detail: `d20(${natural})${how} ${sgn(o.mod)}${why ? ` (${why})` : ""}`,
-    crit: natural === 20, fumble: natural === 1, sources };
+  const range = Math.min(20, o.critRange ?? 20), crit = natural >= range;
+  const hint = [...(crit && natural < 20 ? [`critical hit: you crit on ${range}-20`] : []), ...(o.critNote ?? [])];
+  return { title: o.title, total: natural + o.mod, natural, dice, detail: `d20(${natural})${how} ${sgn(o.mod)}${why ? ` (${why})` : ""}${hint.length ? ` - ${hint.join("; ")}` : ""}`,
+    crit, fumble: natural === 1, sources };
 }
 
 const TERM = /^(?:(\d{1,2})d(\d{1,3})([+-]\d{1,3})?|(\d{1,3}))(?:\s+([a-z]+))?$/;

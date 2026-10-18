@@ -5,7 +5,7 @@ import { apply, applyNpc, type Action, type Limits } from "../core/actions";
 import type { Character, Npc, Parsed } from "../core/character";
 import { deriveCharacter, deriveCompanion, deriveNpc, type ActorStats } from "../core/derive";
 import { rollD20, rollDice } from "../core/dice";
-import { rollSources } from "../core/effects";
+import { critInfo, rollSources } from "../core/effects";
 import { evalFormula, fillDice } from "../core/formula";
 import { applyLevel, applyResolve, levelFromXp, planLevel, planResolve, rollHitDie, undoLevel, xpProgress, MAX_TOTAL_LEVEL, type LevelPlan, type Step } from "../core/levelup";
 import { formulaVars, type FeatureRow } from "../core/progression";
@@ -122,7 +122,8 @@ export class SheetController {
     const src = st ? rollSources(st.effects, target) : { adv: [], dis: [], fail: [] };
     const mode: RollMode = ev.shiftKey ? "adv" : (ev.ctrlKey || ev.metaKey) ? "dis" : this.mode;
     this.mode = "normal";
-    return this.record(rollD20({ title, mod, mode, ...src, ...(this.host.rng ? { rng: this.host.rng } : {}) }));
+    const crit = st && target.kind === "attack" ? critInfo(st.effects, target) : undefined;
+    return this.record(rollD20({ title, mod, mode, ...src, ...(crit ? { critRange: crit.range, critNote: crit.hints } : {}), ...(this.host.rng ? { rng: this.host.rng } : {}) }));
   }
   damage(title: string, expr: string): RollResult { return this.record(rollDice(title, expr, this.host.rng)); }
 
