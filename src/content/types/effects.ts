@@ -1,20 +1,11 @@
-import { ABILS, SKILLS, type Abil, type Effects, type Modifier, type ModTarget, type SaveBonus } from "../../core/types";
+import { ABILS, type Abil, type Effects, type Modifier, type SaveBonus } from "../../core/types";
+import { validGate } from "../../core/gates";
+import { parseModifier } from "../../core/modifier";
+import { validRollTarget } from "../../core/roll-tags";
 import { checkFormula } from "../../core/formula";
 import { isObj, strList, type Errs } from "../check";
 
-const MOD_TARGETS: ModTarget[] = ["ac", "speed", "hpMax", "carry", "save", "attack", "damage", "spellDC", "spellAttack", "check", "initiative"];
-const KINDS = ["attack", "check", "skill", "save", "initiative", "death-save", "march", "navigation"];
-
-/** attack | attack:str | attack:!str | attack:melee | attack:ranged | check[:abil] | skill:<skill> | save[:abil] | initiative | death-save | march | navigation */
-export function validRollTarget(t: string): boolean {
-  const [kind, q] = t.split(":");
-  if (!KINDS.includes(kind)) return false;
-  if (q === undefined) return kind !== "skill";
-  if (kind === "skill") return q in SKILLS;
-  if (kind === "attack") return ABILS.includes(q.replace(/^!/, "") as never) || q === "melee" || q === "ranged";
-  if (kind === "check" || kind === "save") return ABILS.includes(q as never);
-  return false;
-}
+export { validRollTarget };
 
 export function validateEffects(v: unknown, at: string, e: Errs): Effects {
   if (v === undefined) return {};
@@ -31,15 +22,7 @@ export function validateEffects(v: unknown, at: string, e: Errs): Effects {
     if (!Array.isArray(v.modifiers)) e.push(`${at}.modifiers: must be a list`);
     else {
       const mods: Modifier[] = [];
-      v.modifiers.forEach((m: unknown, i: number) => {
-        const p = `${at}.modifiers[${i}]`;
-        if (!isObj(m)) { e.push(`${p}: must be a mapping`); return; }
-        const okT = typeof m.target === "string" && (MOD_TARGETS as string[]).includes(m.target);
-        const okV = (typeof m.value === "number" && Number.isFinite(m.value)) || m.value === "half" || m.value === "zero";
-        if (!okV) e.push(`${p}.value: must be a number, half or zero`);
-        if (!okT) e.push(`${p}.target: unknown target ${String(m.target)}`);
-        if (okT && okV) mods.push({ target: m.target as ModTarget, value: m.value as Modifier["value"], ...(typeof m.source === "string" ? { source: m.source } : {}) });
-      });
+      v.modifiers.forEach((m: unknown, i: number) => { const p = parseModifier(m, `${at}.modifiers[${i}]`, e); if (p) mods.push(p); });
       if (mods.length) out.modifiers = mods;
     }
   }
@@ -68,6 +51,13 @@ export function validateEffects(v: unknown, at: string, e: Errs): Effects {
     else e.push(`${at}.critRange: must be a whole number from 2 to 20`);
   }
   if (v.critVs !== undefined) { if (typeof v.critVs === "string") out.critVs = v.critVs; else e.push(`${at}.critVs: must be text`); }
+  if (v.critOn !== undefined) { if (typeof v.critOn === "string" && validRollTarget(v.critOn)) out.critOn = v.critOn; else e.push(`${at}.critOn: unknown roll tag ${String(v.critOn)}`); }
+  if (v.while !== undefined) {
+    const list = strList(v.while, `${at}.while`, e);
+    list.forEach((g, i) => { if (!validGate(g)) e.push(`${at}.while[${i}]: unknown condition ${g}`); });
+    if (list.length) out.while = list;
+  }
+  if (v.conditionImmune !== undefined) { const l = strList(v.conditionImmune, `${at}.conditionImmune`, e); if (l.length) out.conditionImmune = l; }
   if (v.maxScore !== undefined) {
     const m = v.maxScore;
     if (!isObj(m) || !ABILS.includes(m.abil as Abil) || typeof m.max !== "number" || !Number.isInteger(m.max) || m.max < 20 || m.max > 30) e.push(`${at}.maxScore: must be { abil, max } with max from 20 to 30`);

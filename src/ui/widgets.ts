@@ -12,7 +12,7 @@ export function describeEffects(e: Effects): string {
   if (e.adv?.length) out.push("Adv: " + e.adv.join(", "));
   if (e.dis?.length) out.push("Disadv: " + e.dis.join(", "));
   if (e.autofail?.length) out.push("Auto-fail: " + e.autofail.join(", "));
-  for (const m of e.modifiers ?? []) out.push(`${m.target} ${typeof m.value === "number" ? sgn(m.value) : m.value}`);
+  for (const m of e.modifiers ?? []) out.push(`${m.target} ${typeof m.value === "number" ? sgn(m.value) : m.value}${m.on ? ` (${m.on})` : ""}`);
   if (e.resist?.length) out.push("Resist " + e.resist.join(", "));
   if (e.acAbility) out.push(`AC uses ${e.acAbility.toUpperCase()}`);
   for (const b of e.saveBonus ?? []) out.push(`${b.abils.map(a => a.toUpperCase()).join("/")} saves ${typeof b.value === "number" ? sgn(b.value) : `+ ${b.value}`}`);

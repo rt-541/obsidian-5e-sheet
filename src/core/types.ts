@@ -6,10 +6,20 @@ export const SKILLS: Record<string, Abil> = {
   nature: "int", perception: "wis", performance: "cha", persuasion: "cha", religion: "int",
   "sleight-of-hand": "dex", stealth: "dex", survival: "wis",
 };
-export type RollKind = "attack" | "check" | "skill" | "save" | "initiative" | "death-save" | "march" | "navigation";
-export interface RollTarget { kind: RollKind; abil?: Abil; skill?: string; range?: "melee" | "ranged"; }
-export type ModTarget = "ac" | "speed" | "hpMax" | "carry" | "save" | "attack" | "damage" | "spellDC" | "spellAttack" | "check" | "initiative";
-export interface Modifier { target: ModTarget; value: number | "half" | "zero"; source?: string; }
+export type RollKind = "attack" | "check" | "skill" | "save" | "initiative" | "death-save" | "march" | "navigation" | "passive";
+export interface RollTarget {
+  kind: RollKind; abil?: Abil; skill?: string; range?: "melee" | "ranged";
+  /** Attack rows: what the weapon is (its id and properties such as light, thrown, monk), so a rule can aim at "weapon:thrown". */
+  tags?: string[];
+  /** A Constitution save made to keep concentrating. */
+  concentration?: boolean;
+}
+export type ModTarget = "ac" | "speed" | "hpMax" | "carry" | "save" | "attack" | "damage" | "spellDC" | "spellAttack" | "check" | "initiative" | "passive";
+/**
+ * value: a number, `half`, `zero`, `double` (carry only), or a Formula (text such as `prof` or `floor(level / 2)`).
+ * on: only applies to rolls or rows that match this tag (see core/roll-tags); `+` joins tags, all must match.
+ */
+export interface Modifier { target: ModTarget; value: number | string; on?: string; source?: string; }
 export interface SaveBonus { abils: Abil[]; value: number | string; }
 export interface Effects {
   adv?: string[]; dis?: string[]; autofail?: string[]; modifiers?: Modifier[];
@@ -22,6 +32,12 @@ export interface Effects {
   critRange?: number; critVs?: string;
   /** Raises the ability score cap (default 20). */
   maxScore?: { abil: Abil; max: number };
+  /** The whole block applies only while every gate holds: armor:none|worn|light|medium|heavy, shield:none|worn, wield:dual, toggle:<id>, concentrating; `!` negates. */
+  while?: string[];
+  /** Limits critRange to rolls matching this tag (for example attack:melee). */
+  critOn?: string;
+  /** Conditions (ids, or `disease`) that cannot be put on the actor. */
+  conditionImmune?: string[];
 }
 export type Rng = () => number;            // returns [0, 1)
 export type RollMode = "normal" | "adv" | "dis";

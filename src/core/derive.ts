@@ -1,6 +1,7 @@
 import type { CompanionEntry, Character, Npc } from "./character";
 import type { ClassData, CreatureData, ItemData } from "../content/types";
-import { collectEffects, damageTraits, itemWorks, missingIds, notes, sumModifier, type EffectContext, type SourcedEffects } from "./effects";
+import { collectEffects, damageTraits, itemWorks, missingIds, notes, sumModifier, type EffectContext, type ModOpts, type SourcedEffects } from "./effects";
+import { filterGated, gateStateOf, NO_GATES } from "./gates";
 import { abilityMod, profBonus } from "./abilities";
 import { evalFormula } from "./formula";
 import { emptyProgress, formulaVars, progress, type Progress, type DerivedResource } from "./progression";
@@ -17,7 +18,9 @@ export interface ActorStats {
   hp: { current: number; max: number; temp: number; maxReduced: boolean };
   saves: Record<Abil, { mod: number; prof: boolean }>;
   skills: { id: string; abil: Abil; mod: number; prof: boolean; expertise: boolean }[];
-  initiative: number; passivePerception: number; attacks: AttackStat[];
+  /** Ability check totals (ability modifier plus check modifiers), the same numbers the roll buttons use. */
+  checks: Record<Abil, number>;
+  initiative: number; passivePerception: number; passives: { perception: number; investigation: number; insight: number }; attacks: AttackStat[];
   spellcasting?: { abil: Abil; dc: number; attack: number };
   slots: { level: string; max: number; used: number; pactLevel?: number }[];
   hitDice: { die: string; max: number; used: number }[];
@@ -46,35 +49,40 @@ export function mergeLanguages(...lists: string[][]): string[] {
 const sgn = (n: number) => (n >= 0 ? "+" : "") + n;
 const mods = (a: Record<Abil, number>) => Object.fromEntries(ABILS.map(k => [k, abilityMod(a[k])])) as Record<Abil, number>;
 
-function speedOf(base: number, fx: SourcedEffects[]) {
-  const m = sumModifier(fx, "speed"); let v = base + m.add;
+function speedOf(base: number, fx: SourcedEffects[], o: ModOpts = {}) {
+  const m = sumModifier(fx, "speed", o); let v = base + m.add;
   if (m.half) v = Math.floor(v / 2); if (m.zero) v = 0;
   return { value: Math.max(0, v), sources: m.sources };
 }
-function hpOf(max0: number, current: number, temp: number, fx: SourcedEffects[]) {
-  const half = sumModifier(fx, "hpMax").half, max = half ? Math.floor(max0 / 2) : max0;
+function hpOf(max0: number, current: number, temp: number, fx: SourcedEffects[], o: ModOpts = {}) {
+  const m = sumModifier(fx, "hpMax", o), full = Math.max(0, max0 + m.add), half = m.half, max = m.zero ? 0 : half ? Math.floor(full / 2) : full;
   return { current: Math.min(current, max), max, temp, maxReduced: half };
 }
 
 export function deriveCharacter(c: Character, ctx: EffectContext): ActorStats {
-  const r = ctx.registry, prog = progress(c, r), fx = [...collectEffects(c, ctx), ...prog.effects], m = mods(c.abilities);
+  const r = ctx.registry, prog = progress(c, r), m = mods(c.abilities);
   const level = c.classes.reduce((a, k) => a + k.level, 0), prof = profBonus(level);
   const classData = c.classes.map(k => ({ k, d: r.get<ClassData>("class", k.class)?.data }));
   const missing = [...missingIds(c, r), ...classData.filter(x => !x.d).map(x => `class:${x.k.class}`)];
   const items = c.inventory.map(e => ({ e, it: e.id ? r.get<ItemData>("item", e.id)?.data : undefined }));
+  // Effects blocks with a `while` gate (armor, shield, two weapons, a toggle, concentrating) count only while the gate holds.
+  const fx = filterGated([...collectEffects(c, ctx), ...prog.effects], gateStateOf(items, c.active, !!c.concentration));
 
   const armor = items.find(x => x.it?.armor && itemWorks(x.e, x.it));
   // acAbility replaces Dex in the AC formula (still capped by the armor); the best of Dex and the granted ability is used.
   let acAbil: Abil = "dex"; let acFrom: string | undefined;
   for (const s of fx) if (s.effects.acAbility && m[s.effects.acAbility] > m[acAbil]) { acAbil = s.effects.acAbility; acFrom = s.source; }
   const dexA = armor?.it?.armor?.dex === "none" ? 0 : armor?.it?.armor?.dex === "max2" ? Math.min(m[acAbil], 2) : m[acAbil];
-  const acMod = sumModifier(fx, "ac");
+  const vars = { ...formulaVars(c, prog.scales), ...Object.fromEntries(prog.dcs.map(d => [`dc_${d.id.replace(/-/g, "_")}`, d.dc])),
+    ...Object.fromEntries(Object.entries(c.active).map(([k, v]) => [`toggle_${k.replace(/-/g, "_")}`, typeof v === "number" ? v : v ? 1 : 0])) };
+  const problem = (msg: string) => { if (!prog.problems.includes(msg)) prog.problems.push(msg); };
+  const opt = (t?: RollTarget): ModOpts => ({ vars, problem, ...(t ? { t } : {}) });
+  const acMod = sumModifier(fx, "ac", opt());
   const ac = { value: (armor ? armor.it!.armor!.base : 10) + dexA + acMod.add, sources: [armor ? armor.it!.name : "Unarmored", ...(acFrom ? [acFrom] : []), ...acMod.sources] };
 
-  const saveAdd = sumModifier(fx, "save").add, checkAdd = sumModifier(fx, "check").add;
   const saveProf = new Set<Abil>([...c.proficiencies.saves, ...prog.proficiencies.saves]);
   const skillProf = new Set([...c.proficiencies.skills, ...prog.proficiencies.skills]), expertiseProf = new Set([...c.proficiencies.expertise, ...prog.proficiencies.expertise]);
-  const bonusVars = formulaVars(c, prog.scales);
+  const bonusVars = vars;
   const saveFormula = (a: Abil) => {
     let add = 0;
     for (const s of fx) for (const b of s.effects.saveBonus ?? []) if (b.abils.includes(a)) {
@@ -82,21 +90,22 @@ export function deriveCharacter(c: Character, ctx: EffectContext): ActorStats {
     }
     return add;
   };
-  const saves = Object.fromEntries(ABILS.map(a => { const p = saveProf.has(a); return [a, { mod: m[a] + (p ? prof : 0) + saveAdd + saveFormula(a), prof: p }]; })) as ActorStats["saves"];
+  const saves = Object.fromEntries(ABILS.map(a => { const p = saveProf.has(a); return [a, { mod: m[a] + (p ? prof : 0) + sumModifier(fx, "save", opt({ kind: "save", abil: a })).add + saveFormula(a), prof: p }]; })) as ActorStats["saves"];
   const skills = Object.entries(SKILLS).map(([id, abil]) => {
     const p = skillProf.has(id), ex = expertiseProf.has(id);
-    return { id, abil, mod: m[abil] + (p ? prof : 0) + (ex ? prof : 0) + checkAdd, prof: p, expertise: ex };
+    return { id, abil, mod: m[abil] + (p ? prof : 0) + (ex ? prof : 0) + sumModifier(fx, "check", opt({ kind: "skill", abil, skill: id })).add, prof: p, expertise: ex };
   });
-  const atkAdd = sumModifier(fx, "attack").add, dmgAdd = sumModifier(fx, "damage").add;
+  const checks = Object.fromEntries(ABILS.map(a => [a, m[a] + sumModifier(fx, "check", opt({ kind: "check", abil: a })).add])) as Record<Abil, number>;
   const attacks: AttackStat[] = items.filter(x => x.e.equipped && x.it?.weapon).map(({ e, it }) => {
     const w = it!.weapon!, works = itemWorks(e, it), bonus = works ? (w.bonus ?? 0) : 0;
     const abil: Abil = w.ab === "finesse" ? (m.dex >= m.str ? "dex" : "str") : w.ab;
-    const dm = m[abil] + bonus + dmgAdd;
-    return { name: it!.name, toHit: m[abil] + prof + bonus + atkAdd, damage: `${w.dmg}${dm ? sgn(dm) : ""} ${w.type}${works && w.extraDamage ? " + " + w.extraDamage : ""}`,
-      target: { kind: "attack", abil, range: w.range } };
+    const target: RollTarget = { kind: "attack", abil, range: w.range, tags: [...(e.id ? [e.id] : []), ...(w.props ?? [])] };
+    const dm = m[abil] + bonus + sumModifier(fx, "damage", opt(target)).add;
+    return { name: it!.name, toHit: m[abil] + prof + bonus + sumModifier(fx, "attack", opt(target)).add, damage: `${w.dmg}${dm ? sgn(dm) : ""} ${w.type}${works && w.extraDamage ? " + " + w.extraDamage : ""}`,
+      target };
   });
   const casters: CasterStat[] = prog.spellcasting.map(e => ({ name: e.className, abil: e.abil, progression: e.progression,
-    dc: 8 + prof + m[e.abil] + sumModifier(fx, "spellDC").add, attack: prof + m[e.abil] + sumModifier(fx, "spellAttack").add }));
+    dc: 8 + prof + m[e.abil] + sumModifier(fx, "spellDC", opt()).add, attack: prof + m[e.abil] + sumModifier(fx, "spellAttack", opt()).add }));
   const spellcasting = casters[0] ? { abil: casters[0].abil, dc: casters[0].dc, attack: casters[0].attack } : undefined;
   const slots = slotTable(prog.spellcasting.map(e => ({ level: e.level, progression: e.progression, ...(e.table ? { table: e.table } : {}) })))
     .map(s => ({ ...s, used: Math.min(c.spellSlots[s.level]?.used ?? 0, s.max) }));
@@ -104,19 +113,21 @@ export function deriveCharacter(c: Character, ctx: EffectContext): ActorStats {
   for (const x of classData) if (x.d) dice.set(`d${x.d.hitDie}`, (dice.get(`d${x.d.hitDie}`) ?? 0) + x.k.level);
   const hitDice = [...dice].map(([die, max]) => ({ die, max, used: Math.min(c.hitDice[die]?.used ?? 0, max) }));
   const weight = items.reduce((a, x) => a + (x.it?.weight ?? x.e.weight ?? 0) * x.e.qty, 0);
-  const carryHalf = sumModifier(fx, "carry").half;
-  const perception = skills.find(k => k.id === "perception")!.mod;
+  const carryMod = sumModifier(fx, "carry", opt());
+  const passive = (skill: string) => 10 + skills.find(k => k.id === skill)!.mod + sumModifier(fx, "passive", opt({ kind: "passive", skill })).add;
+  const passives = { perception: passive("perception"), investigation: passive("investigation"), insight: passive("insight") };
   const resources: ResourceRow[] = [...c.resources.map((x, i) => ({ id: `manual:${i}`, name: x.name, max: x.max, used: x.used, reset: x.reset, derived: false })),
     ...prog.resources.map(x => ({ ...x, derived: true }))];
   const crits = fx.filter(s => s.effects.critRange !== undefined).sort((a, b) => a.effects.critRange! - b.effects.critRange!);
   const maxScores = Object.fromEntries(ABILS.map(a => [a, Math.max(20, ...fx.filter(s => s.effects.maxScore?.abil === a).map(s => s.effects.maxScore!.max))])) as Record<Abil, number>;
   return {
     kind: "character", name: c.name, label: c.classes.map(k => `${k.class} ${k.level}`).join(" / "),
-    abilities: c.abilities, mods: m, prof, level, ac, speed: { ...speedOf(prog.speed ?? c.baseSpeed, fx), other: "" },
-    hp: hpOf(c.hp.max, c.hp.current, c.hp.temp, fx), saves, skills,
-    initiative: m.dex + sumModifier(fx, "initiative").add, passivePerception: 10 + perception, attacks,
+    abilities: c.abilities, mods: m, prof, level, ac, speed: { ...speedOf(prog.speed ?? c.baseSpeed, fx, opt()), other: "" },
+    hp: hpOf(c.hp.max, c.hp.current, c.hp.temp, fx, opt()), saves, skills, checks,
+    initiative: m.dex + sumModifier(fx, "initiative", opt({ kind: "initiative", abil: "dex" })).add + sumModifier(fx, "check", opt({ kind: "initiative", abil: "dex" })).add,
+    passivePerception: passives.perception, passives, attacks,
     ...(spellcasting ? { spellcasting } : {}), slots, hitDice,
-    carry: { weight, capacity: c.abilities.str * 15 / (carryHalf ? 2 : 1) },
+    carry: { weight, capacity: Math.max(0, c.abilities.str * 15 + carryMod.add) * (carryMod.double ? 2 : 1) / (carryMod.half ? 2 : 1) },
     traits: damageTraits(fx), notes: notes(fx), effects: fx, missing, attunedCount: c.inventory.filter(e => e.attuned).length,
     resources, casters, progress: prog, maxScores, ...(crits[0] ? { crit: { range: crits[0].effects.critRange!, ...(crits[0].effects.critVs ? { vs: crits[0].effects.critVs } : {}) } } : {}),
     languages: mergeLanguages(prog.languages, c.languages),
@@ -126,7 +137,7 @@ export function deriveCharacter(c: Character, ctx: EffectContext): ActorStats {
 
 export function deriveCreature(b: CreatureData, st: { name: string; hp: { max?: number; current?: number; temp: number }; conditions: Record<string, number>; modifiers: Modifier[] },
   kind: "companion" | "npc", ctx: EffectContext, label = b.name): ActorStats {
-  const fx = [...(Object.keys(b.effects).length ? [{ source: b.name, effects: b.effects }] : []), ...collectEffects({ conditions: st.conditions, modifiers: st.modifiers }, ctx)];
+  const fx = filterGated([...(Object.keys(b.effects).length ? [{ source: b.name, effects: b.effects }] : []), ...collectEffects({ conditions: st.conditions, modifiers: st.modifiers }, ctx)], NO_GATES);
   const m = mods(b.abilities), checkAdd = sumModifier(fx, "check").add, saveAdd = sumModifier(fx, "save").add, atkAdd = sumModifier(fx, "attack").add;
   const max = st.hp.max ?? b.hp.average;
   const acMod = sumModifier(fx, "ac");
@@ -137,7 +148,9 @@ export function deriveCreature(b: CreatureData, st: { name: string; hp: { max?: 
     hp: hpOf(max, st.hp.current ?? max, st.hp.temp, fx),
     saves: Object.fromEntries(ABILS.map(a => [a, { mod: (b.saves[a] ?? m[a]) + saveAdd, prof: a in b.saves }])) as ActorStats["saves"],
     skills: Object.entries(b.skills).map(([id, v]) => ({ id, abil: SKILLS[id] ?? "wis", mod: v + checkAdd, prof: true, expertise: false })),
-    initiative: m.dex + sumModifier(fx, "initiative").add, passivePerception: 10 + (b.skills.perception ?? m.wis),
+    checks: Object.fromEntries(ABILS.map(a => [a, m[a] + checkAdd])) as Record<Abil, number>,
+    initiative: m.dex + sumModifier(fx, "initiative").add + checkAdd,
+    passivePerception: 10 + (b.skills.perception ?? m.wis) + checkAdd, passives: { perception: 10 + (b.skills.perception ?? m.wis) + checkAdd, investigation: 10 + (b.skills.investigation ?? m.int) + checkAdd, insight: 10 + (b.skills.insight ?? m.wis) + checkAdd },
     attacks: b.attacks.map(a => ({ name: a.name, ...(a.toHit !== undefined ? { toHit: a.toHit + atkAdd } : {}), ...(a.save ? { save: a.save } : {}),
       ...(a.damage ? { damage: a.damage } : {}), ...(a.note ? { note: a.note } : {}), target: { kind: "attack" } })),
     slots: [], hitDice: [], carry: { weight: 0, capacity: b.abilities.str * 15 }, traits: damageTraits(fx), notes: notes(fx), effects: fx,

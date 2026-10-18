@@ -1,6 +1,8 @@
 import type { Registry } from "../content/registry";
 import type { CampaignData, ConditionData, ItemData } from "../content/types";
 import type { InventoryEntry } from "./character";
+import { evalFormula } from "./formula";
+import { matchesTag } from "./roll-tags";
 import type { Effects, Modifier, RollTarget } from "./types";
 
 export interface SourcedEffects { source: string; effects: Effects; }
@@ -31,36 +33,49 @@ export function collectEffects(a: ActorLike, ctx: EffectContext): SourcedEffects
   return out;
 }
 
-function matches(tag: string, t: RollTarget): boolean {
-  const [k, q] = tag.split(":");
-  switch (k) {
-    case "attack":
-      if (t.kind !== "attack") return false;
-      if (!q) return true;
-      if (q === "melee" || q === "ranged") return t.range === q;
-      return q.startsWith("!") ? t.abil !== q.slice(1) : t.abil === q;
-    case "check":
-      if (!(t.kind === "check" || t.kind === "skill" || t.kind === "initiative")) return false;
-      return !q || t.abil === q;
-    case "skill": return t.kind === "skill" && t.skill === q;
-    case "save": return t.kind === "save" && (!q || t.abil === q);
-    default: return t.kind === k;
-  }
-}
-
 export function rollSources(list: SourcedEffects[], t: RollTarget) {
-  const pick = (k: "adv" | "dis" | "autofail") => list.filter(s => (s.effects[k] ?? []).some(tag => matches(tag, t))).map(s => s.source);
+  const pick = (k: "adv" | "dis" | "autofail") => list.filter(s => (s.effects[k] ?? []).some(tag => matchesTag(tag, t))).map(s => s.source);
   return { adv: pick("adv"), dis: pick("dis"), fail: pick("autofail") };
 }
 
-export function sumModifier(list: SourcedEffects[], target: Modifier["target"]) {
-  let add = 0, half = false, zero = false; const sources: string[] = [];
+export interface ModOpts {
+  /** The roll or row being worked out: modifiers with `on` apply only when it matches (and are skipped when it is absent). */
+  t?: RollTarget;
+  /** Names a formula value may use (prof, level, ability mods, scales, toggle_<id>, dc_<id>). */
+  vars?: Record<string, number>;
+  /** Called with a short problem when a formula cannot be worked out; that modifier is skipped. */
+  problem?: (msg: string) => void;
+}
+export interface ModPart { source: string; kind: "add" | "half" | "zero" | "double"; amount: number; }
+
+/** Every modifier of this target that applies, in order, with formulas worked out. */
+export function modifierParts(list: SourcedEffects[], target: Modifier["target"], o: ModOpts = {}): ModPart[] {
+  const out: ModPart[] = [];
   for (const s of list) for (const m of s.effects.modifiers ?? []) {
     if (m.target !== target) continue;
-    if (m.value === "half") half = true; else if (m.value === "zero") zero = true; else add += m.value;
-    if (!sources.includes(s.source)) sources.push(s.source);
+    if (m.on !== undefined && !(o.t && matchesTag(m.on, o.t))) continue;
+    if (m.value === "half" || m.value === "zero" || m.value === "double") { out.push({ source: s.source, kind: m.value, amount: 0 }); continue; }
+    if (typeof m.value === "number") { out.push({ source: s.source, kind: "add", amount: m.value }); continue; }
+    try { out.push({ source: s.source, kind: "add", amount: Math.floor(evalFormula(m.value, o.vars ?? {})) }); }
+    catch (x) { o.problem?.(`${s.source}: ${target} bonus ${(x as Error).message}`); }
   }
-  return { add, half, zero, sources };
+  return out;
+}
+
+export function sumModifier(list: SourcedEffects[], target: Modifier["target"], o: ModOpts = {}) {
+  let add = 0, half = false, zero = false, double = false; const sources: string[] = [];
+  for (const p of modifierParts(list, target, o)) {
+    if (p.kind === "half") half = true; else if (p.kind === "zero") zero = true; else if (p.kind === "double") double = true; else add += p.amount;
+    if (!sources.includes(p.source)) sources.push(p.source);
+  }
+  return { add, half, zero, ...(double ? { double } : {}), sources };
+}
+
+/** The lowest crit range among effects that apply to this roll (a natural 20 always counts). */
+export function critRangeFor(list: SourcedEffects[], t: RollTarget): number {
+  let r = 20;
+  for (const s of list) { const c = s.effects.critRange; if (c !== undefined && (s.effects.critOn === undefined || matchesTag(s.effects.critOn, t))) r = Math.min(r, c); }
+  return r;
 }
 
 export function damageTraits(list: SourcedEffects[]) {

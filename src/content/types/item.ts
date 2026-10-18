@@ -5,7 +5,11 @@ import type { TypeDef } from "../registry";
 import { validateEffects } from "./effects";
 
 export interface ArmorData { base: number; dex: "full" | "max2" | "none"; stealthDis?: boolean; strReq?: number; }
-export interface WeaponData { dmg: string; type: string; ab: "str" | "dex" | "finesse"; range: "melee" | "ranged"; bonus?: number; extraDamage?: string; }
+export interface WeaponData { dmg: string; type: string; ab: "str" | "dex" | "finesse"; range: "melee" | "ranged"; bonus?: number; extraDamage?: string;
+  /** Weapon category; a character needs the matching proficiency (Simple Weapons, Martial Weapons, or the weapon by name) to add the proficiency bonus. */
+  category?: "simple" | "martial";
+  /** Properties that rules can aim at with weapon:<property> (light, heavy, thrown, versatile, two-handed, one-handed). */
+  props?: string[]; }
 export interface GrantedSpell { id: string; cost: { kind: "charges"; amount: number } | { kind: "perDay"; uses: number } | { kind: "atWill" }; level?: number; dc?: number; attack?: number; }
 export interface ItemData { name: string; kind: "armor" | "shield" | "weapon" | "wondrous" | "gear" | "consumable"; rarity?: string; attunement: boolean; weight: number; /** Price in copper pieces. */ value?: number;
   armor?: ArmorData; weapon?: WeaponData; charges?: { max: number; reset: "dawn" | "short" | "long" | "none" }; heal?: string; effects: Effects; rules?: string; grants?: { spells: GrantedSpell[] }; }
@@ -43,7 +47,10 @@ export const itemType: TypeDef<ItemData> = {
         const extra = w.extraDamage === undefined ? undefined : dice(w.extraDamage, "weapon.extraDamage", e);
         if (dmg) out.weapon = { dmg, type: str(w.type, "weapon.type", e) ?? "", ab: oneOf(w.ab, ["str", "dex", "finesse"] as const, "weapon.ab", e, "str")!,
           range: oneOf(w.range, ["melee", "ranged"] as const, "weapon.range", e, "melee")!,
-          ...(typeof w.bonus === "number" ? { bonus: w.bonus } : {}), ...(extra ? { extraDamage: extra } : {}) };
+          ...(typeof w.bonus === "number" ? { bonus: w.bonus } : {}), ...(extra ? { extraDamage: extra } : {}),
+          ...(w.category === "simple" || w.category === "martial" ? { category: w.category } : {}),
+          ...(Array.isArray(w.props) && w.props.every(x => typeof x === "string") && w.props.length ? { props: w.props as string[] } : {}) };
+        if (w.category !== undefined && w.category !== "simple" && w.category !== "martial") e.push("weapon.category: must be simple or martial");
       }
     }
     if (raw.charges !== undefined) {

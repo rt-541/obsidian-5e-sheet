@@ -19,7 +19,7 @@ describe("validators", () => {
     const p = r.add("vault", "condition", { name: "Bad", effects: "lol" }, { path: "C/Bad.md" });
     expect(p).toEqual({ path: "C/Bad.md", errors: ["effects: must be a mapping"] });
     const q = r.add("vault", "item", { name: "Bad ring", kind: "wondrous", effects: { modifiers: [{ target: "ac", value: "x" }, { target: "luck", value: 1 }] } }, { path: "C/Ring.md" });
-    expect(q!.errors).toEqual(["effects.modifiers[0].value: must be a number, half or zero", "effects.modifiers[1].target: unknown target luck"]);
+    expect(q!.errors).toEqual(["effects.modifiers[0].value: must be a number, half, zero, double or a formula", "effects.modifiers[1].target: unknown target luck"]);
     expect(r.get("item", "bad-ring")).toBeUndefined();
   });
   it("rejects unknown roll targets", () => {

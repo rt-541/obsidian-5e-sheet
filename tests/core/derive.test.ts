@@ -18,7 +18,7 @@ describe("deriveCharacter", () => {
     expect(s.spellcasting).toEqual({ abil: "wis", dc: 14, attack: 6 });
     expect(s.slots).toEqual([{ level: "1", max: 4, used: 1 }, { level: "2", max: 3, used: 0 }, { level: "3", max: 2, used: 1 }]);
     expect(s.hitDice).toEqual([{ die: "d8", max: 5, used: 2 }]);
-    expect(s.attacks).toEqual([{ name: "Warhammer", toHit: 5, damage: "1d8+2 bludgeoning", target: { kind: "attack", abil: "str", range: "melee" } }]);
+    expect(s.attacks).toEqual([{ name: "Warhammer", toHit: 5, damage: "1d8+2 bludgeoning", target: { kind: "attack", abil: "str", range: "melee", tags: ["warhammer"] } }]);
     expect(s.carry).toEqual({ weight: 63, capacity: 210 }); expect(s.attunedCount).toBe(1); expect(s.missing).toEqual([]);
   });
   it("speed and hp max respond to exhaustion 5", () => {

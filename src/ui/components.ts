@@ -46,7 +46,7 @@ function checks(ctl: SheetController, st: ActorStats, who?: number) {
   return {
     abilities: h("div", { cls: "fe-abilities" }, ...ABILS.map(a => h("div", { cls: "fe-tile" },
       h("div", { cls: "fe-tile-k", text: ABIL_NAME[a] }),
-      rollButton(ctl, sgn(st.mods[a]), `${ABIL_NAME[a]} check`, st.mods[a], { kind: "check", abil: a }, who),
+      rollButton(ctl, sgn(st.checks[a]), `${ABIL_NAME[a]} check`, st.checks[a], { kind: "check", abil: a }, who),
       ctl.editing && who === undefined && ctl.character
         ? h("input", { cls: "fe-score", attrs: { type: "number", min: "1", max: "30", value: String(st.abilities[a]), "aria-label": `${ABIL_NAME[a]} score` },
             on: { change: (e: Event) => ctl.dispatch({ type: "ability", abil: a, value: +(e.target as HTMLInputElement).value }) } })

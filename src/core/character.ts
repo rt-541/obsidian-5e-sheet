@@ -1,3 +1,4 @@
+import { parseModifier } from "./modifier";
 import { ABILS, type Abil, type Modifier } from "./types";
 
 export interface ClassLevel { class: string; subclass?: string; level: number; }
@@ -36,6 +37,8 @@ export interface Character {
   uses: Record<string, number>;
   /** Non-level choices and toggles, e.g. "dc.hemocraft.alt": true. */
   choices: Record<string, unknown>;
+  /** Switched-on states such as a Rage, keyed by toggle id (true, or a number / text for a toggle with a value). */
+  active: Record<string, boolean | number | string>;
   concentration?: string;
   /** Spells shown on the main page: own spell id, or "<item id>/<spell id>" for item spells. */
   mainSpells: string[];
@@ -55,7 +58,6 @@ type R = Record<string, unknown>;
 const isObj = (v: unknown): v is R => typeof v === "object" && v !== null && !Array.isArray(v);
 const KINDS: CompanionKind[] = ["familiar", "companion", "steed", "summon", "sidekick"];
 const RESETS = ["short", "long", "dawn", "none"] as const;
-const MOD_TARGETS = ["ac", "speed", "hpMax", "carry", "save", "attack", "damage", "spellDC", "spellAttack", "check", "initiative"];
 
 /** Field readers: undefined -> default silently; wrong type -> error + default. */
 class Reader {
@@ -101,12 +103,7 @@ class Reader {
     return out;
   }
   modifiers(v: unknown, at: string): Modifier[] {
-    return this.list(v, at).flatMap((m, i) => {
-      if (!isObj(m) || !MOD_TARGETS.includes(String(m.target)) || !(typeof m.value === "number" || m.value === "half" || m.value === "zero")) {
-        this.errors.push(`${at}[${i}]: must be { target, value }`); return [];
-      }
-      return [{ target: m.target as Modifier["target"], value: m.value as Modifier["value"], ...(typeof m.source === "string" ? { source: m.source } : {}) }];
-    });
+    return this.list(v, at).flatMap((m, i) => { const mod = parseModifier(m, `${at}[${i}]`, this.errors); return mod ? [mod] : []; });
   }
   toggles(v: unknown, at: string): SheetToggles { const o = this.obj(v, at); return { hide: this.strs(o.hide, `${at}.hide`), show: this.strs(o.show, `${at}.show`) }; }
   rules(v: unknown, at: string): Record<string, boolean> {
@@ -121,7 +118,7 @@ export function newCharacter(name: string): Character {
     type: "5e-character", schema: 1, name, classes: [], abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
     proficiencies: { saves: [], skills: [], expertise: [] }, hp: { max: 0, current: 0, temp: 0 }, hitDice: {},
     deathSaves: { successes: 0, failures: 0 }, spellSlots: {}, spells: [], inventory: [], coins: { pp: 0, gp: 0, ep: 0, sp: 0, cp: 0 },
-    resources: [], conditions: {}, injuries: [], modifiers: [], inspiration: false, xp: 0, baseSpeed: 30, levelLog: [], feats: [], languages: [], uses: {}, choices: {}, mainSpells: [],
+    resources: [], conditions: {}, injuries: [], modifiers: [], inspiration: false, xp: 0, baseSpeed: 30, levelLog: [], feats: [], languages: [], uses: {}, choices: {}, active: {}, mainSpells: [],
     rest: { nightsInPlace: 0 }, companions: [], sheet: { hide: [], show: [] }, rules: {},
   };
 }
@@ -214,6 +211,10 @@ function parseCharacter(fm: R): Parsed {
   c.languages = r.strs(fm.languages, "languages");
   for (const [k, v] of Object.entries(r.obj(fm.uses, "uses"))) c.uses[k] = r.whole(v, `uses.${k}`);
   c.choices = r.obj(fm.choices, "choices");
+  for (const [k, v] of Object.entries(r.obj(fm.active, "active"))) {
+    if (typeof v === "boolean" || typeof v === "number" || typeof v === "string") { if (v !== false) c.active[k] = v; }
+    else r.errors.push(`active.${k}: must be true, false, a number or text`);
+  }
   const conc = r.str(fm.concentration, "concentration"); if (conc) c.concentration = conc;
   c.mainSpells = r.strs(fm.mainSpells, "mainSpells");
   c.sheet = r.toggles(fm.sheet, "sheet");
