@@ -4,6 +4,7 @@ import type { SourceSwitches } from "./content/sources";
 import { campaignType, type CampaignData } from "./content/types/campaign";
 import type { CompanionKind } from "./core/character";
 import { loadSrd } from "./content/srd";
+import { setBuiltinMechanics } from "./content/overlay";
 import { registerBuiltinTypes } from "./content/types";
 import { VaultLoader } from "./content/vault-loader";
 import { BuilderController } from "./ui/builder";
@@ -33,6 +34,7 @@ export default class FiveESheetPlugin extends Plugin {
   async onload() {
     this.data = Object.assign({ settings: { ...DEFAULT_SETTINGS }, logs: {} }, await this.loadData());
     this.data.settings = { ...DEFAULT_SETTINGS, ...this.data.settings };
+    setBuiltinMechanics(this.data.settings.builtinMechanics);
     registerBuiltinTypes(this.registry);
     const problems = loadSrd(this.registry);
     if (problems.length) console.error("5e sheet: SRD problems", problems);

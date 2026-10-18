@@ -16,3 +16,12 @@ No other published content is included; add your own as notes under `Compendium/
 ## Compendium browser
 
 Run "Open 5e compendium" (or use the book icon in the ribbon) to browse every source in one place: source tabs (All, WotC (SRD), WotC, Critical Role, Roll20, Homebrew, any other folder under the compendium root), type tabs, name search, detail cards, "Open note" and "Add to character" (items, spells and creatures as companions, to the most recently active sheet). A campaign note can switch sources off with `sources: { Roll20: false }`: those sources disappear from the level-up wizard, builder and add pickers, and show dimmed in the browser.
+
+## Built-in mechanics
+
+Most notes (the SRD, the WotC library, most homebrew) describe a feature in words but carry no numbers. The plugin ships a table of built-in mechanics (`src/content/overlay/mechanics.json`) and fills in what a note leaves empty: Unarmored Defense, Rage, Martial Arts, Sneak Attack, fighting styles, Divine Strike, Draconic Resilience, racial resistances, breath weapons, common feats and more. Players never write any of it: it shows up as armor class, attack rows, resources and Start / End buttons, and the feature row carries a small "built-in" badge.
+
+- A note that declares its own effects, switch or action always wins; the built-in entry is skipped.
+- Opt out per feature or option with `overlay: false`, or for a whole class, subclass, race, feat or item note with `overlay: false` in its frontmatter.
+- The plugin setting "Built-in mechanics" (on by default) turns the whole table off.
+- Entries are versioned with the plugin: fixing one fixes every character without touching a note.

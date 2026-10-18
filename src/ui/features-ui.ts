@@ -80,7 +80,9 @@ export function featuresFeature(ctl: SheetController, st: ActorStats): HTMLEleme
   const groups = new Map<string, FeatureRow[]>();
   for (const f of p.features) { const g = groups.get(f.source); if (g) g.push(f); else groups.set(f.source, [f]); }
   const featureRow = (f: FeatureRow) => h("div", { cls: "fe-kv", data: { key: f.key } },
-    h("span", { cls: "fe-inv-name", text: f.name, data: { ref: `feature:${f.key}` } }), h("span", { cls: "fe-muted", text: describeEffects(f.effects) }));
+    h("span", { cls: "fe-inv-name", text: f.name, data: { ref: `feature:${f.key}` } }),
+    f.overlay ? h("span", { cls: "fe-chip", text: "built-in", attrs: { title: `The plugin supplied these numbers (${f.overlay}). Your note does not have any for this feature.` }, data: { builtin: f.overlay } }) : null,
+    h("span", { cls: "fe-muted", text: describeEffects(f.effects) }));
   const group = ([source, list]: [string, FeatureRow[]]) => h("div", { cls: "fe-feature-group", data: { source } }, h("div", { cls: "fe-faint", text: source }), ...list.map(featureRow));
   cards.push(card("Features", ...(groups.size ? [...groups].map(group) : [h("div", { cls: "fe-faint", text: "No class features yet." })])));
   if (p.problems.length || p.unknown.length) cards.push(card("Problems",
