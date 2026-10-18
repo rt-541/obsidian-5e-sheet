@@ -1,12 +1,12 @@
 import type { Character, CompanionEntry, Npc } from "./character";
 import type { ActorStats } from "./derive";
-import type { ItemData, SpellData } from "../content/types";
+import type { ConditionData, ItemData, SpellData } from "../content/types";
 import { itemWorks, type EffectContext } from "./effects";
 import type { Abil } from "./types";
 
 export type Who = { companion: number } | undefined;
 export type Action =
-  | { type: "damage"; amount: number; who?: Who } | { type: "heal"; amount: number; who?: Who } | { type: "temp"; amount: number; who?: Who }
+  | { type: "damage"; amount: number; /** acid, fire, ...: resistance, immunity and vulnerability then apply. */ damageType?: string; who?: Who } | { type: "heal"; amount: number; who?: Who } | { type: "temp"; amount: number; who?: Who }
   | { type: "condition"; id: string; level: number; who?: Who }
   | { type: "slot"; level: string; used: number } | { type: "resource"; index: number; used: number }
   | { type: "charges"; index: number; used: number } | { type: "hitDie"; die: string; used: number }
@@ -37,12 +37,56 @@ export const MAX_ATTUNED = 3;
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, Math.round(v)));
 type Hp = { current?: number; temp: number };
+export interface Applied { value: Character; error?: string; note?: string; /** Damage while concentrating: the Constitution save the player should now make. */ concentrationCheck?: { dc: number; spell: string }; }
 
 function hpChange(hp: Hp, a: Action, max: number): void {
   const cur = Math.min(hp.current ?? max, max);
   if (a.type === "damage") { const n = Math.max(0, a.amount), fromTemp = Math.min(hp.temp, n); hp.temp -= fromTemp; hp.current = Math.max(0, cur - (n - fromTemp)); }
   if (a.type === "heal") hp.current = Math.min(max, cur + Math.max(0, a.amount));
   if (a.type === "temp") hp.temp = Math.max(hp.temp, Math.max(0, a.amount));
+}
+
+const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
+const esc = (t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+/** Names of the effects that give this actor the trait for the damage type (a line such as "bludgeoning, piercing, and slashing from nonmagical attacks" matches each type it names). */
+function traitFrom(st: ActorStats | undefined, kind: "resist" | "immune" | "vulnerable", type: string): string[] {
+  const re = new RegExp(`\\b${esc(type)}\\b`, "i");
+  return [...new Set((st?.effects ?? []).filter(s => (s.effects[kind] ?? []).some(t => re.test(t))).map(s => s.source))];
+}
+const list = (xs: string[]) => xs.join(" and ");
+/** Resistance halves (rounding down), vulnerability doubles, immunity zeroes; the note explains the number in words. */
+export function adjustDamage(amount: number, type: string | undefined, st: ActorStats | undefined): { amount: number; note?: string } {
+  const n = Math.max(0, Math.round(amount)), t = type?.trim().toLowerCase();
+  if (!t || !st || n === 0) return { amount: n };
+  const imm = traitFrom(st, "immune", t), res = traitFrom(st, "resist", t), vul = traitFrom(st, "vulnerable", t), head = `${cap(t)} damage: ${n}`;
+  if (imm.length) return { amount: 0, note: `${head} becomes 0 (immune, from ${list(imm)}).` };
+  if (res.length && vul.length) { const h = Math.floor(n / 2); return { amount: h * 2, note: `${head} is halved to ${h}, then doubled to ${h * 2} (resistance and vulnerability from ${list([...new Set([...res, ...vul])])}).` }; }
+  if (res.length) return { amount: Math.floor(n / 2), note: `${head} is halved to ${Math.floor(n / 2)} (resistance from ${list(res)}).` };
+  if (vul.length) return { amount: n * 2, note: `${head} is doubled to ${n * 2} (vulnerable, from ${list(vul)}).` };
+  return { amount: n };
+}
+
+/** The source that makes this actor immune to the condition (or to every disease), if any. */
+function conditionBlock(st: ActorStats | undefined, id: string, lim: Limits): { source: string; name: string } | undefined {
+  const entry = lim.ctx?.registry.get<ConditionData>("condition", id);
+  const hit = (st?.effects ?? []).find(s => (s.effects.conditionImmune ?? []).some(x => x === id || (entry?.data.kind !== undefined && x === entry.data.kind)));
+  return hit ? { source: hit.source, name: entry?.name ?? id } : undefined;
+}
+const knocksOut = (lim: Limits) => !lim.ctx || !!lim.ctx.registry.get("condition", "unconscious");
+
+/** Damage, healing and temporary hit points for one actor: damage types, Unconscious at 0, the concentration prompt. */
+function hpStep(hp: Hp, conds: Record<string, number>, a: Extract<Action, { type: "damage" | "heal" | "temp" }>, st: ActorStats, lim: Limits, concentration?: string): Pick<Applied, "note" | "concentrationCheck"> {
+  const before = Math.min(hp.current ?? st.hp.max, st.hp.max);
+  if (a.type !== "damage") {
+    hpChange(hp, a, st.hp.max);
+    if (a.type === "heal" && before === 0 && (hp.current ?? 0) > 0) delete conds.unconscious;
+    return {};
+  }
+  const adj = adjustDamage(a.amount, a.damageType, st);
+  hpChange(hp, { ...a, amount: adj.amount }, st.hp.max);
+  if (before > 0 && hp.current === 0 && knocksOut(lim) && !conditionBlock(st, "unconscious", lim)) conds.unconscious = 1;
+  const check = concentration && before > 0 && adj.amount > 0 ? { dc: Math.max(10, Math.floor(adj.amount / 2)), spell: concentration } : undefined;
+  return { ...(adj.note ? { note: adj.note } : {}), ...(check ? { concentrationCheck: check } : {}) };
 }
 function setCondition(conds: Record<string, number>, id: string, level: number, maxLevel: number): void {
   const l = clamp(level, 0, maxLevel); if (l === 0) delete conds[id]; else conds[id] = l;
@@ -86,7 +130,7 @@ function cast(c0: Character, c: Character, a: Extract<Action, { type: "cast" }>,
   return { value: c, ...(note ? { note } : {}) };
 }
 
-export function apply(c0: Character, a: Action, lim: Limits): { value: Character; error?: string; note?: string } {
+export function apply(c0: Character, a: Action, lim: Limits): Applied {
   const c = structuredClone(c0);
   const who = "who" in a ? a.who : undefined;
   if (who) {
@@ -94,20 +138,28 @@ export function apply(c0: Character, a: Action, lim: Limits): { value: Character
     if (!comp) return { value: c0, error: "No such companion" };
     if (!st && a.type !== "condition") return { value: c0, error: "Unknown creature" };
     if (a.type === "condition") {
+      const block = a.level > (comp.conditions[a.id] ?? 0) ? conditionBlock(st, a.id, lim) : undefined;
+      if (block) return { value: c0, error: `Can't be ${block.name.toLowerCase()}: ${block.source} protects against it.` };
       setCondition(comp.conditions, a.id, a.level, condMax(st, a.id));
       const after = lim.deriveCompanion?.(comp); if (after && comp.hp.current !== undefined) comp.hp.current = Math.min(comp.hp.current, after.hp.max);
+      return { value: c };
     }
-    else hpChange(comp.hp, a, st!.hp.max);
-    return { value: c };
+    if (a.type !== "damage" && a.type !== "heal" && a.type !== "temp") return { value: c0, error: "Not available for companions" };
+    const r = hpStep(comp.hp, comp.conditions, a, st!, lim);
+    return { value: c, ...(r.note ? { note: r.note } : {}) };
   }
   switch (a.type) {
     case "damage": case "heal": case "temp": {
       const wasDown = c.hp.current === 0;
-      hpChange(c.hp, a, lim.self.hp.max);
+      const r = hpStep(c.hp, c.conditions, a, lim.self, lim, c.concentration);
       if (a.type === "heal" && wasDown && c.hp.current > 0) c.deathSaves = { successes: 0, failures: 0 };
-      break;
+      return { value: c, ...(r.note ? { note: r.note } : {}), ...(r.concentrationCheck ? { concentrationCheck: r.concentrationCheck } : {}) };
     }
-    case "condition": setCondition(c.conditions, a.id, a.level, condMax(lim.self, a.id)); c.hp.current = Math.min(c.hp.current, lim.derive?.(c).hp.max ?? c.hp.max); break;
+    case "condition": {
+      const block = a.level > (c.conditions[a.id] ?? 0) ? conditionBlock(lim.self, a.id, lim) : undefined;
+      if (block) return { value: c0, error: `Can't be ${block.name.toLowerCase()}: ${block.source} protects against it.` };
+      setCondition(c.conditions, a.id, a.level, condMax(lim.self, a.id)); c.hp.current = Math.min(c.hp.current, lim.derive?.(c).hp.max ?? c.hp.max); break;
+    }
     case "slot": { const s = lim.self.slots.find(x => x.level === a.level); c.spellSlots[a.level] = { used: clamp(a.used, 0, s?.max ?? 0) }; break; }
     case "resource": { const r = c.resources[a.index]; if (r) r.used = clamp(a.used, 0, r.max); break; }
     case "charges": { const e = c.inventory[a.index]; if (e) e.charges = { used: clamp(a.used, 0, lim.chargesMax(a.index)) }; break; }
@@ -149,9 +201,13 @@ export function apply(c0: Character, a: Action, lim: Limits): { value: Character
   return { value: c };
 }
 
-export function applyNpc(n0: Npc, a: Action, stats: ActorStats, rederive?: (n: Npc) => ActorStats | undefined): { value: Npc; error?: string } {
+export function applyNpc(n0: Npc, a: Action, stats: ActorStats, rederive?: (n: Npc) => ActorStats | undefined): { value: Npc; error?: string; note?: string } {
   const n = structuredClone(n0);
-  if (a.type === "damage" || a.type === "heal" || a.type === "temp") { hpChange(n.hp, a, stats.hp.max); return { value: n }; }
+  if (a.type === "damage" || a.type === "heal" || a.type === "temp") {
+    const adj = a.type === "damage" ? adjustDamage(a.amount, a.damageType, stats) : undefined;
+    hpChange(n.hp, adj ? { ...a, amount: adj.amount } : a, stats.hp.max);
+    return { value: n, ...(adj?.note ? { note: adj.note } : {}) };
+  }
   if (a.type === "condition") { setCondition(n.conditions, a.id, a.level, condMax(stats, a.id));
     const after = rederive?.(n); if (after && n.hp.current !== undefined) n.hp.current = Math.min(n.hp.current, after.hp.max);
     return { value: n }; }

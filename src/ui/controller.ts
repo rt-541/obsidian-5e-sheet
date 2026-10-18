@@ -45,6 +45,10 @@ export const LOG_MAX = 50;
 export class SheetController {
   value: Character | Npc; errors: string[]; writable: boolean;
   mode: RollMode = "normal"; editing = false; tab = ""; amount = 5;
+  /** Optional damage type chosen next to the Damage button (resistance, immunity and vulnerability use it). */
+  damageType = "";
+  /** After damage while concentrating: the save the player is asked to make. */
+  concentrationCheck: { dc: number; spell: string } | null = null;
   panel: Panel | null = null; levelUp: LevelUpState | null = null; confirmUndo = false; lastRoll?: RollResult; restOpts: RestOptions = { samePlace: true, safeHaven: false };
   private subs = new Set<() => void>();
   private collapsed?: Set<string>;
@@ -97,8 +101,27 @@ export class SheetController {
     const out = this.value.type === "5e-character" ? apply(this.value, a, this.limits()) : applyNpc(this.value, a, st, n => deriveNpc(n, this.ctx()));
     if (out.error) { this.host.notify(out.error); return { ok: false }; }
     this.commit(out.value);
+    if (a.type === "damage" && "note" in out && out.note) this.host.notify(out.note);
+    if ("concentrationCheck" in out && out.concentrationCheck) {
+      const prev = this.concentrationCheck;
+      this.concentrationCheck = prev && prev.spell === out.concentrationCheck.spell && prev.dc > out.concentrationCheck.dc ? prev : out.concentrationCheck;
+      this.emit();
+    } else if (this.concentrationCheck && (a.type === "endConcentration" || this.character?.concentration !== this.concentrationCheck.spell)) { this.concentrationCheck = null; this.emit(); }
     return { ok: true, ...("note" in out && out.note ? { note: out.note } : {}) };
   }
+
+  /** Roll the Constitution save the concentration prompt asks for; failing it ends the spell. */
+  rollConcentration() {
+    const chk = this.concentrationCheck, st = this.stats(), c = this.character;
+    if (!chk || !st || !c) return;
+    const name = this.host.registry.get<SpellData>("spell", chk.spell)?.name ?? chk.spell;
+    this.concentrationCheck = null;
+    const r = this.roll(`Concentration save (DC ${chk.dc})`, st.concentrationSave, { kind: "save", abil: "con", concentration: true });
+    if (r.total !== "fail" && r.total >= chk.dc) { this.host.notify(`Concentration kept: ${name} continues.`); return; }
+    if (c.concentration === chk.spell) this.dispatch({ type: "endConcentration" });
+    this.host.notify(`Concentration lost: ${name} ends.`);
+  }
+  dismissConcentrationCheck() { this.concentrationCheck = null; this.emit(); }
 
   /** Cast a spell (own, or from item `item`) and show what it cost. */
   cast(spell: string, level?: number, item?: number) {

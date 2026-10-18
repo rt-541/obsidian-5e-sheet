@@ -92,9 +92,12 @@ export function pinnedSpellsFeature(ctl: SheetController, st: ActorStats): HTMLE
 export function concentrationFeature(ctl: SheetController): HTMLElement {
   const id = ctl.character?.concentration;
   if (!id) return h("div", { cls: "fe-conc fe-faint", text: "Not concentrating" });
-  const sp = ctl.host.registry.get<SpellData>("spell", id);
+  const sp = ctl.host.registry.get<SpellData>("spell", id), chk = ctl.concentrationCheck;
   return h("div", { cls: "fe-conc" }, h("span", { cls: `fe-chip ${sp ? "" : "is-missing"}`, text: sp ? `Concentrating: ${sp.name}` : `${id} (missing from compendium)`, ...(sp ? { data: { ref: `spell:${id}` } } : {}) }),
-    btn("End", () => ctl.dispatch({ type: "endConcentration" }), "", { act: "end-concentration" }));
+    btn("End", () => ctl.dispatch({ type: "endConcentration" }), "", { act: "end-concentration" }),
+    chk && chk.spell === id ? h("div", { cls: "fe-conc-check" }, h("div", { text: `Make a Constitution save to keep concentrating (DC ${chk.dc})` }),
+      btn("Roll Constitution save", () => ctl.rollConcentration(), "mod-cta", { act: "concentration-roll" }),
+      btn("Dismiss", () => ctl.dismissConcentrationCheck(), "", { act: "concentration-dismiss" })) : null);
 }
 
 let castLevel: number | undefined;

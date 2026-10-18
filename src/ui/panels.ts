@@ -15,26 +15,30 @@ let condFilter: "all" | "active" | "srd" | "vault" = "all", condQuery = "";
 function conditionsPanel(ctl: SheetController, who?: number): HTMLElement {
   const r = ctl.host.registry;
   const conds = who === undefined ? ctl.value.conditions : ctl.character!.companions[who].conditions;
-  const entries = r.list<ConditionData>("condition").filter(e => e.data.kind !== "disease");
-  const rows = entries.filter(e => (condFilter === "all" || (condFilter === "active" ? conds[e.id] : e.source === condFilter)) && e.name.toLowerCase().includes(condQuery));
+  const all = r.list<ConditionData>("condition");
+  const shown = (e: (typeof all)[number]) => (condFilter === "all" || (condFilter === "active" ? conds[e.id] : e.source === condFilter)) && e.name.toLowerCase().includes(condQuery);
+  const rows = all.filter(e => e.data.kind !== "disease" && shown(e)), diseases = all.filter(e => e.data.kind === "disease" && shown(e));
   const set = (id: string, level: number) => ctl.dispatch({ type: "condition", id, level, ...(who !== undefined ? { who: { companion: who } } : {}) });
   const search = h("input", { cls: "fe-search", attrs: { placeholder: "Search conditions", value: condQuery },
     on: { input: (e: Event) => { condQuery = (e.target as HTMLInputElement).value.toLowerCase(); ctl.emit(); } } });
+  const row = (e: (typeof all)[number]) => {
+    const lvl = conds[e.id] ?? 0, d = e.data;
+    const rules = h("div", { cls: "fe-rules", text: (d.rules ?? "") + (e.path ? `\n\nSource note: ${e.path}` : "") });
+    rules.hidden = true;
+    return h("div", { cls: `fe-crow ${lvl ? "is-active" : ""}`, data: { cond: e.id } },
+      h("div", { cls: "fe-grow", on: { click: () => { rules.hidden = !rules.hidden; } } },
+        h("span", { cls: "fe-name", text: e.name, data: { ref: `condition:${e.id}`, noclick: "" } }), sourceBadge(sourceLabel(e)),
+        h("div", { cls: "fe-muted", text: describeEffects(d.levels ? (d.levelEffects?.[Math.max(1, lvl)] ?? {}) : d.effects) }), rules),
+      d.levels
+        ? h("div", { cls: "fe-lvl" }, h("button", { cls: "fe-btn", text: "-", on: { click: () => set(e.id, lvl - 1) } }), h("span", { text: `Level ${lvl}` }), h("button", { cls: "fe-btn", text: "+", on: { click: () => set(e.id, lvl + 1) } }))
+        : h("button", { cls: `fe-switch ${lvl ? "is-on" : ""}`, attrs: { "aria-label": `Toggle ${e.name}` }, on: { click: () => set(e.id, lvl ? 0 : 1) } }));
+  };
   return h("div", { cls: "fe-cond-panel" }, search,
     h("div", { cls: "fe-filters" }, ...(["all", "active", "srd", "vault"] as const).map(f =>
       h("button", { cls: `fe-btn ${condFilter === f ? "is-on" : ""}`, text: { all: "All", active: "Active", srd: "SRD", vault: "Homebrew" }[f], on: { click: () => { condFilter = f; ctl.emit(); } } }))),
-    h("div", { cls: "fe-ctab" }, ...rows.map(e => {
-      const lvl = conds[e.id] ?? 0, d = e.data;
-      const rules = h("div", { cls: "fe-rules", text: (d.rules ?? "") + (e.path ? `\n\nSource note: ${e.path}` : "") });
-      rules.hidden = true;
-      return h("div", { cls: `fe-crow ${lvl ? "is-active" : ""}`, data: { cond: e.id } },
-        h("div", { cls: "fe-grow", on: { click: () => { rules.hidden = !rules.hidden; } } },
-          h("span", { cls: "fe-name", text: e.name, data: { ref: `condition:${e.id}`, noclick: "" } }), sourceBadge(sourceLabel(e)),
-          h("div", { cls: "fe-muted", text: describeEffects(d.levels ? (d.levelEffects?.[Math.max(1, lvl)] ?? {}) : d.effects) }), rules),
-        d.levels
-          ? h("div", { cls: "fe-lvl" }, h("button", { cls: "fe-btn", text: "-", on: { click: () => set(e.id, lvl - 1) } }), h("span", { text: `Level ${lvl}` }), h("button", { cls: "fe-btn", text: "+", on: { click: () => set(e.id, lvl + 1) } }))
-          : h("button", { cls: `fe-switch ${lvl ? "is-on" : ""}`, attrs: { "aria-label": `Toggle ${e.name}` }, on: { click: () => set(e.id, lvl ? 0 : 1) } }));
-    })),
+    h("div", { cls: "fe-ctab", data: { group: "conditions" } }, ...rows.map(row)),
+    diseases.length ? h("div", { cls: "fe-card-title", text: "Diseases" }) : null,
+    diseases.length ? h("div", { cls: "fe-ctab", data: { group: "diseases" } }, ...diseases.map(row)) : null,
     h("div", { cls: "fe-faint", text: "SRD entries ship with the plugin. Homebrew entries are notes in your compendium folder (type: 5e-condition)." }));
 }
 

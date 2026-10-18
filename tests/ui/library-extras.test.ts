@@ -61,13 +61,14 @@ describe("library extras: cards, browser and sheet", () => {
     expect(row("dazed")).not.toBeNull(); expect(row("dazed").querySelector('[data-badge="disease"]')).toBeNull();
     root.remove();
   });
-  it("the sheet's condition toggles leave diseases out", async () => {
+  it("the conditions panel lists diseases in their own group, apart from the ordinary conditions", async () => {
     const r = await world();
     const host: SheetHost = { registry: r, ruleDefaults: {}, save: () => {}, notify: () => {}, log: [], rng: seeded(2) };
     const p = parseNote(thalia); if (p.kind === "none") throw new Error("x");
     const ctl = new SheetController(host, p);
     const panel = renderPanel(ctl, { kind: "conditions" }, []);
-    const ids = [...panel.querySelectorAll<HTMLElement>("[data-cond]")].map(x => x.dataset.cond);
-    expect(ids).toContain("dazed"); expect(ids).not.toContain("cackle-fever");
+    const ids = (group: string) => [...panel.querySelectorAll<HTMLElement>(`[data-group="${group}"] [data-cond]`)].map(x => x.dataset.cond);
+    expect(ids("conditions")).toContain("dazed"); expect(ids("conditions")).not.toContain("cackle-fever");
+    expect(ids("diseases")).toContain("cackle-fever"); expect(ids("diseases")).not.toContain("dazed");
   });
 });

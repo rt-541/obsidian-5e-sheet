@@ -12,6 +12,7 @@ import { concentrationFeature, pinnedSpellsFeature, spellsFeature } from "./spel
 export { describeEffects, pips };
 export type Render = (ctl: SheetController, st: ActorStats) => HTMLElement;
 const stat = (label: string, value: Node | string, title?: string) => h("div", { cls: "fe-stat", ...(title ? { title } : {}) }, h("div", { cls: "fe-stat-v" }, value), h("div", { cls: "fe-stat-l", text: label }));
+const DAMAGE_TYPES = ["acid", "bludgeoning", "cold", "fire", "force", "lightning", "necrotic", "piercing", "poison", "psychic", "radiant", "slashing", "thunder"];
 const ABIL_NAME: Record<Abil, string> = { str: "STR", dex: "DEX", con: "CON", int: "INT", wis: "WIS", cha: "CHA" };
 const titleCase = (s: string) => s.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase());
 
@@ -29,8 +30,12 @@ function hpBlock(ctl: SheetController, st: ActorStats) {
 function hpControls(ctl: SheetController, who?: number) {
   const amt = h("input", { cls: "fe-amt", attrs: { type: "number", min: "1", value: String(ctl.amount), "aria-label": "Amount" },
     on: { input: (e: Event) => { ctl.amount = Math.max(1, +(e.target as HTMLInputElement).value || 1); } } });
-  const act = (type: "damage" | "heal" | "temp") => () => ctl.dispatch({ type, amount: ctl.amount, ...(who !== undefined ? { who: { companion: who } } : {}) });
-  return h("div", { cls: "fe-hpctl" }, amt, btn("Damage", act("damage")), btn("Heal", act("heal"), "mod-cta"), btn("Temp", act("temp")));
+  const act = (type: "damage" | "heal" | "temp") => () => ctl.dispatch({ type, amount: ctl.amount, ...(type === "damage" && ctl.damageType ? { damageType: ctl.damageType } : {}), ...(who !== undefined ? { who: { companion: who } } : {}) });
+  const kind = h("select", { cls: "fe-damage-type", attrs: { "aria-label": "Damage type (optional)", title: "Damage type (optional): resistance, immunity and vulnerability change the damage" },
+    on: { change: (e: Event) => { ctl.damageType = (e.target as HTMLSelectElement).value; } } },
+    h("option", { text: "Any type", attrs: { value: "" } }),
+    ...DAMAGE_TYPES.map(t => h("option", { text: titleCase(t), attrs: { value: t, ...(ctl.damageType === t ? { selected: "" } : {}) } })));
+  return h("div", { cls: "fe-hpctl" }, amt, btn("Damage", act("damage")), btn("Heal", act("heal"), "mod-cta"), btn("Temp", act("temp")), kind);
 }
 function conditionChips(ctl: SheetController, conds: Record<string, number>, who?: number) {
   const r = ctl.host.registry;
