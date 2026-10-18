@@ -27,15 +27,15 @@ export class FiveESettingTab extends PluginSettingTab {
       .addToggle(t => t.setValue(s.autoOpen).onChange(async v => { s.autoOpen = v; await this.plugin.persist(); }));
     new Setting(containerEl).setName("Layout").setDesc("Auto picks the phone layout on phones and narrow panes, the tablet layout on tablets and medium-width panes (700 to 1100 pixels), and the desktop layout otherwise. Choose one to always use it.")
       .addDropdown(d => d.addOptions({ auto: "Auto", desktop: "Desktop", tablet: "Tablet", mobile: "Phone" }).setValue(s.layout)
-        .onChange(async v => { s.layout = v as LayoutSetting; await this.plugin.persist(); this.plugin.refreshViews(); }));
+        .onChange(async v => { s.layout = v as LayoutSetting; await this.plugin.persist(); this.plugin.refreshViews(true); }));
     new Setting(containerEl).setName("Built-in mechanics").setDesc("The plugin fills in the numbers and switches (armor class, Rage, Sneak Attack, fighting styles and so on) for features whose notes do not have any. A note that has its own always wins. Turn this off to use only what your notes say.")
       .addToggle(t => t.setValue(s.builtinMechanics).onChange(async v => {
         s.builtinMechanics = v; setBuiltinMechanics(v); await this.plugin.persist();
-        await this.plugin.loader.setFolder(s.compendiumFolder); this.plugin.refreshViews();
+        await this.plugin.loader.setFolder(s.compendiumFolder); this.plugin.refreshViews(true);
       }));
     containerEl.createEl("h3", { text: "Default rules" });
     containerEl.createEl("p", { text: "Campaign notes and character notes can override these.", cls: "setting-item-description" });
     for (const m of MODULES) new Setting(containerEl).setName(m.title)
-      .addToggle(t => t.setValue(s.ruleDefaults[m.id] ?? m.defaultOn).onChange(async v => { s.ruleDefaults[m.id] = v; await this.plugin.persist(); this.plugin.refreshViews(); }));
+      .addToggle(t => t.setValue(s.ruleDefaults[m.id] ?? m.defaultOn).onChange(async v => { s.ruleDefaults[m.id] = v; await this.plugin.persist(); this.plugin.refreshViews(true); }));
   }
 }

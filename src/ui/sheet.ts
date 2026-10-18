@@ -6,6 +6,7 @@ import { detailCard } from "./details";
 import { renderPanel } from "./panels";
 
 const TOAST_MS = 2600, HOVER_MS = 250;
+const LAYOUT_CLASSES = ["fe-desktop", "fe-tablet", "fe-mobile"];
 
 /** Mount a sheet into `root`; re-renders on every controller change. */
 export function mountSheet(root: HTMLElement, ctl: SheetController, layoutIn: LayoutName | boolean): { destroy(): void; render(): void } {
@@ -47,12 +48,22 @@ export function mountSheet(root: HTMLElement, ctl: SheetController, layoutIn: La
   };
   root.addEventListener("mouseover", onOver); root.addEventListener("mouseout", onOut); root.addEventListener("click", onClick);
   window.addEventListener("scroll", hidePopover, true);
+  /** Nearest ancestor that scrolls (Obsidian's .view-content); re-rendering must not reset its position. */
+  const scrollParent = (): HTMLElement | null => {
+    for (let el: HTMLElement | null = root; el; el = el.parentElement) {
+      const o = getComputedStyle(el).overflowY;
+      if (o === "auto" || o === "scroll" || el.classList.contains("view-content")) return el;
+    }
+    return null;
+  };
   const render = () => {
+    const sp = scrollParent(), keepTop = sp?.scrollTop ?? 0;
     const features = ctl.isNpc ? NPC_FEATURES : CHARACTER_FEATURES;
     const layout = layoutFor(ctl.isNpc, layoutName), visible = new Set(ctl.visible([...features])), st = ctl.stats();
     const body = root.querySelector<HTMLElement>(".fe-panel-body"), was = body ? { kind: (body.parentElement as HTMLElement).dataset.panel, top: body.scrollTop } : undefined;
     hidePopover(); clear(root);
-    root.className = `fe-sheet fe-${layoutName} ${ctl.editing ? "is-editing" : ""}`;
+    // classList, never className: `root` is Obsidian's .view-content, and that class is what makes the pane scroll
+    root.classList.remove(...LAYOUT_CLASSES); root.classList.add("fe-sheet", `fe-${layoutName}`); root.classList.toggle("is-editing", ctl.editing);
     if (ctl.errors.length) root.append(h("div", { cls: "fe-banner", data: { feature: "problems" } },
       h("b", { text: "This note has errors, so the sheet is read-only:" }), h("ul", {}, ...ctl.errors.map(e => h("li", { text: e })))));
     if (!st) { root.append(h("div", { cls: "fe-banner", text: "This NPC's creature is not in the compendium." })); return; }
@@ -83,10 +94,12 @@ export function mountSheet(root: HTMLElement, ctl: SheetController, layoutIn: La
     if (fresh) { shownRoll = r; window.clearTimeout(toastTimer); toastTimer = window.setTimeout(() => { toast.hidden = true; }, TOAST_MS); }
     toast.hidden = !fresh;
     root.append(toast);
+    if (sp && keepTop) sp.scrollTop = keepTop;
   };
   const off = ctl.subscribe(render); render();
   return { render, destroy: () => {
     off(); window.clearTimeout(toastTimer); hidePopover(); clear(root);
+    root.classList.remove("fe-sheet", ...LAYOUT_CLASSES, "is-editing");
     root.removeEventListener("mouseover", onOver); root.removeEventListener("mouseout", onOut); root.removeEventListener("click", onClick);
     window.removeEventListener("scroll", hidePopover, true);
   } };

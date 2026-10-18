@@ -124,7 +124,8 @@ export function builderView(ctl: BuilderController): HTMLElement {
 
 /** Mount the builder into `root` (a modal's content element); redraws on every change. */
 export function mountBuilder(root: HTMLElement, ctl: BuilderController, mobile: boolean): { destroy(): void } {
-  const render = () => { clear(root); root.className = `fe-sheet fe-builder ${mobile ? "fe-mobile" : "fe-desktop"}`; root.append(builderView(ctl)); };
+  const cls = ["fe-sheet", "fe-builder", mobile ? "fe-mobile" : "fe-desktop"];
+  const render = () => { clear(root); root.classList.add(...cls); root.append(builderView(ctl)); };   // keep the host's own classes
   const off = ctl.subscribe(render); render();
-  return { destroy: () => { off(); clear(root); } };
+  return { destroy: () => { off(); clear(root); root.classList.remove(...cls); } };
 }

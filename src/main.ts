@@ -130,7 +130,16 @@ export default class FiveESheetPlugin extends Plugin {
   private forViews(match: (v: CharacterView) => boolean, fn: (v: CharacterView) => void | Promise<void>) {
     for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE)) { const v = leaf.view as CharacterView; if (match(v)) void fn(v); }
   }
-  refreshViews() { this.forViews(() => true, v => v.build()); }
+  private refreshTimer?: number;
+  /**
+   * Re-render open sheets after compendium changes. Bursts (library bodies loading, Sync updating notes) are
+   * coalesced into one in-place redraw, which keeps scroll position; `full` rebuilds (layout or rule settings).
+   */
+  refreshViews(full = false) {
+    if (full) { this.forViews(() => true, v => v.build()); return; }
+    window.clearTimeout(this.refreshTimer);
+    this.refreshTimer = window.setTimeout(() => this.forViews(() => true, v => v.rerender()), 250);
+  }
 
   private isSheet(file: TFile | null): boolean {
     const t = file && this.app.metadataCache.getFileCache(file)?.frontmatter?.type;
