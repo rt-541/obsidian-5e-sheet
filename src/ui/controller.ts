@@ -2,7 +2,7 @@ import type { Registry } from "../content/registry";
 import { slug } from "../content/registry";
 import type { Draft } from "../content/creature-note";
 import type { CampaignData, ItemData, LevelingMode, SpellData } from "../content/types";
-import { apply, applyNpc, type Action, type Limits } from "../core/actions";
+import { apply, applyNpc, customItemProblem, type Action, type Limits } from "../core/actions";
 import type { Character, Combo, Npc, Parsed } from "../core/character";
 import { blankCombo, validateCombo } from "../core/combos";
 import { deriveCharacter, deriveCompanion, deriveNpc, type ActorStats } from "../core/derive";
@@ -45,6 +45,9 @@ export interface LevelUpState {
   mode: "level" | "resolve"; classId?: string; page: number; /** Search text and the feat/ability switch, kept across redraws. */ view: LevelUpView;
   hp?: { method: "roll" | "average"; roll?: number }; choices: Record<string, unknown>; error?: string;
 }
+/** The "custom item" form in the add panel: raw text as typed, so a half-typed number is kept as is. */
+export interface CustomItemForm { name: string; qty: string; weight: string; consumable: boolean; error?: string; }
+export const blankCustomItem = (): CustomItemForm => ({ name: "", qty: "1", weight: "", consumable: false });
 type Mods = { shiftKey?: boolean; ctrlKey?: boolean; metaKey?: boolean };
 
 export const LOG_MAX = 50;
@@ -57,6 +60,8 @@ export class SheetController {
   /** After damage while concentrating: the save the player is asked to make. */
   concentrationCheck: { dc: number; spell: string } | null = null;
   comboDraft: ComboDraft | null = null;
+  /** The add panel's custom item form; typing changes it without redrawing. */
+  customItem: CustomItemForm = blankCustomItem();
   panel: Panel | null = null; levelUp: LevelUpState | null = null; confirmUndo = false; lastRoll?: RollResult; restOpts: RestOptions = { samePlace: true, safeHaven: false };
   private subs = new Set<() => void>();
   private collapsed?: Set<string>;
@@ -124,6 +129,18 @@ export class SheetController {
     if (!this.dispatch({ type: "addItem", id }).ok) return false;
     const name = this.host.registry.get<ItemData>("item", id)?.name ?? id;
     this.host.notify(had ? `Added ${name} (now ${had + 1})` : `Added ${name}.`);
+    return true;
+  }
+
+  /** Add the custom item typed into the form. A problem is shown under the form in plain words. */
+  submitCustomItem(): boolean {
+    const f = this.customItem, qty = f.qty.trim() === "" ? NaN : Number(f.qty), weight = f.weight.trim() === "" ? undefined : Number(f.weight);
+    const bad = customItemProblem({ name: f.name, qty, ...(weight !== undefined ? { weight } : {}) });
+    if (bad) { f.error = bad; this.emit(); return false; }
+    const name = f.name.trim(), had = this.character?.inventory.find(e => !e.id && e.name?.toLowerCase() === name.toLowerCase())?.qty ?? 0;
+    this.customItem = blankCustomItem();   // before the dispatch redraws, so the redrawn form is the empty one
+    if (!this.dispatch({ type: "addCustomItem", name, qty, ...(weight !== undefined ? { weight } : {}), ...(f.consumable ? { consumable: true } : {}) }).ok) { this.customItem = f; return false; }
+    this.host.notify(had ? `Added ${name} (now ${had + qty})` : `Added ${name}.`);
     return true;
   }
 
@@ -233,7 +250,7 @@ export class SheetController {
   }
   private collapsedSet() { return (this.collapsed ??= new Set(this.host.collapsedGroups?.() ?? [])); }
   setTab(t: string) { this.tab = t; this.emit(); }
-  open(p: Panel) { this.panel = p; this.emit(); }
+  open(p: Panel) { if (p.kind === "compendium") this.customItem = blankCustomItem(); this.panel = p; this.emit(); }
   close() { this.panel = null; this.emit(); }
 
   restCtx(): RestCtx { return { c: this.character!, stats: this.stats()!, registry: this.host.registry, rules: this.rules() }; }

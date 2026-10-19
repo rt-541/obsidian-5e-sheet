@@ -2,7 +2,7 @@ import { parseModifier } from "./modifier";
 import { ABILS, type Abil, type Modifier } from "./types";
 
 export interface ClassLevel { class: string; subclass?: string; level: number; }
-export interface InventoryEntry { id?: string; name?: string; qty: number; equipped: boolean; attuned: boolean; charges?: { used: number }; weight?: number; spellUses?: Record<string, number>; }
+export interface InventoryEntry { id?: string; name?: string; qty: number; equipped: boolean; attuned: boolean; charges?: { used: number }; weight?: number; spellUses?: Record<string, number>; /** Used up when used. Left out: a compendium potion is, a custom item is not. */ consumable?: boolean; }
 export type CompanionKind = "familiar" | "companion" | "steed" | "summon" | "sidekick";
 export interface CompanionEntry { creature: string; name: string; kind: CompanionKind; hp: { current?: number; temp: number }; conditions: Record<string, number>; }
 export interface Resource { name: string; max: number; used: number; reset: "short" | "long" | "dawn" | "none"; }
@@ -212,6 +212,7 @@ function parseCharacter(fm: R): Parsed {
       e.spellUses = uses;
     }
     if (x.weight !== undefined) e.weight = r.num(x.weight, `inventory[${i}].weight`, 0);
+    if (x.consumable !== undefined) e.consumable = r.bool(x.consumable, `inventory[${i}].consumable`);
     return [e];
   });
   const co = r.obj(fm.coins, "coins");

@@ -18,6 +18,8 @@ export type Action =
   | { type: "equip"; index: number; on: boolean } | { type: "attune"; index: number; on: boolean }
   | { type: "inspiration"; on: boolean }
   | { type: "addItem"; id: string } | { type: "removeItem"; index: number }
+  /** An item that is not in the compendium: a name, how many, an optional weight per piece in pounds, and whether using one up it. */
+  | { type: "addCustomItem"; name: string; qty: number; weight?: number; consumable?: boolean }
   | { type: "addCompanion"; creature: string; name: string; kind: CompanionEntry["kind"] } | { type: "removeCompanion"; index: number }
   | { type: "ability"; abil: Abil; value: number }
   | { type: "cast"; spell: string; level?: number; item?: number } | { type: "endConcentration" }
@@ -45,6 +47,14 @@ export interface Limits {
   ctx?: EffectContext;
 }
 export const MAX_ATTUNED = 3;
+
+/** Why a custom item cannot be added, in plain words; undefined when it is fine. */
+export function customItemProblem(f: { name: string; qty: number; weight?: number }): string | undefined {
+  if (!f.name.trim()) return "Give the item a name.";
+  if (!Number.isInteger(f.qty) || f.qty < 1) return "How many? Use a whole number, 1 or more.";
+  if (f.weight !== undefined && (!Number.isFinite(f.weight) || f.weight < 0)) return "Weight is in pounds: use a number like 2 or 0.5, or leave it empty.";
+  return undefined;
+}
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, Math.round(v)));
 type Hp = { current?: number; temp: number };
@@ -234,6 +244,13 @@ export function apply(c0: Character, a: Action, lim: Limits): Applied {
       // An item already in the pack gets one more instead of a second row.
       const have = c.inventory.find(x => x.id === a.id);
       if (have) have.qty += 1; else c.inventory.push({ id: a.id, qty: 1, equipped: false, attuned: false });
+      break;
+    }
+    case "addCustomItem": {
+      const bad = customItemProblem(a); if (bad) return { value: c0, error: bad };
+      const name = a.name.trim(), same = c.inventory.find(x => !x.id && x.name?.toLowerCase() === name.toLowerCase());
+      if (same) same.qty += a.qty;
+      else c.inventory.push({ name, qty: a.qty, equipped: false, attuned: false, ...(a.weight !== undefined ? { weight: a.weight } : {}), ...(a.consumable ? { consumable: true } : {}) });
       break;
     }
     case "removeItem": c.inventory.splice(a.index, 1); break;
