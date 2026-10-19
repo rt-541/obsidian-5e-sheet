@@ -8,7 +8,7 @@ import { btn, card, describeEffects, pips, bar, usesPips } from "./widgets";
 import { featuresFeature, levelUpFeature, xpFeature } from "./features-ui";
 import { combosFeature, pinnedCombosFeature } from "./combos-ui";
 import { pinnedTraits, traitsFeature } from "./traits-ui";
-import { featureAttackRow, featureAttacks } from "./feature-attacks";
+import { resourceUseButtons } from "./resource-use";
 import { activeEffectsFeature } from "./effects-ui";
 import { togglesFeature } from "./toggles-ui";
 import { concentrationFeature, pinnedSpellsFeature, spellsFeature } from "./spells-ui";
@@ -77,10 +77,8 @@ function checks(ctl: SheetController, st: ActorStats, who?: number) {
   };
 }
 function attacksList(ctl: SheetController, st: ActorStats, who?: number) {
-  const featureRows = who === undefined && st.kind === "character" && ctl.character ? featureAttacks(st) : [];
-  if (!st.attacks.length && !featureRows.length) return h("div", { cls: "fe-faint", text: "No attacks" });
+  if (!st.attacks.length) return h("div", { cls: "fe-faint", text: "No attacks" });
   return h("div", { cls: "fe-attacks" },
-    ...featureRows.map(f => featureAttackRow(ctl, st, f)),
     who === undefined && st.kind === "character" && st.attacksPerAction > 1 ? h("div", { cls: "fe-muted fe-attacks-per", text: `Attacks per action: ${st.attacksPerAction}` }) : null,
     ...st.attacks.map((a, ai) => h("div", { cls: "fe-attack" },
     h("span", { cls: "fe-grow", text: a.name, ...whyData(a.why ? `why:attack:${ai}` : undefined) }),
@@ -184,7 +182,7 @@ export const RENDER: Record<string, Render> = {
     const items = pinnedItems(ctl), itemRows = items.map(x => x.row);
     const el = card("Resources and charges", ...pinned.rows, ...itemRows,
       ...derived.map(x => h("div", { cls: "fe-kv", data: { resource: x.id } }, h("span", { text: x.unlimited ? x.name : `${x.name}: ${Math.max(0, x.max - x.used)} of ${x.max} left` }),
-        usesPips(x, n => ctl.dispatch({ type: "uses", id: x.id, used: n })))),
+        usesPips(x, n => ctl.dispatch({ type: "uses", id: x.id, used: n })), ...resourceUseButtons(ctl, st, x))),
       ...c.resources.map((res, i) => {
         // `track: progress` (downtime, training, crafting) counts up toward max instead of spending uses down.
         const progress = (res as { track?: string }).track === "progress", setUsed = (n: number) => ctl.dispatch({ type: "resource", index: i, used: n });
