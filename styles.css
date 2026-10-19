@@ -190,7 +190,12 @@
 .fe-sheet *, .fe-sheet *::before, .fe-sheet *::after { box-sizing: border-box; }
 .fe-desktop .fe-pane { grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); }
 .fe-pane > *, .fe-col, .fe-col > *, .fe-card, .fe-pinned > * { min-width: 0; max-width: 100%; }
-.fe-card, .fe-note, .fe-rules, .fe-muted, .fe-faint, .fe-name, .fe-inv-name, .fe-spell-name, .fe-kv > span { overflow-wrap: anywhere; }
+.fe-inv-name, .fe-spell-name, .fe-card, .fe-note, .fe-rules, .fe-muted, .fe-faint, .fe-name, .fe-kv > span { overflow-wrap: break-word; }
+/* Narrow rows: the name takes its own line and the controls drop under it, so words never break mid-word. */
+.fe-mobile .fe-inv > .fe-grow, .fe-tablet .fe-inv > .fe-grow, .fe-mobile .fe-attack > .fe-grow, .fe-tablet .fe-attack > .fe-grow, .fe-mobile .fe-trait > .fe-grow, .fe-tablet .fe-trait > .fe-grow { flex: 1 1 100%; }
+.fe-attack > .fe-grow { min-width: 7em; }
+.fe-step > .fe-grow { flex: 1 1 10em; min-width: 10em; }
+.fe-mobile .fe-step-ctl, .fe-tablet .fe-step-ctl { flex: 1 1 100%; }
 .fe-inv, .fe-attack, .fe-row, .fe-hpctl, .fe-rests, .fe-conc, .fe-chips { flex-wrap: wrap; }
 .fe-hpctl { grid-template-columns: minmax(60px, 70px) repeat(3, minmax(0, 1fr)); }
 .fe-sheet button.fe-btn, .fe-sheet button.fe-roll { max-width: 100%; white-space: normal; }

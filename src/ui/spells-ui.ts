@@ -29,8 +29,8 @@ export function rolls(ctl: SheetController, r: SpellRow): (Node | null)[] {
   ];
 }
 
-function nameCell(r: SpellRow): HTMLElement {
-  return h("div", { cls: "fe-grow" }, h("span", { cls: `fe-spell-name ${r.known ? "" : "is-missing"}`, text: r.known ? r.name : `${r.id} (missing from compendium)`, ...(r.known ? { data: { ref: `spell:${r.id}` } } : {}) }),
+function nameCell(r: SpellRow, lead?: HTMLElement | null): HTMLElement {
+  return h("div", { cls: "fe-grow" }, lead ?? null, h("span", { cls: `fe-spell-name ${r.known ? "" : "is-missing"}`, text: r.known ? r.name : `${r.id} (missing from compendium)`, ...(r.known ? { data: { ref: `spell:${r.id}` } } : {}) }),
     r.concentration ? h("span", { cls: "fe-src", text: "C" }) : null);
 }
 
@@ -101,9 +101,8 @@ function ownRow(ctl: SheetController, r: SpellRow, index: number): HTMLElement {
   const prepared = r.source.kind === "own" && r.source.prepared;
   const key = `own:${r.id}`;
   const row = h("div", { cls: "fe-inv", data: { spell: r.id } },
-    r.level >= 1 && r.known ? h("button", { cls: `fe-dot ${prepared ? "is-prof" : ""}`, title: always ? "Always prepared" : prepared ? "Prepared" : "Not prepared", attrs: { "aria-label": `Prepared: ${r.name}` },
-      data: { act: "prepare" }, on: { click: () => { if (!always) ctl.dispatch({ type: "prepare", index, on: !prepared }); } } }) : null,
-    nameCell(r), ...rolls(ctl, r), castButton(ctl, r), r.known ? pinButton(ctl, r) : null, menuButton(ctl, key, r.known ? r.name : r.id),
+    nameCell(r, r.level >= 1 && r.known ? h("button", { cls: `fe-dot ${prepared ? "is-prof" : ""}`, title: always ? "Always prepared" : prepared ? "Prepared" : "Not prepared", attrs: { "aria-label": `Prepared: ${r.name}` },
+      data: { act: "prepare" }, on: { click: () => { if (!always) ctl.dispatch({ type: "prepare", index, on: !prepared }); } } }) : null), ...rolls(ctl, r), castButton(ctl, r), r.known ? pinButton(ctl, r) : null, menuButton(ctl, key, r.known ? r.name : r.id),
     ctl.editing ? btn("Remove", () => ctl.dispatch({ type: "removeSpell", index }), "", { act: "remove-spell" }) : null);
   return menuState(ctl).open === key ? h("div", { cls: "fe-spell-wrap" }, row, ownMenu(ctl, r, index)) : row;
 }
