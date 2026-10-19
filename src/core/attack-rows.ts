@@ -18,6 +18,7 @@ export interface AttackInputs {
   items: { e: InventoryEntry; it: ItemData | undefined }[];
   weaponProf: (name: string, id: string | undefined, category: "simple" | "martial" | undefined) => boolean;
   opt: (t?: RollTarget) => ModOpts; problem: (msg: string) => void;
+  /** Ids of extra-damage switches the player turned off (`extra:<source>`). */ extraOff?: ReadonlySet<string>;
 }
 
 /** One attack before the rules are applied: where it came from, which abilities it may use, and what it can be called. */
@@ -92,6 +93,7 @@ export function buildAttacks(i: AttackInputs): AttackStat[] {
     if (row.itemExtra) { parts.push(row.itemExtra); tail.push(`${row.itemExtra} (${row.name})`); }
     const notes = [...(row.trained ? [] : [NOT_PROFICIENT]), ...row.notes];
     for (const s of i.fx) for (const x of s.effects.extraDamage ?? []) {
+      if (i.extraOff?.has(`extra:${slug(s.source)}`)) continue;
       if (x.on !== undefined && !matchesTag(x.on, target)) continue;
       const dice = extraDice(x.dice, i);
       if (dice === undefined) { i.problem(`${s.source}: extra damage ${String(x.dice)} cannot be worked out`); continue; }
@@ -129,7 +131,7 @@ function natural(w: NaturalWeapon, i: AttackInputs): Row {
 }
 
 /** Extra damage dice: dice (with {scale} filled in) are used as they are, anything else is a formula worked out to a flat number. */
-function extraDice(d: string | number, i: AttackInputs): string | undefined {
+export function extraDice(d: string | number, i: Pick<AttackInputs, "scales" | "vars">): string | undefined {
   if (typeof d === "string") {
     const filled = fillDice(d, i.scales);
     try { parseDice(filled); return filled; } catch { /* a formula, below */ }

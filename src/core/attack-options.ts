@@ -3,6 +3,7 @@ import type { AttackOptionDef, ItemData } from "../content/types";
 import type { Character, InventoryEntry } from "./character";
 import type { ResourceRow } from "./derive";
 import { itemWorks, type SourcedEffects } from "./effects";
+import { extraDice } from "./attack-rows";
 import { fillDice } from "./formula";
 import type { DeclaredAttackOption } from "./progression";
 
@@ -43,7 +44,7 @@ function declaredRow(c: Character, id: string, name: string, ref: string, def: A
 
 /** The attack options the character has: those its features and working items declare. */
 export function attackOptionRows(c: Character, declared: DeclaredAttackOption[], items: { e: InventoryEntry; it: ItemData | undefined }[],
-  _fx: SourcedEffects[], resources: ResourceRow[], scales: Record<string, string | number>, totalLevel: number): AttackOptionRow[] {
+  fx: SourcedEffects[], resources: ResourceRow[], scales: Record<string, string | number>, totalLevel: number, vars: Record<string, number> = {}): AttackOptionRow[] {
   const out: AttackOptionRow[] = [];
   for (const d of declared) {
     const row = declaredRow(c, d.id, d.name, `feature:${d.key}`, d.def, d.level, resources, scales);
@@ -54,6 +55,15 @@ export function attackOptionRows(c: Character, declared: DeclaredAttackOption[],
     if (!it || !def || !itemWorks(e, it) || out.some(x => x.id === def.id)) continue;
     const row = declaredRow(c, def.id, it.name, `item:${e.id ?? ""}`, def, totalLevel, resources, scales);
     if (row) out.push(row);
+  }
+  for (const s of fx) {
+    const list = s.effects.extraDamage ?? [];
+    if (!list.length) continue;
+    const id = `extra:${slug(s.source)}`;
+    if (out.some(x => x.id === id)) continue;
+    const x = list[0], dice = extraDice(x.dice, { scales, vars });
+    out.push({ id, name: s.source, ref: "", kind: "extra", on: !c.optionsOff?.includes(id), tag: x.on ?? "attack",
+      ...(dice !== undefined ? { adds: `${dice} ${x.type}` } : {}), ...(list.some(y => y.per === "turn") ? { perTurn: true } : {}) });
   }
   return out;
 }

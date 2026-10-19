@@ -51,3 +51,19 @@ describe("declared attack options", () => {
     expect("optionsOn" in fm || "optionsOff" in fm).toBe(false);
   });
 });
+
+describe("extra damage switches", () => {
+  const r = optionsRegistry();
+
+  it("shows extra damage as a switch that starts on", () => {
+    const on = derive(optChar({ feats: ["test-ember"] }), r);
+    expect(on.attackOptions).toEqual([expect.objectContaining({ id: "extra:test-ember", kind: "extra", on: true, adds: "1d6 fire", tag: "attack:weapon" })]);
+    expect(on.attacks.find(a => a.name === "Longsword")!.damage).toContain("1d6 fire");
+  });
+
+  it("leaves the damage out when the switch is off", () => {
+    const off = derive(optChar({ feats: ["test-ember"], optionsOff: ["extra:test-ember"] }), r);
+    expect(off.attackOptions[0].on).toBe(false);
+    expect(off.attacks.find(a => a.name === "Longsword")!.damage).not.toContain("fire");
+  });
+});

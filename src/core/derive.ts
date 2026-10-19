@@ -214,7 +214,7 @@ export function deriveCharacter(c: Character, ctx: EffectContext): ActorStats {
   const checks = Object.fromEntries(ABILS.map(a => [a, m[a] + halfOf({ kind: "check", abil: a }) + sumModifier(fx, "check", opt({ kind: "check", abil: a })).add])) as Record<Abil, number>;
   for (const a of ABILS) { const w = checkTerms({ kind: "check", abil: a }, a, false, false); why[`check:${a}`] = sum(`${ABIL_LONG[a]} check ${signed(checks[a])}`, "", w.terms, { notes: w.notes }); }
   const weaponProf = weaponProficiency(prog.proficiencies.other, classData.length > 0 && classData.every(x => x.d) && prog.unknown.length === 0);
-  const attacks = buildAttacks({ fx, shield: items.some(x => x.e.equipped && x.it?.kind === "shield"), mods: m, prof, scales: prog.scales, vars, items, weaponProf, opt, problem });
+  const attacks = buildAttacks({ fx, shield: items.some(x => x.e.equipped && x.it?.kind === "shield"), mods: m, prof, scales: prog.scales, vars, items, weaponProf, opt, problem, extraOff: new Set(c.optionsOff ?? []) });
   const casters: CasterStat[] = prog.spellcasting.map(e => ({ name: e.className, abil: e.abil, progression: e.progression,
     dc: 8 + prof + m[e.abil] + sumModifier(fx, "spellDC", opt()).add, attack: prof + m[e.abil] + sumModifier(fx, "spellAttack", opt()).add }));
   if (casters[0]) {
@@ -281,7 +281,7 @@ export function deriveCharacter(c: Character, ctx: EffectContext): ActorStats {
     ...(spellcasting ? { spellcasting } : {}), slots, hitDice,
     carry: { weight, capacity },
     traits: damageTraits(fx), notes: notes(fx), effects: fx, missing, attunedCount: c.inventory.filter(e => e.attuned).length,
-    toggles, resources, casters, attackOptions: attackOptionRows(c, prog.attackOptions, items, fx, resources, prog.scales, level), progress: prog, maxScores, ...(crits[0] ? { crit: { range: crits[0].effects.critRange!, ...(crits[0].effects.critVs ? { vs: crits[0].effects.critVs } : {}) } } : {}),
+    toggles, resources, casters, attackOptions: attackOptionRows(c, prog.attackOptions, items, fx, resources, prog.scales, level, vars), progress: prog, maxScores, ...(crits[0] ? { crit: { range: crits[0].effects.critRange!, ...(crits[0].effects.critVs ? { vs: crits[0].effects.critVs } : {}) } } : {}),
     languages: mergeLanguages(prog.languages, c.languages),
     ...(senses.darkvision !== undefined ? { darkvision: senses.darkvision } : {}),
   };
