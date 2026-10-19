@@ -102,11 +102,11 @@ function namePage(ctl: BuilderController, create: HTMLButtonElement): HTMLElemen
     else { const p = ctl.preview(); list.append("error" in p ? h("div", { cls: "fe-warn", text: p.error }) : h("ul", {}, ...p.summary.map(l => h("li", { text: l })))); }
     create.disabled = pr.length > 0 || ctl.creating;
   };
-  const input = h("input", { cls: "fe-search", data: { field: "name" }, attrs: { placeholder: "Character name", value: d.name, "aria-label": "Character name" },
+  const input = h("input", { cls: "fe-search", data: { field: "name" }, attrs: { type: "text", placeholder: "Character name", value: d.name, "aria-label": "Character name" },
     on: { input: (e: Event) => { ctl.draft = { ...ctl.draft, name: (e.target as HTMLInputElement).value }; delete ctl.error; fill(); } } });
   fill();
   return body("name", hint("Name the character."), input,
-    h("input", { cls: "fe-search", data: { field: "campaign" }, attrs: { placeholder: "Campaign link, e.g. [[Ekron Campaign]] (optional)", value: d.campaign ?? "", "aria-label": "Campaign" },
+    h("input", { cls: "fe-search", data: { field: "campaign" }, attrs: { type: "text", placeholder: "Campaign link, e.g. [[Ekron Campaign]] (optional)", value: d.campaign ?? "", "aria-label": "Campaign" },
       on: { change: (e: Event) => ctl.setCampaign((e.target as HTMLInputElement).value) } }),
     list, ctl.error ? h("div", { cls: "fe-warn", text: ctl.error }) : null);
 }

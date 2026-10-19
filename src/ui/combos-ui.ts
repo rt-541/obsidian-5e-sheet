@@ -109,7 +109,7 @@ export function comboForm(ctl: SheetController): HTMLElement {
   if (!d || !st || !c) return h("div", { cls: "fe-faint", text: "Nothing to edit." });
   const combo = d.combo, comps = c.companions, picks = comboChoices(c, st, ctl.companionStats(), ctl.ctx()), count = c.combos.length;
   const text = (v: string, set: (s: string) => void, data: string, placeholder = "") =>
-    h("input", { cls: "fe-search", data: { act: data }, attrs: { value: v, placeholder }, on: { input: (e: Event) => set((e.target as HTMLInputElement).value) } });
+    h("input", { cls: "fe-search", data: { act: data }, attrs: { type: "text", value: v, placeholder }, on: { input: (e: Event) => set((e.target as HTMLInputElement).value) } });
   const area = (v: string, set: (s: string) => void, data: string, placeholder = "") => {
     const el = h("textarea", { cls: "fe-search", data: { act: data }, attrs: { rows: "2", placeholder }, on: { input: (e: Event) => set((e.target as HTMLTextAreaElement).value) } }); el.value = v; return el;
   };

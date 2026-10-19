@@ -21,7 +21,7 @@ function conditionsPanel(ctl: SheetController, who?: number): HTMLElement {
   const shown = (e: (typeof all)[number]) => (condFilter === "all" || (condFilter === "active" ? conds[e.id] : e.source === condFilter)) && e.name.toLowerCase().includes(condQuery);
   const rows = all.filter(e => e.data.kind !== "disease" && shown(e)), diseases = all.filter(e => e.data.kind === "disease" && shown(e));
   const set = (id: string, level: number) => ctl.dispatch({ type: "condition", id, level, ...(who !== undefined ? { who: { companion: who } } : {}) });
-  const search = h("input", { cls: "fe-search", attrs: { placeholder: "Search conditions", value: condQuery },
+  const search = h("input", { cls: "fe-search", attrs: { type: "search", placeholder: "Search conditions", value: condQuery },
     on: { input: (e: Event) => { condQuery = (e.target as HTMLInputElement).value.toLowerCase(); ctl.emit(); } } });
   const row = (e: (typeof all)[number]) => {
     const lvl = conds[e.id] ?? 0, d = e.data;

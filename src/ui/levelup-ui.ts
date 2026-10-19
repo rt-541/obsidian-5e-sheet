@@ -103,7 +103,7 @@ export function featList(ctl: PageCtl, s: Pick<"asi">, st: PageState): HTMLEleme
     if (!feats.length) list.append(h("div", { cls: "fe-faint", text: "No feats match." }));
   };
   fill();
-  return h("div", {}, h("input", { cls: "fe-search", attrs: { placeholder: "Search feats", value: view.featQuery }, on: { input: (e: Event) => { view.featQuery = (e.target as HTMLInputElement).value; fill(); } } }), list);
+  return h("div", {}, h("input", { cls: "fe-search", attrs: { type: "search", placeholder: "Search feats", value: view.featQuery }, on: { input: (e: Event) => { view.featQuery = (e.target as HTMLInputElement).value; fill(); } } }), list);
 }
 
 export function asiPage(ctl: PageCtl, s: Pick<"asi">, st: PageState): HTMLElement {
@@ -135,7 +135,7 @@ export function pickPage(ctl: PageCtl, s: Pick<"pick">, st: PageState): HTMLElem
         h("input", { cls: "fe-search", data: { act: "other-language" }, attrs: { type: "text", placeholder: "Another language", "aria-label": "Another language" },
           on: { change: (e: Event) => { const el = e.target as HTMLInputElement, name = el.value.trim(); el.value = ""; if (name && !cur.some(x => x.toLowerCase() === name.toLowerCase())) toggle(name); } } })]
     : s.free
-    ? Array.from({ length: s.count }, (_, i) => h("input", { cls: "fe-search", attrs: { placeholder: `${titleCase(s.what)} ${i + 1}`, value: cur[i] ?? "", "aria-label": `${titleCase(s.what)} ${i + 1}` },
+    ? Array.from({ length: s.count }, (_, i) => h("input", { cls: "fe-search", attrs: { type: "text", placeholder: `${titleCase(s.what)} ${i + 1}`, value: cur[i] ?? "", "aria-label": `${titleCase(s.what)} ${i + 1}` },
         on: { change: (e: Event) => { const next = [...cur]; next[i] = (e.target as HTMLInputElement).value.trim(); ctl.pick(s.key, next.filter(x => x !== "" || next.length > i).slice(0, s.count)); } } }))
     : optionButtons();
   return h("div", { cls: "fe-lu-body", data: { step: s.key } }, h("div", { cls: "fe-muted", text: `${s.label} (${cur.length} of ${s.count})` }), ...body);

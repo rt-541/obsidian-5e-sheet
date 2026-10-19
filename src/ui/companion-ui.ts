@@ -43,7 +43,7 @@ export function addCompanionPanel(ctl: SheetController, panel: Panel): HTMLEleme
   const go = (mode: State["mode"]) => { s.mode = mode; draw(); };
 
   // Always shown: what the companion is called and what role it plays.
-  const nameBox = h("input", { cls: "fe-search", attrs: { placeholder: "Leave empty to use the creature's name", value: s.cname, "aria-label": "Companion's name (optional)" },
+  const nameBox = h("input", { cls: "fe-search", attrs: { type: "text", placeholder: "Leave empty to use the creature's name", value: s.cname, "aria-label": "Companion's name (optional)" },
     on: { input: (e: Event) => { s.cname = (e.target as HTMLInputElement).value; } } });
   const kindSel = h("select", { cls: "fe-cf-input", attrs: { "aria-label": "Kind of companion" }, on: { change: (e: Event) => { s.kind = (e.target as HTMLSelectElement).value as CompanionKind; } } },
     ...(Object.keys(KIND_LABELS) as CompanionKind[]).map(k => h("option", { text: KIND_LABELS[k], attrs: { value: k, ...(k === s.kind ? { selected: "" } : {}) } })));

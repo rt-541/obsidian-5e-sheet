@@ -123,7 +123,7 @@ export function mountCompendium(root: HTMLElement, ctl: CompendiumController, mo
   const reg = ctl.host.registry;
   const sourceTabs = h("nav", { cls: "fe-tabs fe-src-tabs", data: { feature: "source-tabs" } });
   const typeTabs = h("nav", { cls: "fe-tabs fe-type-tabs", data: { feature: "type-tabs" } });
-  const search = h("input", { cls: "fe-search", data: { field: "search" }, attrs: { placeholder: "Search by name", "aria-label": "Search the compendium", value: ctl.query },
+  const search = h("input", { cls: "fe-search", data: { field: "search" }, attrs: { type: "search", placeholder: "Search by name", "aria-label": "Search the compendium", value: ctl.query },
     on: { input: (e: Event) => ctl.setQuery((e.target as HTMLInputElement).value) } });
   const body = h("div", { cls: "fe-comp-body" });
   root.classList.add("fe-sheet", "fe-compendium", mobile ? "fe-mobile" : "fe-desktop");   // keep Obsidian's .view-content (it scrolls)
