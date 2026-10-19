@@ -243,6 +243,9 @@
 /* add item panel */
 .fe-additem-form { display: grid; gap: 6px; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid var(--background-modifier-border); }
 .fe-mobile .fe-additem input, .fe-tablet .fe-additem input:not([type="checkbox"]) { min-height: 44px; }
+.fe-sheet button.fe-add-item { width: 100%; font-weight: 600; margin-bottom: 6px; }
+.fe-additem-results { display: grid; gap: 0; }
+.fe-additem .fe-filters { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
 /* inventory quantity stepper */
 .fe-qty { display: inline-flex; align-items: center; gap: 4px; }
 .fe-qty-n { min-width: 2ch; text-align: center; font-variant-numeric: tabular-nums; font-weight: var(--font-semibold); }

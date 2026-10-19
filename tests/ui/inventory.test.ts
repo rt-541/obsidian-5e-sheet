@@ -37,11 +37,13 @@ for (const layout of LAYOUTS) {
     it("the add panel shows +1 for an owned item and says what the count is now", () => {
       const s = setup(layout, { inventory: pack });
       s.ctl.open({ kind: "compendium" });
+      s.type(s.q(".fe-panel .fe-search"), "ember");
       const owned = s.q('.fe-panel [data-item="ember-tonic"]');
       expect(owned.textContent).toBe("+1");
       s.click(owned);
       expect(s.char().inventory[0].qty).toBe(3);
       expect(s.notices.at(-1)).toBe("Added Ember Tonic (now 3)");
+      s.type(s.q(".fe-panel .fe-search"), "whistle");
       expect(s.q('.fe-panel [data-item="tin-whistle"]').textContent).toBe("Add");
     });
   });

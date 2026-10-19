@@ -40,6 +40,11 @@ export function itemState(ctl: SheetController, index: number) {
 }
 
 
+/** The big button at the top of the Inventory card. */
+function addItemButton(ctl: SheetController): HTMLElement {
+  const b = btn("+ Add item", () => ctl.open({ kind: "compendium" }), "mod-cta fe-add-item"); b.dataset.act = "add-item"; return b;
+}
+
 /** A stack of ordinary things (potions, rope, daggers) can be counted up and down; one-of-a-kind gear (armor, attuned or charged items) cannot. */
 export function isStackable(ctl: SheetController, index: number): boolean {
   const e = ctl.character!.inventory[index], it = e.id ? ctl.host.registry.get<ItemData>("item", e.id)?.data : undefined;
@@ -59,7 +64,7 @@ export function qtyStepper(ctl: SheetController, index: number, name: string): H
 
 export function inventoryFeature(ctl: SheetController, st: ActorStats): HTMLElement {
   const c = ctl.character!;
-  return card("Inventory", ...c.inventory.map((e, i) => {
+  return card("Inventory", addItemButton(ctl), ...c.inventory.map((e, i) => {
     const s = itemState(ctl, i), it = s.it, name = s.name, stack = isStackable(ctl, i);
     return h("div", { cls: `fe-inv ${it || e.name ? "" : "is-missing"} ${s.usedUp ? "is-used-up" : ""}`.replace(/\s+/g, " ").trim(), data: { item: String(i) } },
       h("div", { cls: "fe-grow" }, h("span", { cls: "fe-inv-name", text: name, ...(it && e.id ? { data: { ref: `item:${e.id}` } } : {}) }), it?.source === "vault" ? h("span", { cls: "fe-src", text: "Homebrew" }) : null,
@@ -73,5 +78,5 @@ export function inventoryFeature(ctl: SheetController, st: ActorStats): HTMLElem
   }),
   h("div", { cls: "fe-kv" }, h("span", { text: Object.entries(c.coins).filter(([, v]) => v).map(([k, v]) => `${v} ${k}`).join(" ") || "No coins" }),
     h("span", { cls: "fe-muted", text: `${st.carry.weight} / ${st.carry.capacity} lb · attuned ${st.attunedCount}/3`, ...(st.why.carry ? { data: { ref: "why:carry" } } : {}) })),
-  btn("Add from compendium", () => ctl.open({ kind: "compendium" })));
+  );
 }

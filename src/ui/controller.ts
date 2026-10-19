@@ -14,6 +14,7 @@ import { applyLevel, applyResolve, levelFromXp, planLevel, planResolve, rollHitD
 import { formulaVars, type FeatureRow } from "../core/progression";
 import type { RollMode, RollResult, RollTarget, Rng } from "../core/types";
 import { activeRests, MODULES } from "../rules";
+import { blankItemSearch, type ItemSearch } from "./additem-ui";
 import { resolveRules, resolveSections, spendHitDie, type RestCtx, type RestOptions } from "../rules/module";
 
 /** What the Obsidian layer (or a test) provides to a sheet. */
@@ -62,6 +63,10 @@ export class SheetController {
   comboDraft: ComboDraft | null = null;
   /** The add panel's custom item form; typing changes it without redrawing. */
   customItem: CustomItemForm = blankCustomItem();
+  /** The add panel's search text and kind chip. */
+  itemSearch: ItemSearch = blankItemSearch();
+  /** The next redraw puts the keyboard focus on the element with this data-keep (desktop only). */
+  focusNext?: string;
   panel: Panel | null = null; levelUp: LevelUpState | null = null; confirmUndo = false; lastRoll?: RollResult; restOpts: RestOptions = { samePlace: true, safeHaven: false };
   private subs = new Set<() => void>();
   private collapsed?: Set<string>;
@@ -250,7 +255,7 @@ export class SheetController {
   }
   private collapsedSet() { return (this.collapsed ??= new Set(this.host.collapsedGroups?.() ?? [])); }
   setTab(t: string) { this.tab = t; this.emit(); }
-  open(p: Panel) { if (p.kind === "compendium") this.customItem = blankCustomItem(); this.panel = p; this.emit(); }
+  open(p: Panel) { if (p.kind === "compendium") { this.customItem = blankCustomItem(); this.itemSearch = blankItemSearch(); } this.panel = p; this.emit(); }
   close() { this.panel = null; this.emit(); }
 
   restCtx(): RestCtx { return { c: this.character!, stats: this.stats()!, registry: this.host.registry, rules: this.rules() }; }
