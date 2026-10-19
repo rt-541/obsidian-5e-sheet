@@ -121,7 +121,7 @@ export class SheetController {
     const out = this.value.type === "5e-character" ? apply(this.value, a, this.limits()) : applyNpc(this.value, a, st, n => deriveNpc(n, this.ctx()));
     if (out.error) { this.host.notify(out.error); return { ok: false }; }
     this.commit(out.value);
-    if (a.type === "damage" && "note" in out && out.note) this.host.notify(out.note);
+    if ((a.type === "damage" || a.type === "equip" || a.type === "attune") && "note" in out && out.note) this.host.notify(out.note);
     if ("concentrationCheck" in out && out.concentrationCheck) {
       const prev = this.concentrationCheck;
       this.concentrationCheck = prev && prev.spell === out.concentrationCheck.spell && prev.dc > out.concentrationCheck.dc ? prev : out.concentrationCheck;

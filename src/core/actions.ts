@@ -69,6 +69,19 @@ function hpChange(hp: Hp, a: Action, max: number): void {
   if (a.type === "temp") hp.temp = Math.max(hp.temp, Math.max(0, a.amount));
 }
 
+/** Wearing one suit of armor and carrying one shield: equipping a second of either puts the first away. Returns the words for what was unequipped. */
+function putAwayRivals(c: Character, keep: number, lim: Limits): string | undefined {
+  const reg = lim.ctx?.registry, mine = c.inventory[keep]?.id ? reg?.get<ItemData>("item", c.inventory[keep].id!)?.data : undefined;
+  if (!reg || !mine || (!mine.armor && mine.kind !== "shield")) return undefined;
+  const out: string[] = [];
+  c.inventory.forEach((x, i) => {
+    if (i === keep || !x.equipped || !x.id) return;
+    const e = reg.get<ItemData>("item", x.id), d = e?.data;
+    if (d && ((mine.armor && d.armor) || (mine.kind === "shield" && d.kind === "shield"))) { x.equipped = false; x.attuned = false; out.push(`${e!.name} unequipped.`); }
+  });
+  return out.length ? out.join(" ") : undefined;
+}
+
 const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
 const esc = (t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 /** Names of the effects that give this actor the trait for the damage type (a line such as "bludgeoning, piercing, and slashing from nonmagical attacks" matches each type it names). */
@@ -235,11 +248,18 @@ export function apply(c0: Character, a: Action, lim: Limits): Applied {
     case "charges": { const e = c.inventory[a.index]; if (e) e.charges = { used: clamp(a.used, 0, lim.chargesMax(a.index)) }; break; }
     case "hitDie": { const h = lim.self.hitDice.find(x => x.die === a.die); c.hitDice[a.die] = { used: clamp(a.used, 0, h?.max ?? 0) }; break; }
     case "deathSave": c.deathSaves[a.which] = clamp(a.value, 0, 3); break;
-    case "equip": { const e = c.inventory[a.index]; if (e) { e.equipped = a.on; if (!a.on) e.attuned = false; } break; }
+    case "equip": {
+      const e = c.inventory[a.index]; if (!e) break;
+      e.equipped = a.on; if (!a.on) e.attuned = false;
+      const note = a.on ? putAwayRivals(c, a.index, lim) : undefined;
+      return { value: c, ...(note ? { note } : {}) };
+    }
     case "attune": {
       const e = c.inventory[a.index]; if (!e) break;
       if (a.on && !e.attuned && c.inventory.filter(x => x.attuned).length >= MAX_ATTUNED) return { value: c0, error: "Already attuned to 3 items" };
-      e.attuned = a.on; if (a.on) e.equipped = true; break;
+      e.attuned = a.on; if (a.on) e.equipped = true;
+      const note = a.on ? putAwayRivals(c, a.index, lim) : undefined;
+      return { value: c, ...(note ? { note } : {}) };
     }
     case "inspiration": c.inspiration = a.on; break;
     case "addItem": {
