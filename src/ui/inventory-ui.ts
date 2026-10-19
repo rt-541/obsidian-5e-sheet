@@ -1,3 +1,4 @@
+import { itemPinRef } from "../core/actions";
 import type { ItemData } from "../content/types";
 import type { ActorStats } from "../core/derive";
 import type { SheetController } from "./controller";
@@ -5,7 +6,7 @@ import { h } from "./h";
 import { btn, card, pips } from "./widgets";
 
 /** Pin key for an inventory entry: the compendium id, or the name of a custom item. */
-export const itemRef = (e: { id?: string; name?: string }) => (e.id ? `item:${e.id}` : `item-name:${e.name ?? ""}`);
+export const itemRef = itemPinRef;
 export function itemPinButton(ctl: SheetController, ref: string): HTMLElement {
   const on = ctl.character!.mainPins.includes(ref);
   const el = btn(on ? "Pinned" : "Pin", () => ctl.dispatch({ type: "pin", ref, on: !on }), `fe-pin ${on ? "is-on" : ""}`.trim()); el.dataset.act = "pin-item";
@@ -57,7 +58,12 @@ function itemMenu(ctl: SheetController, index: number, s: ReturnType<typeof item
     on: { change: (ev: Event) => { const n = Number((ev.target as HTMLInputElement).value); ctl.dispatch({ type: "itemQty", index, qty: Number.isFinite(n) ? Math.max(0, Math.floor(n)) : e.qty }); } } });
   return h("div", { cls: "fe-item-menu", data: { menu: String(index) } },
     h("label", { cls: "fe-kv" }, h("span", { text: "Consumable (used up when used)" }), sw),
-    h("label", { cls: "fe-kv" }, h("span", { text: "Quantity" }), qty));
+    h("label", { cls: "fe-kv" }, h("span", { text: "Quantity" }), qty),
+    ctl.confirmRemove
+      ? h("div", { cls: "fe-kv fe-confirm", data: { note: "remove-confirm" } }, h("span", { text: `Remove ${s.name}?` }),
+        h("span", { cls: "fe-lvl" }, ((y) => { y.dataset.act = "remove-yes"; return y; })(btn("Yes", () => ctl.removeItemAt(index), "fe-dmg")),
+          ((n) => { n.dataset.act = "remove-no"; return n; })(btn("No", () => ctl.askRemove(false)))))
+      : ((r) => { r.dataset.act = "item-remove"; return r; })(btn("Remove", () => ctl.askRemove(true))));
 }
 
 /** A stack of ordinary things (potions, rope, daggers) can be counted up and down; one-of-a-kind gear (armor, attuned or charged items) cannot. */
@@ -88,7 +94,6 @@ export function inventoryFeature(ctl: SheetController, st: ActorStats): HTMLElem
       s.useBtn(),
       it && it.data.kind !== "gear" && it.data.kind !== "consumable" ? btn(e.equipped ? "Equipped" : "Equip", () => ctl.dispatch({ type: "equip", index: i, on: !e.equipped }), e.equipped ? "is-on" : "") : null,
       it?.data.attunement ? btn(e.attuned ? "Attuned" : "Attune", () => ctl.dispatch({ type: "attune", index: i, on: !e.attuned }), e.attuned ? "is-on" : "") : null,
-      ctl.editing ? btn("Remove", () => ctl.dispatch({ type: "removeItem", index: i })) : null,
       itemPinButton(ctl, itemRef(e)),
       itemMenuButton(ctl, i, name),
       ctl.itemMenu === i ? itemMenu(ctl, i, s) : null);

@@ -67,6 +67,8 @@ export class SheetController {
   itemSearch: ItemSearch = blankItemSearch();
   /** Which inventory row has its "..." options open. */
   itemMenu: number | null = null;
+  /** The open menu is asking "Remove <name>? Yes / No". */
+  confirmRemove = false;
   /** The next redraw puts the keyboard focus on the element with this data-keep (desktop only). */
   focusNext?: string;
   panel: Panel | null = null; levelUp: LevelUpState | null = null; confirmUndo = false; lastRoll?: RollResult; restOpts: RestOptions = { samePlace: true, safeHaven: false };
@@ -163,7 +165,16 @@ export class SheetController {
     return true;
   }
 
-  toggleItemMenu(index: number) { this.itemMenu = this.itemMenu === index ? null : index; this.emit(); }
+  toggleItemMenu(index: number) { this.itemMenu = this.itemMenu === index ? null : index; this.confirmRemove = false; this.emit(); }
+  askRemove(on: boolean) { this.confirmRemove = on; this.emit(); }
+  /** Remove the entry (after the Yes tap); its pin goes with it. */
+  removeItemAt(index: number): boolean {
+    const e = this.character?.inventory[index]; if (!e) return false;
+    const name = this.host.registry.get<ItemData>("item", e.id ?? "")?.name ?? e.name ?? "Item";
+    this.itemMenu = null; this.confirmRemove = false;
+    if (!this.dispatch({ type: "removeItem", index }).ok) return false;
+    this.host.notify(`Removed ${name}.`); return true;
+  }
 
   /** Add the custom item typed into the form. A problem is shown under the form in plain words. */
   submitCustomItem(): boolean {
