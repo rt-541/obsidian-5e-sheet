@@ -1,3 +1,4 @@
+import type { Customization } from "./customize";
 import type { Character, Combo, CompanionEntry, Npc } from "./character";
 import { validateCombo } from "./combos";
 import type { ActorStats } from "./derive";
@@ -48,6 +49,10 @@ export type Action =
   | { type: "attackOption"; id: string; on: boolean }
   /** One roll used these options: spend 1 of each one's resource (not unlimited), switch off once-per-turn ones and any whose resource is now empty. */
   | { type: "attackOptionsUsed"; ids: string[] }
+  /** Set what the player changed about a feature (`key` is `feature:<key>`); no value, or an empty one, resets it. */
+  | { type: "customize"; key: string; value?: Customization }
+  /** The same for one inventory row, by index. */
+  | { type: "customizeItem"; index: number; value?: Customization }
   /** Save a combo: replaces the one at `index`, or adds a new one at the end when `index` is left out. */
   | { type: "combo"; index?: number; combo: Combo } | { type: "comboRemove"; index: number }
   | { type: "comboMove"; index: number; by: -1 | 1 } | { type: "comboPin"; index: number; on: boolean };
@@ -280,6 +285,15 @@ function attackOptionsUsed(c0: Character, c: Character, a: Extract<Action, { typ
   return { value: c, ...(named.length ? { note: `No ${what} left: ${named.join(" and ")} ${named.length === 1 ? "is" : "are"} off.` } : {}) };
 }
 
+/** After a customization: forget the on state of switches and attack options that the change took away. */
+function dropGone(c: Character, lim: Limits, isToggle: (t: ActorStats["toggles"][number]) => boolean, isOption: (o: ActorStats["attackOptions"][number]) => boolean): void {
+  if (!lim.derive) return;
+  const after = lim.derive(c);
+  for (const t of lim.self.toggles) if (isToggle(t) && !after.toggles.some(x => x.id === t.id)) delete c.active[t.id];
+  const gone = lim.self.attackOptions.filter(o => isOption(o) && !after.attackOptions.some(x => x.id === o.id)).map(o => o.id);
+  if (gone.length && c.optionsOn) { c.optionsOn = c.optionsOn.filter(id => !gone.includes(id)); if (!c.optionsOn.length) delete c.optionsOn; }
+}
+
 export function apply(c0: Character, a: Action, lim: Limits): Applied {
   const c = structuredClone(c0);
   const who = "who" in a ? a.who : undefined;
@@ -383,6 +397,16 @@ export function apply(c0: Character, a: Action, lim: Limits): Applied {
     case "toggle": return toggle(c0, c, a, lim);
     case "attackOption": return attackOption(c0, c, a, lim);
     case "attackOptionsUsed": return attackOptionsUsed(c0, c, a, lim);
+    case "customize": {
+      if (a.value && Object.keys(a.value).length) c.customize[a.key] = structuredClone(a.value); else delete c.customize[a.key];
+      dropGone(c, lim, t => t.ref === a.key, o => o.ref === a.key); break;
+    }
+    case "customizeItem": {
+      const e = c.inventory[a.index]; if (!e) return { value: c0, error: "No such item" };
+      if (a.value && Object.keys(a.value).length) e.customize = structuredClone(a.value); else delete e.customize;
+      const ref = e.id ? `item:${e.id}` : undefined;
+      dropGone(c, lim, t => t.itemIndex === a.index, o => !!ref && o.ref === ref); break;
+    }
     case "endConcentration": delete c.concentration; break;
     case "addSpell": if (!c.spells.some(x => x.id === a.id)) c.spells.push({ id: a.id, prepared: false }); break;
     case "removeSpell": { const gone = c.spells.splice(a.index, 1)[0]; if (gone) c.mainSpells = c.mainSpells.filter(k => k !== gone.id); break; }

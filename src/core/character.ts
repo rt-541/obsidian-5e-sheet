@@ -1,9 +1,11 @@
 import { parseModifier } from "./modifier";
+import { readCustomization, type Customization } from "./customize";
 import { ABILS, type Abil, type Modifier } from "./types";
 
 export interface ClassLevel { class: string; subclass?: string; level: number; }
 export interface InventoryEntry { id?: string; name?: string; qty: number; equipped: boolean; attuned: boolean; charges?: { used: number }; weight?: number; spellUses?: Record<string, number>; /** Used up when used. Left out: a compendium potion is, a custom item is not. */ consumable?: boolean;
-  /** Held in two hands (versatile weapons). Left out for one hand. */ hands?: 2; }
+  /** Held in two hands (versatile weapons). Left out for one hand. */ hands?: 2;
+  /** What the player changed about this row (its switch, attack option or Use button). Left out when nothing. */ customize?: Customization; }
 export type CompanionKind = "familiar" | "companion" | "steed" | "summon" | "sidekick";
 export interface CompanionEntry { creature: string; name: string; kind: CompanionKind; hp: { current?: number; temp: number }; conditions: Record<string, number>; }
 export interface Resource { name: string; max: number; used: number; reset: "short" | "long" | "dawn" | "none"; }
@@ -47,6 +49,8 @@ export interface Character {
   /** Switched-on states such as a Rage, keyed by toggle id (true, or a number / text for a toggle with a value). */
   active: Record<string, boolean | number | string>;
   concentration?: string;
+  /** What the player changed about features, keyed by `feature:<key>`. */
+  customize: Record<string, Customization>;
   /** Declared attack options switched on (by id). Left out when none. */
   optionsOn?: string[];
   /** Extra-damage switches switched off (`extra:<slug>`); they are on by default. Left out when none. */
@@ -166,7 +170,7 @@ export function newCharacter(name: string): Character {
     type: "5e-character", schema: 1, name, classes: [], abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
     proficiencies: { saves: [], skills: [], expertise: [] }, hp: { max: 0, current: 0, temp: 0 }, hitDice: {},
     deathSaves: { successes: 0, failures: 0 }, spellSlots: {}, spells: [], inventory: [], coins: { pp: 0, gp: 0, ep: 0, sp: 0, cp: 0 },
-    resources: [], conditions: {}, injuries: [], modifiers: [], inspiration: false, xp: 0, baseSpeed: 30, levelLog: [], feats: [], languages: [], uses: {}, choices: {}, active: {}, mainSpells: [], mainPins: [], combos: [],
+    resources: [], conditions: {}, injuries: [], modifiers: [], inspiration: false, xp: 0, baseSpeed: 30, levelLog: [], feats: [], languages: [], uses: {}, choices: {}, active: {}, customize: {}, mainSpells: [], mainPins: [], combos: [],
     rest: { nightsInPlace: 0 }, companions: [], sheet: { hide: [], show: [] }, rules: {},
   };
 }
@@ -210,6 +214,8 @@ function parseCharacter(fm: R): Parsed {
     if (!isObj(x) || (typeof x.id !== "string" && typeof x.name !== "string")) { r.errors.push(`inventory[${i}]: needs an id or a name`); return []; }
     const e: InventoryEntry = { ...x, qty: r.whole(x.qty, `inventory[${i}].qty`, 1), equipped: r.bool(x.equipped, `inventory[${i}].equipped`), attuned: r.bool(x.attuned, `inventory[${i}].attuned`) };
     delete e.hands;
+    delete e.customize;
+    if (x.customize !== undefined) { const cz = readCustomization(x.customize, `inventory[${i}].customize`, r.errors); if (cz) e.customize = cz; }
     if (x.hands !== undefined) { if (x.hands === 2) e.hands = 2; else if (x.hands !== 1) r.errors.push(`inventory[${i}].hands: must be 1 or 2`); }
     if (typeof x.id === "string") e.id = x.id; if (typeof x.name === "string") e.name = x.name;
     if (x.charges !== undefined) { const ch = r.obj(x.charges, `inventory[${i}].charges`); e.charges = { ...ch, used: r.whole(ch.used, `inventory[${i}].charges.used`) }; }
@@ -266,6 +272,9 @@ function parseCharacter(fm: R): Parsed {
   for (const [k, v] of Object.entries(r.obj(fm.active, "active"))) {
     if (typeof v === "boolean" || typeof v === "number" || typeof v === "string") { if (v !== false) c.active[k] = v; }
     else r.errors.push(`active.${k}: must be true, false, a number or text`);
+  }
+  for (const [k, v] of Object.entries(r.obj(fm.customize, "customize"))) {
+    const cz = readCustomization(v, `customize.${k}`, r.errors); if (cz) c.customize[k] = cz;
   }
   const conc = r.str(fm.concentration, "concentration"); if (conc) c.concentration = conc;
   const on = r.strs(fm.optionsOn, "optionsOn"); if (on.length) c.optionsOn = on;
