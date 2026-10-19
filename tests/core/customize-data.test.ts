@@ -34,7 +34,12 @@ describe("customization data", () => {
     c = act(c, { type: "customize", key: KEY }, R).value;
     expect(c.customize).toEqual({});
   });
-  it.todo("making an active switch not a switch clears its on state and keeps its pin (needs Task 4 layering)");
+  it("making an active switch not a switch clears its on state and keeps its pin", () => {
+    const c0 = makeChar({ active: { fury: true }, mainPins: ["feature:class:tester:1:fury"] });
+    const c = act(c0, { type: "customize", key: KEY, value: { toggle: false } }, R).value;
+    expect(c.active.fury).toBeUndefined();
+    expect(c.mainPins).toEqual(["feature:class:tester:1:fury"]);
+  });
   it("customizeItem changes one inventory row only", () => {
     const c0 = makeChar({ inventory: [{ id: "longsword", qty: 1, equipped: true }, { id: "longsword", qty: 1, equipped: false }] });
     const c = act(c0, { type: "customizeItem", index: 1, value: { action: { name: "Glow" } } }, R).value;

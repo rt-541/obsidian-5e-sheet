@@ -6,6 +6,7 @@ import type { ActionDef, AttackOptionDef, ClassData, FeatData, GrantsData, Op, O
 import { abilityMod, profBonus } from "./abilities";
 import type { Character } from "./character";
 import { gatedByToggle, type SourcedEffects } from "./effects";
+import { customizeKey, layerRow, type RowDefs } from "./customize";
 import { evalFormula, isUnlimitedWord, UNLIMITED, type Formula } from "./formula";
 import { optionListLabel, plural } from "./words";
 import { ABILS, SKILLS, type Abil, type Effects } from "./types";
@@ -16,6 +17,12 @@ export interface FeatureRow {
   level: number; name: string; text?: string; effects: Effects; action?: ActionDef; toggle?: ToggleDef;
   /** Key of the built-in mechanics entry that filled in this row's effects, switch or action (the sheet shows a "built-in" badge). */
   overlay?: string;
+  /** The attack option this row declares, after the player's changes. */
+  attackOption?: AttackOptionDef;
+  /** True when the player changed this row's switch, attack option or Use button. */
+  custom?: true;
+  /** The note's (or built-in entry's) switch, attack option and Use button before the player's changes; set only with `custom`. */
+  noteDefs?: RowDefs;
 }
 export interface DerivedResource {
   id: string; name: string; max: number; used: number; reset: Reset; source: string;
@@ -117,8 +124,12 @@ export function progress(c: Character, registry: Registry): Progress {
       else seen.other.add(p);
     }
   };
-  const feature = (src: Src, key: string, name: string, text: string | undefined, effects: Effects, action: ActionDef | undefined, kind = src.kind, toggle?: ToggleDef, overlay?: string, toggleName?: string, attackOption?: AttackOptionDef) => {
-    out.features.push({ key, source: src.label, sourceKind: kind, level: src.level, name, effects, ...(text !== undefined ? { text } : {}), ...(action ? { action } : {}), ...(toggle ? { toggle } : {}), ...(overlay ? { overlay } : {}) });
+  const feature = (src: Src, key: string, name: string, text: string | undefined, effects: Effects, noteAction: ActionDef | undefined, kind = src.kind, noteToggle?: ToggleDef, overlay?: string, toggleName?: string, noteOption?: AttackOptionDef) => {
+    const mine = c.customize[customizeKey(key)];
+    const layered = layerRow(name, { toggle: noteToggle, attackOption: noteOption, action: noteAction }, mine, src.classLevel, problem);
+    const { toggle, attackOption, action } = layered;
+    out.features.push({ key, source: src.label, sourceKind: kind, level: src.level, name, effects, ...(text !== undefined ? { text } : {}), ...(action ? { action } : {}), ...(toggle ? { toggle } : {}), ...(attackOption ? { attackOption } : {}), ...(overlay ? { overlay } : {}),
+      ...(layered.custom ? { custom: true as const, noteDefs: { ...(noteToggle ? { toggle: noteToggle } : {}), ...(noteOption ? { attackOption: noteOption } : {}), ...(noteAction ? { action: noteAction } : {}) } } : {}) });
     if (toggle) {
       if (out.toggles.some(t => t.id === toggle.id)) problem(`${name}: another switch is already called "${toggle.id}"`);
       else out.toggles.push({ id: toggle.id, name: toggleName ?? name, source: src.label, key, def: toggle, effects, ...(text !== undefined ? { text } : {}) });
