@@ -13,7 +13,7 @@ describe.each(LAYOUTS)("1H / 2H switch (%s)", layout => {
     const s = setup(layout, { inventory: [{ id: "ash-cudgel", equipped: true }] }, addWeapons);
     expect([...row(s).querySelectorAll(".fe-grip .fe-mode-opt")].map(b => [b.textContent, b.getAttribute("aria-pressed")])).toEqual([["1H", "true"], ["2H", "false"]]);
     s.click(row(s).querySelector('[data-hands="2"]'));
-    expect(row(s).querySelector(".fe-atk-dmg")!.textContent).toBe("1d8+3");
+    expect(row(s).querySelector(".fe-atk-dmg .fe-lbl-dice")!.textContent).toBe("1d8+3");
     expect((s.saved.at(-1) as Character).inventory[0].hands).toBe(2);
     const again = setup(layout, s.saved.at(-1)!, addWeapons);
     expect(row(again).querySelector('[data-hands="2"]')!.getAttribute("aria-pressed")).toBe("true");

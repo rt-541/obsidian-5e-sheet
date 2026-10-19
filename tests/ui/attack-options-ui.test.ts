@@ -45,14 +45,18 @@ describe("Attack options card and attack row buttons", () => {
     const dmgBtn = (h: ReturnType<typeof sheetWith>, name = "Longsword") => h.row(name).querySelector<HTMLElement>(".fe-atk-dmg")!;
     it("arms the row's own damage button after a roll to hit, and pressing it is the hit", () => {
       const h = sheetWith(layout, { feats: ["test-analysis"], optionsOn: ["test-analysis"] }, seq(0.5));
-      const plain = dmgBtn(h).textContent!;
+      const plain = dmgBtn(h).querySelector(".fe-lbl-dice")!.textContent!;
       h.click(h.row("Longsword").querySelector('[data-act="to-hit"]'));
       expect(dmgBtn(h).classList.contains("fe-hit-armed")).toBe(true);
-      expect(dmgBtn(h).textContent).toBe("Hit?");
+      expect(dmgBtn(h).querySelector(".fe-lbl-hit")!.textContent).toBe("Hit?");
+      expect(dmgBtn(h).querySelector(".fe-lbl-hit")!.classList.contains("fe-lbl-off")).toBe(false);
+      expect(dmgBtn(h).querySelector(".fe-lbl-dice")!.classList.contains("fe-lbl-off")).toBe(true);
       expect(h.row("Longsword").querySelector('[data-act="hit-window"]')).toBeNull();
       h.click(dmgBtn(h));
       expect(h.host.log[0].title).toBe("Longsword damage"); expect(h.left("insight-dice").used).toBe(1);
-      expect(dmgBtn(h).classList.contains("fe-hit-armed")).toBe(false); expect(dmgBtn(h).textContent).toBe(plain);
+      expect(dmgBtn(h).classList.contains("fe-hit-armed")).toBe(false); expect(dmgBtn(h).querySelectorAll(".fe-lbl")).toHaveLength(2);
+      expect(dmgBtn(h).querySelector(".fe-lbl-hit")!.classList.contains("fe-lbl-off")).toBe(true);
+      expect(dmgBtn(h).querySelector(".fe-lbl-dice")!.classList.contains("fe-lbl-off")).toBe(false);
     });
     it("returns to normal when the window runs out, and a miss spends nothing", () => {
       const h = sheetWith(layout, { feats: ["test-analysis"], optionsOn: ["test-analysis"] }, seq(0.5));
@@ -67,9 +71,9 @@ describe("Attack options card and attack row buttons", () => {
     it("keeps the same min-width armed or not, adds no absolute or fixed element, and the next row's to-hit still rolls", () => {
       const h = sheetWith(layout, { feats: ["test-analysis"], optionsOn: ["test-analysis"], inventory: [{ id: "longsword", equipped: true }, { id: "dagger", equipped: true }] }, seq(0.5));
       const rows = [...h.root.querySelectorAll<HTMLElement>("[data-attack]")];
-      const before = dmgBtn(h).getAttribute("style");
+      expect(dmgBtn(h).querySelectorAll(".fe-lbl")).toHaveLength(2);
       h.click(h.row("Longsword").querySelector('[data-act="to-hit"]'));
-      expect(dmgBtn(h).getAttribute("style")).toBe(before); expect(before).toMatch(/min-width/);
+      expect(dmgBtn(h).querySelectorAll(".fe-lbl")).toHaveLength(2); expect(dmgBtn(h).getAttribute("style")).toBeNull();
       for (const el of h.q('[data-feature="attacks"]').querySelectorAll<HTMLElement>("*")) expect(["absolute", "fixed"]).not.toContain(el.style.position);
       const other = rows.find(e => !(e.textContent ?? "").includes("Longsword"));
       if (other) {
@@ -97,6 +101,9 @@ describe("Attack options card and attack row buttons", () => {
 
   it("the armed damage button is highlighted in the row itself, with no floating slot", () => {
     expect(css).not.toContain("fe-hit-slot");
+    expect(css).toMatch(/\.fe-sheet button\.fe-atk-dmg\.fe-lbl-stack \{[^}]*display: inline-grid/);
+    expect(css).toMatch(/\.fe-lbl-stack > \.fe-lbl \{[^}]*grid-area: 1 \/ 1/);
+    expect(css).toMatch(/\.fe-lbl-stack > \.fe-lbl\.fe-lbl-off \{[^}]*visibility: hidden/);
     expect(css).toMatch(/\.fe-sheet button\.fe-atk-dmg\.fe-hit-armed \{[^}]*background: var\(--interactive-accent\)/);
   });
   it("styles: off knob is visible, Off/On buttons are 44px wide on touch layouts", () => {

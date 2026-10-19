@@ -27,14 +27,18 @@ export function attacksList(ctl: SheetController, st: ActorStats, who?: number):
           on: { click: (e: MouseEvent) => { if (own) ctl.attackRoll(ai, e); else ctl.roll(`${a.name} to hit`, a.toHit!, a.target, e, who); } } })
         : a.save ? h("span", { cls: "fe-faint fe-atk-save", text: `DC ${a.save.dc} ${ABIL_NAME[a.save.abil]}` }) : null;
       const armed = own && ctl.hitWindow?.ai === ai ? ctl.hitWindow : null, shown = armed?.crit && a.critDamage ? a.critDamage : a.damage;
-      // the damage button doubles as the hit prompt: same width open or closed (the short "Hit?" / "Crit!" never needs more than the dice text), so the row never reflows
-      const plain = a.damage ? compactDamage(a.damage) : "", width = Math.max(plain.length, 5);
+      // the damage button doubles as the hit prompt. Own-dice rows hold both labels stacked in one grid cell (the unused one hidden),
+      // so the button is always as wide as the longer label and nothing slides sideways when the window opens or closes.
+      const plain = a.damage ? compactDamage(a.damage) : "", hitWord = armed?.crit ? "Crit!" : "Hit?";
       const dmg = a.damage
-        ? h("button", { cls: `fe-roll fe-atk-dmg${armed ? " fe-hit-armed" : ""}`, text: armed ? (armed.crit ? "Crit!" : "Hit?") : plain,
+        ? h("button", { cls: `fe-roll fe-atk-dmg${armed ? " fe-hit-armed" : ""}${own ? " fe-lbl-stack" : ""}`,
+          ...(own ? {} : { text: plain }),
           title: armed ? `${a.name}: tap if it hit. Damage ${shown}` : `${a.name} damage: ${a.damage}`,
-          attrs: { "aria-label": armed ? `${a.name}: did it hit? Roll damage ${shown}` : `${a.name} damage: ${a.damage}`, ...(own ? { style: `min-width: ${width}ch` } : {}) },
+          attrs: { "aria-label": armed ? `${a.name}: did it hit? Roll damage ${shown}` : `${a.name} damage: ${a.damage}` },
           ...refData(a.why?.damage ? `why:attack:${ai}:damage` : undefined, true, "damage"),
-          on: { click: () => { if (own) ctl.attackDamage(ai, armed?.crit ?? false); else ctl.damage(`${a.name} damage`, a.damage!); } } })
+          on: { click: () => { if (own) ctl.attackDamage(ai, armed?.crit ?? false); else ctl.damage(`${a.name} damage`, a.damage!); } } },
+          ...(own ? [h("span", { cls: `fe-lbl fe-lbl-dice${armed ? " fe-lbl-off" : ""}`, text: plain }),
+            h("span", { cls: `fe-lbl fe-lbl-hit${armed ? "" : " fe-lbl-off"}`, text: hitWord, attrs: { "aria-hidden": "true" } })] : []))
         : null;
       const row = h("div", { cls: "fe-attack", data: { attack: String(ai) } },
         h("span", { cls: "fe-grow", text: a.name, ...refData(noteRef) }),

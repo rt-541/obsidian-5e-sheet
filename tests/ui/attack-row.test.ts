@@ -23,7 +23,7 @@ describe.each(LAYOUTS)("attack row (%s)", layout => {
     expect(row.querySelector(".fe-atk")!.textContent).toBe(`${a.toHit! >= 0 ? "+" : ""}${a.toHit} Atk`);
     expect(row.querySelector(".fe-attack-sep")!.textContent).toBe("/");
     const dmg = row.querySelector<HTMLElement>(".fe-atk-dmg")!;
-    expect(dmg.textContent).toBe("1d6+3"); expect(dmg.getAttribute("aria-label")).toBe("Ash Cudgel damage: 1d6+3 bludgeoning");
+    expect(dmg.querySelector(".fe-lbl-dice")!.textContent).toBe("1d6+3"); expect(dmg.getAttribute("aria-label")).toBe("Ash Cudgel damage: 1d6+3 bludgeoning");
     expect(row.querySelector(".fe-crit")!.textContent).toBe("Crit");
     s.click(row.querySelector(".fe-atk")); expect(s.ctl.lastRoll!.title).toBe("Ash Cudgel to hit");
     s.click(dmg); expect(s.ctl.lastRoll!.title).toBe("Ash Cudgel damage");
