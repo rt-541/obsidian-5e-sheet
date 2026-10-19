@@ -59,22 +59,57 @@ export function traitGroups(c: Character, features: FeatureRow[], reg: Registry)
   return groups;
 }
 
-function traitRow(ctl: SheetController, st: ActorStats, t: TraitRow, withLevel: boolean): HTMLElement {
+type DerivedResource = ActorStats["resources"][number];
+/** The uses (derived resources) and actions a trait row owns, so the traits card and a pinned copy show the same controls. */
+function traitParts(st: ActorStats, t: TraitRow): { uses: DerivedResource[]; acts: FeatureRow[] } {
   const res = st.resources.filter(r => r.derived), acts: FeatureRow[] = [];
-  const shown = new Map<string, (typeof res)[number]>();
+  const shown = new Map<string, DerivedResource>();
   for (const f of t.rows) {
     const cost = f.action?.cost && "resource" in f.action.cost ? slug(f.action.cost.resource) : undefined;
     const r = res.find(x => x.id === slug(f.name)) ?? (cost ? res.find(x => x.id === cost) : undefined);
     if (r) shown.set(r.id, r);
     if (f.action) acts.push(f);
   }
+  return { uses: [...shown.values()], acts };
+}
+const usesAndActs = (ctl: SheetController, parts: ReturnType<typeof traitParts>) => [
+  ...parts.uses.map(r => h("span", { cls: "fe-trait-uses", data: { resource: r.id } }, usesPips(r, n => ctl.dispatch({ type: "uses", id: r.id, used: n })))),
+  ...parts.acts.map(f => btn(parts.acts.length > 1 ? `Use ${f.action!.name}` : "Use", () => ctl.useAction(f)))];
+
+function pinButton(ctl: SheetController, ref: string): HTMLElement {
+  const on = ctl.character!.mainPins.includes(ref);
+  const el = btn(on ? "Pinned" : "Pin", () => ctl.dispatch({ type: "pin", ref, on: !on }), `fe-pin ${on ? "is-on" : ""}`.trim()); el.dataset.act = "pin-feature";
+  el.title = on ? "Shown under Resources and charges (click to unpin)" : "Show under Resources and charges";
+  return el;
+}
+
+function traitRow(ctl: SheetController, st: ActorStats, t: TraitRow, withLevel: boolean): HTMLElement {
   return h("div", { cls: "fe-trait", data: { trait: t.ref } },
     h("div", { cls: "fe-grow" },
       h("span", { cls: "fe-inv-name", text: t.name, data: { ref: t.ref } }),
       withLevel && t.level ? h("span", { cls: "fe-faint", text: ` Lv ${t.level}` }) : null,
       t.summary ? h("div", { cls: "fe-faint", text: t.summary }) : null),
-    ...[...shown.values()].map(r => h("span", { cls: "fe-trait-uses", data: { resource: r.id } }, usesPips(r, n => ctl.dispatch({ type: "uses", id: r.id, used: n })))),
-    ...acts.map(f => btn(acts.length > 1 ? `Use ${f.action!.name}` : "Use", () => ctl.useAction(f))));
+    ...usesAndActs(ctl, traitParts(st, t)),
+    ctl.character ? pinButton(ctl, t.ref) : null);
+}
+
+/**
+ * Pinned features for the Resources and charges card, in pin order, with the ids of the resources they already show
+ * (the card skips those rows so a pinned Ki feature does not also list "Ki" again). Pins whose feature is gone are skipped.
+ */
+export function pinnedTraits(ctl: SheetController, st: ActorStats): { rows: HTMLElement[]; covered: Set<string> } {
+  const c = ctl.character, covered = new Set<string>();
+  if (!c?.mainPins.length) return { rows: [], covered };
+  const all = traitGroups(c, st.progress.features, ctl.host.registry).flatMap(g => g.rows);
+  const rows = c.mainPins.map(ref => all.find(t => t.ref === ref)).filter((t): t is TraitRow => !!t).map(t => {
+    const parts = traitParts(st, t);
+    for (const r of parts.uses) covered.add(r.id);
+    return h("div", { cls: "fe-kv fe-pinned-trait", data: { pinnedFeature: t.ref } },
+      h("span", { cls: "fe-grow" }, h("span", { cls: "fe-inv-name", text: t.name, data: { ref: t.ref } }),
+        !parts.uses.length && !parts.acts.length && t.summary ? h("div", { cls: "fe-faint", text: t.summary }) : null),
+      ...usesAndActs(ctl, parts));
+  });
+  return { rows, covered };
 }
 
 /** The Features & Traits card for the main page: collapsible sections by source, one line per feature. */
