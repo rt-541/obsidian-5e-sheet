@@ -57,7 +57,7 @@ export function libraryMeta(type: string, fm: Raw): LibraryMeta {
       put(raw, "rarity", text(fm.rarity)); raw.attunement = fm.attunement === true;
       if (typeof fm.weight === "number") raw.weight = fm.weight;
       if (typeof fm.value === "number") raw.value = fm.value;
-      for (const k of ["weapon", "armor", "effects", "charges"] as const) if (isObj(fm[k])) raw[k] = fm[k];
+      for (const k of ["weapon", "armor", "effects", "charges", "attackOption"] as const) if (isObj(fm[k])) raw[k] = fm[k];
       if (text(fm.heal)) raw.heal = text(fm.heal);
       break;
     }

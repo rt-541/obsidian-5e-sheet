@@ -13,6 +13,7 @@ export type { ClassData, AbilReq } from "./class";
 export type { SubclassData, GrantsData, SubraceData, FeatData, AbilityIncrease, AbilityChoose } from "./origin";
 export type { Op, OpName, ActionDef, OptionDef, TableRow, Progression, Reset } from "./ops";
 export type { ToggleDef, ToggleCost } from "./toggle";
+export type { AttackOptionDef } from "./attack-option";
 export type { CampaignData, LevelingMode } from "./campaign";
 export type { SpellData } from "./spell";
 

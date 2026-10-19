@@ -4,6 +4,7 @@ import { isObj, type Errs } from "../check";
 import { validateEffects } from "../types/effects";
 import { validateAction, validateOps, validateOptions, type ActionDef, type Op, type OptionDef } from "../types/ops";
 import { validateToggle, type ToggleDef } from "../types/toggle";
+import { validateAttackOption, type AttackOptionDef } from "../types/attack-option";
 import raw from "./mechanics.json";
 
 /**
@@ -15,7 +16,7 @@ export type OverlayKind = "class" | "subclass" | "race" | "subrace" | "feat" | "
 /** `at`: the op only runs once the character has this many levels (class level for class features, total level for race and feat features). */
 export interface OverlayOp { op: Op; at?: number; }
 export interface OverlayEntry {
-  key: string; /** What the switch is called on the sheet when the feature's own name is long ("Wild Shape (CR 1/4 or below, ...)"). */ name?: string; effects: Effects; toggle?: ToggleDef; action?: ActionDef;
+  key: string; /** What the switch is called on the sheet when the feature's own name is long ("Wild Shape (CR 1/4 or below, ...)"). */ name?: string; effects: Effects; toggle?: ToggleDef; attackOption?: AttackOptionDef; action?: ActionDef;
   /** Option lists the entry's `choose` ops pick from (Draconic Ancestry has no class to hold them). */
   options?: Record<string, OptionDef[]>; ops: OverlayOp[];
 }
@@ -69,6 +70,7 @@ function build(): NonNullable<typeof loaded> {
     if (!isObj(v)) { problems.push(`${key}: must be a mapping`); continue; }
     const effects = validateEffects(v.effects, `${at}.effects`, e);
     const toggle = validateToggle(v.toggle, `${at}.toggle`, id.feature, e);
+    const attackOption = validateAttackOption(v.attackOption, `${at}.attackOption`, id.feature, e);
     const action = validateAction(v.action, `${at}.action`, e);
     const options = validateOptions(v.options, `${at}.options`, e);
     // Ops are written as plain ops, optionally with `at`. They are checked as subclass ops: a pick from another class's list or the entry's own is fine.
@@ -80,8 +82,8 @@ function build(): NonNullable<typeof loaded> {
     if (ops.length !== plain.length && !e.length) e.push(`${at}.ops: an op was dropped`);
     if (e.length) { problems.push(...e.map(m => `${key}: ${m}`)); continue; }
     const entry: OverlayEntry = { key, ...(typeof v.name === "string" && v.name.trim() ? { name: v.name.trim() } : {}), effects, ops: ops.map((op, i) => ({ op, ...(atOf[i] !== undefined ? { at: atOf[i] } : {}) })),
-      ...(toggle ? { toggle } : {}), ...(action ? { action } : {}), ...(Object.keys(options).length ? { options } : {}) };
-    if (!Object.keys(effects).length && !toggle && !action && !ops.length) { problems.push(`${key}: the entry changes nothing`); continue; }
+      ...(toggle ? { toggle } : {}), ...(attackOption ? { attackOption } : {}), ...(action ? { action } : {}), ...(Object.keys(options).length ? { options } : {}) };
+    if (!Object.keys(effects).length && !toggle && !attackOption && !action && !ops.length) { problems.push(`${key}: the entry changes nothing`); continue; }
     entries.set(composite(id.kind, id.owner, id.feature), entry);
   }
   return { entries, problems };

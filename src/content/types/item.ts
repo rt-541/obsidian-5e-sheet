@@ -6,6 +6,7 @@ import { validateEffects } from "./effects";
 import { findOverlay } from "../overlay";
 import { optOut } from "./ops";
 import { validateToggle, type ToggleDef } from "./toggle";
+import { validateAttackOption, type AttackOptionDef } from "./attack-option";
 
 export interface ArmorData { base: number; dex: "full" | "max2" | "none"; stealthDis?: boolean; strReq?: number; }
 export interface WeaponData { dmg: string; type: string; ab: "str" | "dex" | "finesse"; range: "melee" | "ranged"; bonus?: number; extraDamage?: string;
@@ -19,6 +20,7 @@ export interface GrantedSpell { id: string; cost: { kind: "charges"; amount: num
 export interface ItemData { name: string; kind: "armor" | "shield" | "weapon" | "wondrous" | "gear" | "consumable"; rarity?: string; attunement: boolean; weight: number; /** Price in copper pieces. */ value?: number;
   armor?: ArmorData; weapon?: WeaponData; charges?: { max: number; reset: "dawn" | "short" | "long" | "none" }; heal?: string; effects: Effects; rules?: string; grants?: { spells: GrantedSpell[] };
   /** A switch the player turns on and off; the item's effects count only while it is on (and the item works). */ toggle?: ToggleDef;
+  /** Dice this item adds to attacks while its switch is on. */ attackOption?: AttackOptionDef;
   /** false: the built-in mechanics never fill this item in. */ overlay?: false;
   /** Key of the built-in entry that filled in this item's switch or effects (the sheet shows a "built-in" badge). */ builtIn?: string; }
 
@@ -95,12 +97,13 @@ export const itemType: TypeDef<ItemData> = {
       }
     }
     if (raw.toggle !== undefined) { const t = validateToggle(raw.toggle, "toggle", name ?? "", e); if (t) out.toggle = t; }
+    if (raw.attackOption !== undefined) { const a = validateAttackOption(raw.attackOption, "attackOption", name ?? "", e); if (a) out.attackOption = a; }
     if (raw.heal !== undefined) { const h = dice(raw.heal, "heal", e); if (h) out.heal = h; }
     const overlay = optOut(raw.overlay, "overlay", e); if (overlay === false) out.overlay = overlay;
     if (e.length || !name) return { errors: e };
     // Built-in mechanics fill in an item whose note has no effects and no switch of its own; the note always wins.
-    const hit = overlay !== false && name && !Object.keys(out.effects ?? {}).length && !out.toggle ? findOverlay("item", [], name) : undefined;
-    if (hit) { out.effects = hit.effects; if (hit.toggle) out.toggle = hit.toggle; out.builtIn = hit.key; }
+    const hit = overlay !== false && name && !Object.keys(out.effects ?? {}).length && !out.toggle && !out.attackOption ? findOverlay("item", [], name) : undefined;
+    if (hit) { out.effects = hit.effects; if (hit.toggle) out.toggle = hit.toggle; if (hit.attackOption) out.attackOption = hit.attackOption; out.builtIn = hit.key; }
     return { errors: e, value: out as ItemData };
   },
 };
