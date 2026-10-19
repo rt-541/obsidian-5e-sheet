@@ -20,12 +20,12 @@ Senses blindsight 10 ft., darkvision 60 ft., passive Perception 10
 Languages -
 Challenge 1/4 (50 XP)
 
-Spider Climb. The spider can climb difficult surfaces, including upside down on ceilings, without needing to make an ability check.
+Wall Crawl. The test spider walks on walls and ceilings as easily as on the floor.
 
-Web Walker. The spider ignores movement restrictions caused by webbing.
+Silk Stride. The test spider moves through its own silk without slowing down.
 
 Actions
-Bite. Melee Weapon Attack: +3 to hit, reach 5 ft., one creature. Hit: 4 (1d6 + 1) piercing damage, and the target must make a DC 11 Constitution saving throw, taking 9 (2d8) poison damage on a failed save, or half as much damage on a successful one.`;
+Bite. Melee Weapon Attack: +3 to hit, reach 5 ft., one creature. Hit: 4 (1d6 + 1) piercing damage, and the target must make a DC 11 Constitution saving throw or take 7 (2d6) poison damage.`;
 
 describe("parseStatblock", () => {
   it("reads a plain-text block in the 2014 layout", () => {
@@ -36,8 +36,8 @@ describe("parseStatblock", () => {
     expect(d.abilities).toEqual({ str: 12, dex: 16, con: 12, int: 2, wis: 10, cha: 4 });
     expect(d.senses).toBe("blindsight 10 ft., darkvision 60 ft., passive Perception 10");
     expect(d.languages).toBeUndefined();
-    expect(d.traits.map(t => t.name)).toEqual(["Spider Climb", "Web Walker"]);
-    expect(d.attacks).toEqual([{ name: "Bite", toHit: 3, damage: "1d6+1 piercing", note: "Reach 5 ft., one creature. The target must make a DC 11 Constitution saving throw, taking 9 (2d8) poison damage on a failed save, or half as much damage on a successful one." }]);
+    expect(d.traits.map(t => t.name)).toEqual(["Wall Crawl", "Silk Stride"]);
+    expect(d.attacks).toEqual([{ name: "Bite", toHit: 3, damage: "1d6+1 piercing", note: "Reach 5 ft., one creature. The target must make a DC 11 Constitution saving throw or take 7 (2d6) poison damage." }]);
   });
 
   it("reads the same block inside a 5e-statblock fence", () => {
@@ -53,13 +53,13 @@ describe("parseStatblock", () => {
   });
 
   it("tolerates blank lines, unicode minus, bullets and markdown emphasis", () => {
-    const messy = SPIDER.replace(/\n/g, "\n\n").replace("(-4)", "(−4)").replace("(-3)", "(−3)").replace("Spider Climb.", "***Spider Climb.***").replace("Bite.", "**Bite.**")
+    const messy = SPIDER.replace(/\n/g, "\n\n").replace("(-4)", "(−4)").replace("(-3)", "(−3)").replace("Wall Crawl.", "***Wall Crawl.***").replace("Bite.", "**Bite.**")
       .replace("Armor Class", "- **Armor Class**").replace("Hit Points", "• Hit Points").replace("Challenge", "> Challenge");
     const { draft: d, unread } = parseStatblock(messy);
     expect(unread).toEqual([]);
     expect(d).toMatchObject({ ac: 13, hpAvg: 11, cr: "1/4" });
     expect(d.abilities.int).toBe(2);
-    expect(d.traits[0].name).toBe("Spider Climb");
+    expect(d.traits[0].name).toBe("Wall Crawl");
     expect(d.attacks[0]).toMatchObject({ name: "Bite", toHit: 3, damage: "1d6+1 piercing" });
   });
 
@@ -113,9 +113,9 @@ Tail Swipe. The wyrm makes one tail attack.`);
   });
 
   it("joins a trait that wraps over lines but starts a new one after a sentence end", () => {
-    const { draft: d } = parseStatblock(SPIDER.replace("without needing to make an ability check.", "without needing to\nmake an ability check.\nPack Tactics. Advantage when an ally is near."));
-    expect(d.traits[0].text).toMatch(/without needing to make an ability check\.$/);
-    expect(d.traits.map(t => t.name)).toEqual(["Spider Climb", "Pack Tactics", "Web Walker"]);
+    const { draft: d } = parseStatblock(SPIDER.replace("as easily as on the floor.", "as easily as\non the floor.\nPack Tactics. Advantage when an ally is near."));
+    expect(d.traits[0].text).toMatch(/as easily as on the floor\.$/);
+    expect(d.traits.map(t => t.name)).toEqual(["Wall Crawl", "Pack Tactics", "Silk Stride"]);
   });
 
   it("lists lines it could not read, in the player's own words", () => {
@@ -146,7 +146,7 @@ describe("creature notes", () => {
     expect(res.errors).toEqual([]);
     expect(res.value).toMatchObject({ name: "Test Spider", ac: 13, hp: { average: 11, formula: "2d8+2" }, speed: { walk: 30, climb: 30 }, cr: "1/4", ctype: "beast" });
     expect(res.value!.attacks[0]).toMatchObject({ name: "Bite", toHit: 3, damage: "1d6+1 piercing" });
-    expect(body).toContain("***Spider Climb.***");
+    expect(body).toContain("***Wall Crawl.***");
     expect(body).toContain("## Actions");
     // and the registry accepts it like a vault note
     const r = reg();

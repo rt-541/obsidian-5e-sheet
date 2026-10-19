@@ -61,7 +61,7 @@ export function creatureForm(o: CreatureFormOpts): HTMLElement {
   const fillTraits = () => {
     clear(traitBox);
     F.traits.forEach((t, i) => traitBox.append(h("div", { cls: "fe-cf-card", data: { trait: String(i) } },
-      field("Trait name", input(t.name, v => { t.name = v; }, `Trait ${i + 1} name`, { placeholder: "Spider Climb" })),
+      field("Trait name", input(t.name, v => { t.name = v; }, `Trait ${i + 1} name`, { placeholder: "Wall Crawl" })),
       field("What it does", h("textarea", { cls: "fe-cf-input", attrs: { rows: "2", "aria-label": `Trait ${i + 1} text` }, text: t.text, on: { input: (e: Event) => { t.text = (e.target as HTMLTextAreaElement).value; } } })),
       h("button", { cls: "fe-btn", text: "Remove trait", attrs: { type: "button" }, data: { act: "remove-trait" }, on: { click: () => { F.traits.splice(i, 1); fillTraits(); } } }))));
   };

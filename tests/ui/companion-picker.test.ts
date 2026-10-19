@@ -22,7 +22,7 @@ Speed 30 ft., climb 30 ft.
 STR DEX CON INT WIS CHA
 12 (+1) 16 (+3) 12 (+1) 2 (-4) 10 (+0) 4 (-3)
 Challenge 1/4 (50 XP)
-Spider Climb. Climbs difficult surfaces.
+Wall Crawl. Walks on walls.
 Actions
 Bite. Melee Weapon Attack: +3 to hit, reach 5 ft., one creature. Hit: 4 (1d6 + 1) piercing damage.`;
 
@@ -188,7 +188,7 @@ describe("5e-statblock card", () => {
     const el = document.createElement("div"); let got = "";
     renderStatblock(el, "```5e-statblock\n" + BLOCK + "\n```", async d => { got = d.name; return { name: d.name, path: "compendium/5e/Homebrew/Creatures/Test Spider.md" }; });
     expect(el.textContent).toContain("Armor Class 13 (natural armor)");
-    expect(el.textContent).toContain("Spider Climb.");
+    expect(el.textContent).toContain("Wall Crawl.");
     expect(el.textContent).toContain("Bite. +3 to hit.");
     (el.querySelector('[data-act="add-to-compendium"]') as HTMLElement).click(); await new Promise(r => setTimeout(r, 0));
     expect(got).toBe("Test Spider");
