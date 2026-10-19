@@ -2,15 +2,15 @@ import { resolveRules, resolveSections } from "../../src/rules/module";
 import { MODULES, activeRests } from "../../src/rules";
 
 describe("rule toggles", () => {
-  it("defaults: standard rests on", () => expect(resolveRules(MODULES, [])).toEqual({ "rest-standard": true, "rest-excursion": false }));
+  it("defaults: standard rests on", () => expect(resolveRules(MODULES, [])).toEqual({ "rest-standard": true, "rest-excursion": false, hexploration: false }));
   it("campaign turns excursion on, which forces standard off", () => {
-    expect(resolveRules(MODULES, [undefined, { "rest-excursion": true }])).toEqual({ "rest-standard": false, "rest-excursion": true });
+    expect(resolveRules(MODULES, [undefined, { "rest-excursion": true }])).toEqual({ "rest-standard": false, "rest-excursion": true, hexploration: false });
   });
   it("character overrides campaign", () => {
-    expect(resolveRules(MODULES, [{}, { "rest-excursion": true }, { "rest-standard": true }])).toEqual({ "rest-standard": true, "rest-excursion": false });
+    expect(resolveRules(MODULES, [{}, { "rest-excursion": true }, { "rest-standard": true }])).toEqual({ "rest-standard": true, "rest-excursion": false, hexploration: false });
   });
   it("both rests off brings standard back", () => {
-    expect(resolveRules(MODULES, [{ "rest-standard": false }])).toEqual({ "rest-standard": true, "rest-excursion": false });
+    expect(resolveRules(MODULES, [{ "rest-standard": false }])).toEqual({ "rest-standard": true, "rest-excursion": false, hexploration: false });
   });
   it("unknown keys pass through for future modules", () => {
     expect(resolveRules(MODULES, [{ rations: true }]).rations).toBe(true);

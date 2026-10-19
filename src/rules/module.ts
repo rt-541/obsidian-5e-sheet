@@ -7,7 +7,11 @@ import type { RollResult, Rng } from "../core/types";
 export interface RestCtx { c: Character; stats: ActorStats; registry: Registry; rules: Record<string, boolean>; }
 export interface RestOptions { samePlace?: boolean; safeHaven?: boolean; }
 export interface RestDef { id: string; label: string; preview(ctx: RestCtx, o?: RestOptions): string[]; apply(ctx: RestCtx, o?: RestOptions): { value: Character; summary: string[] }; }
-export interface RuleModule { id: string; title: string; defaultOn: boolean; excludes: string[]; rests: RestDef[]; sections: string[]; }
+export interface RuleModule {
+  id: string; title: string; defaultOn: boolean; excludes: string[]; rests: RestDef[]; sections: string[];
+  /** Called after a rest applies, with the character as it is after the rest (change `c`); returns lines for the rest summary. */
+  onRest?(restId: string, ctx: RestCtx, c: Character): string[];
+}
 
 export function resolveRules(modules: RuleModule[], layers: (Record<string, boolean> | undefined)[]): Record<string, boolean> {
   const out: Record<string, boolean> = Object.fromEntries(modules.map(m => [m.id, m.defaultOn]));

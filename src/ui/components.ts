@@ -11,6 +11,7 @@ import { pinnedTraits, traitsFeature } from "./traits-ui";
 import { activeEffectsFeature } from "./effects-ui";
 import { togglesFeature } from "./toggles-ui";
 import { coinsRow } from "./coins-ui";
+import { rationsFeature } from "./rations-ui";
 import { inventoryFeature, itemRef, itemState } from "./inventory-ui";
 import { concentrationFeature, pinnedSpellsFeature, spellsFeature } from "./spells-ui";
 
@@ -118,6 +119,7 @@ export const RENDER: Record<string, Render> = {
   "passive-perception": (ctl, st) => stat("Passive Perception", String(st.passivePerception), whyOf(st, "passive:perception")),
   hp: (ctl, st) => hpBlock(ctl, st),
   "hp-controls": ctl => hpControls(ctl),
+  rations: ctl => rationsFeature(ctl),
   coins: ctl => card("Coins", coinsRow(ctl)),
   "hit-dice": (ctl, st) => card("Hit Dice", ...st.hitDice.map(d => h("div", { cls: "fe-kv" },
     h("span", { text: `${d.die} ${d.max - d.used} / ${d.max}` }), btn("Spend 1", () => ctl.spendHitDie(d.die))))),

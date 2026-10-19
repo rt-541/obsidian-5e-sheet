@@ -15,6 +15,7 @@ import { formulaVars, type FeatureRow } from "../core/progression";
 import type { RollMode, RollResult, RollTarget, Rng } from "../core/types";
 import { activeRests, MODULES } from "../rules";
 import { blankItemSearch, type ItemSearch } from "./additem-ui";
+import { findRations, foodDays } from "../rules/hexploration";
 import { resolveRules, resolveSections, spendHitDie, type RestCtx, type RestOptions } from "../rules/module";
 
 /** What the Obsidian layer (or a test) provides to a sheet. */
@@ -165,6 +166,33 @@ export class SheetController {
     return true;
   }
 
+  // ---- Hexploration: rations and foraging
+
+  /** Put `n` more rations in the pack: onto the existing stack, else a new entry (the compendium rations, or a custom "Rations (1 day)"). */
+  addRations(n: number): boolean {
+    const c = this.character; if (!c || n < 1) return false;
+    const i = findRations(c, this.host.registry);
+    if (i >= 0) return this.dispatch({ type: "itemQty", index: i, qty: c.inventory[i].qty + n }).ok;
+    if (this.host.registry.get("item", "rations")) {
+      if (!this.dispatch({ type: "addItem", id: "rations" }).ok) return false;
+      return n === 1 || this.dispatch({ type: "itemQty", index: this.character!.inventory.length - 1, qty: n }).ok;
+    }
+    return this.dispatch({ type: "addCustomItem", name: "Rations (1 day)", qty: n, weight: 2, consumable: true }).ok;
+  }
+  /** Forage for food: a Wisdom (Survival) check. A quick forage takes half the time and has disadvantage. Says in words what was found. */
+  forage(quick: boolean, ev: Mods = {}): void {
+    const c = this.character, st = this.stats(); if (!c || !st || !this.guard()) return;
+    const sk = st.skills.find(k => k.id === "survival");
+    const r = this.roll(quick ? "Quick forage (Wisdom, Survival)" : "Forage (Wisdom, Survival)", sk?.mod ?? st.mods.wis, { kind: "skill", abil: "wis", skill: "survival" }, ev, undefined, quick ? "dis" : undefined);
+    const total = typeof r.total === "number" ? r.total : 0, days = foodDays(total);
+    if (!days) { this.host.notify(`Found nothing to eat (rolled ${r.total}, needed 10).`); return; }
+    const tonight = (c.rest.foraged ?? 0) === 0, extra = tonight ? days - 1 : days, dayWord = `${days} day${days === 1 ? "" : "s"}`;
+    if (tonight) { const v = structuredClone(this.character!); v.rest.foraged = 1; this.commit(v); }
+    if (extra > 0) this.addRations(extra);
+    const what = [tonight ? "tonight's meal" : "", extra ? `${extra} ration${extra === 1 ? "" : "s"} into your pack` : ""].filter(Boolean).join(" plus ");
+    this.host.notify(`Found food for ${dayWord}: ${what}`);
+  }
+
   toggleItemMenu(index: number) { this.itemMenu = this.itemMenu === index ? null : index; this.confirmRemove = false; this.emit(); }
   askRemove(on: boolean) { this.confirmRemove = on; this.emit(); }
   /** Remove the entry (after the Yes tap); its pin goes with it. */
@@ -270,10 +298,12 @@ export class SheetController {
     this.lastRoll = r; this.host.log.unshift(r); if (this.host.log.length > LOG_MAX) this.host.log.length = LOG_MAX; this.emit(); return r;
   }
   /** d20 roll for the sheet's actor or companion `who`. Shift = adv, Ctrl/Cmd = dis, else the one-shot mode switch. */
-  roll(title: string, mod: number, target: RollTarget, ev: Mods = {}, who?: number): RollResult {
+  roll(title: string, mod: number, target: RollTarget, ev: Mods = {}, who?: number, force?: RollMode): RollResult {
     const st = who === undefined ? this.stats() : this.companionStats()[who];
     const src = st ? rollSources(st.effects, target) : { adv: [], dis: [], fail: [] };
-    const mode: RollMode = ev.shiftKey ? "adv" : (ev.ctrlKey || ev.metaKey) ? "dis" : this.mode;
+    const chosen: RollMode = ev.shiftKey ? "adv" : (ev.ctrlKey || ev.metaKey) ? "dis" : this.mode;
+    // `force` is a mode the action itself imposes (a hurried forage): it cancels the opposite mode the player picked
+    const mode: RollMode = force === undefined ? chosen : force === chosen || chosen === "normal" ? force : "normal";
     this.mode = "normal";
     const crit = st && target.kind === "attack" ? critInfo(st.effects, target) : undefined;
     // Reliable Talent, Halfling Lucky and the like: a minimum for the die, or a reroll of low dice.
@@ -298,11 +328,21 @@ export class SheetController {
   close() { this.panel = null; this.emit(); }
 
   restCtx(): RestCtx { return { c: this.character!, stats: this.stats()!, registry: this.host.registry, rules: this.rules() }; }
-  restPreview(id: string) { const r = activeRests(this.rules()).find(x => x.id === id); return r ? r.preview(this.restCtx(), this.restOpts) : []; }
+  /** Lines optional rules add to a rest (Hexploration: the night's meal). `c` is changed; pass a copy for a preview. */
+  private restHooks(id: string, ctx: RestCtx, c: Character): string[] {
+    const rules = this.rules();
+    return MODULES.filter(m => rules[m.id] && m.onRest).flatMap(m => m.onRest!(id, ctx, c));
+  }
+  restPreview(id: string) {
+    const r = activeRests(this.rules()).find(x => x.id === id); if (!r) return [];
+    const ctx = this.restCtx();
+    return [...r.preview(ctx, this.restOpts), ...this.restHooks(id, ctx, structuredClone(ctx.c))];
+  }
   rest(id: string) {
     if (!this.guard() || !this.character) return;
     const r = activeRests(this.rules()).find(x => x.id === id); if (!r) return;
-    const out = r.apply(this.restCtx(), this.restOpts);
+    const ctx = this.restCtx(), out = r.apply(ctx, this.restOpts);
+    out.summary.push(...this.restHooks(id, ctx, out.value));
     this.panel = null; this.commit(out.value);
     this.record({ title: r.label, total: 0, dice: [], detail: out.summary.join(" · "), crit: false, fumble: false, sources: { adv: [], dis: [], fail: [] } });
   }

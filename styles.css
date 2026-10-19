@@ -255,6 +255,7 @@
 .fe-coin input { width: 100%; text-align: center; }
 .fe-mobile .fe-coin input, .fe-tablet .fe-coin input { min-height: 44px; }
 .fe-mobile .fe-coins { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.fe-stack { display: grid; gap: 6px; margin-top: 6px; }
 /* inventory quantity stepper */
 .fe-qty { display: inline-flex; align-items: center; gap: 4px; }
 .fe-qty-n { min-width: 2ch; text-align: center; font-variant-numeric: tabular-nums; font-weight: var(--font-semibold); }
