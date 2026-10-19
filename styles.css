@@ -232,3 +232,10 @@
 /* a used-up item stays listed, greyed out (its buttons still work: restock, recharge, unpin, remove) */
 .fe-inv.is-used-up, .fe-pinned-item.is-used-up { opacity: .55; }
 .fe-inv.is-used-up .fe-inv-name, .fe-pinned-item.is-used-up .fe-inv-name { color: var(--text-faint); }
+
+/* Damage is red; the damage type sits on its own labelled row with a hint under it */
+.fe-sheet button.fe-dmg { background: var(--color-red); color: var(--text-on-accent); }
+.fe-sheet button.fe-dmg:hover { filter: brightness(1.1); }
+.fe-dtype { grid-column: 1 / -1; display: flex; align-items: center; gap: 6px; }
+.fe-dtype select { flex: 1 1 auto; min-width: 0; }
+.fe-dtype-hint { grid-column: 1 / -1; margin-top: -2px; }

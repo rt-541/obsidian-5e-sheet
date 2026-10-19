@@ -26,11 +26,17 @@ function setup(note: object, mobile: boolean, rng: () => number = landing(10)) {
 const fresh = { ...thalia, conditions: {} };
 
 for (const mobile of [false, true]) describe(`damage controls (${mobile ? "mobile" : "desktop"})`, () => {
-  it("offer an optional damage type in plain words", () => {
+  it("label the damage type 'Damage type: Any' with a hint to match it to the damage taken, and make Damage red", () => {
     const s = setup(fresh, mobile);
     const sel = s.q('[data-feature="hp-controls"] select') as HTMLSelectElement;
-    expect(sel.getAttribute("aria-label")).toBe("Damage type (optional)");
-    expect([...sel.options].map(o => o.textContent).slice(0, 3)).toEqual(["Any type", "Acid", "Bludgeoning"]);
+    expect(sel.getAttribute("aria-label")).toBe("Damage type");
+    expect([...sel.options].map(o => o.textContent).slice(0, 3)).toEqual(["Any", "Acid", "Bludgeoning"]);
+    const row = s.q('[data-feature="hp-controls"] .fe-dtype');
+    expect(row.textContent).toContain("Damage type:");
+    expect(row.contains(sel)).toBe(true);
+    expect(s.q('[data-feature="hp-controls"] .fe-dtype-hint').textContent).toBe("Change this damage type to match the damage taken.");
+    const dmg = s.q('[data-feature="hp-controls"] button.fe-dmg');
+    expect(dmg.textContent).toBe("Damage");
   });
   it("a typed hit is adjusted for resistance and the player is told why", () => {
     const s = setup({ ...fresh, inventory: [{ id: "fire-ward", equipped: true }] }, mobile);

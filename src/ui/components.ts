@@ -39,11 +39,13 @@ function hpControls(ctl: SheetController, who?: number) {
   const amt = h("input", { cls: "fe-amt", attrs: { type: "number", min: "1", value: String(ctl.amount), "aria-label": "Amount" },
     on: { input: (e: Event) => { ctl.amount = Math.max(1, +(e.target as HTMLInputElement).value || 1); } } });
   const act = (type: "damage" | "heal" | "temp") => () => ctl.dispatch({ type, amount: ctl.amount, ...(type === "damage" && ctl.damageType ? { damageType: ctl.damageType } : {}), ...(who !== undefined ? { who: { companion: who } } : {}) });
-  const kind = h("select", { cls: "fe-damage-type", attrs: { "aria-label": "Damage type (optional)", title: "Damage type (optional): resistance, immunity and vulnerability change the damage" },
+  const kind = h("select", { cls: "fe-damage-type", attrs: { "aria-label": "Damage type", title: "Resistance, immunity and vulnerability change the damage when the type matches" },
     on: { change: (e: Event) => { ctl.damageType = (e.target as HTMLSelectElement).value; } } },
-    h("option", { text: "Any type", attrs: { value: "" } }),
+    h("option", { text: "Any", attrs: { value: "" } }),
     ...DAMAGE_TYPES.map(t => h("option", { text: titleCase(t), attrs: { value: t, ...(ctl.damageType === t ? { selected: "" } : {}) } })));
-  return h("div", { cls: "fe-hpctl" }, amt, btn("Damage", act("damage")), btn("Heal", act("heal"), "mod-cta"), btn("Temp HP", act("temp")), kind);
+  return h("div", { cls: "fe-hpctl" }, amt, btn("Damage", act("damage"), "fe-dmg"), btn("Heal", act("heal"), "mod-cta"), btn("Temp HP", act("temp")),
+    h("label", { cls: "fe-dtype" }, h("span", { text: "Damage type:" }), kind),
+    h("div", { cls: "fe-faint fe-dtype-hint", text: "Change this damage type to match the damage taken." }));
 }
 function conditionChips(ctl: SheetController, conds: Record<string, number>, who?: number) {
   const r = ctl.host.registry;

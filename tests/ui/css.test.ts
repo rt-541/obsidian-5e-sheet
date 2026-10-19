@@ -31,6 +31,12 @@ describe("desktop checks column", () => {
   });
 });
 
+describe("damage button", () => {
+  it("is red", () => {
+    expect(css).toMatch(/\.fe-sheet button\.fe-dmg \{[^}]*background: var\(--color-red\)/);
+  });
+});
+
 describe("leveling styles", () => {
   it("the wizard keeps 44px targets on mobile", () => {
     expect(css).toMatch(/\.fe-mobile \.fe-lu-nav button\.fe-btn, \.fe-mobile \.fe-choice \{ min-height: 44px; \}/);
