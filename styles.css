@@ -239,3 +239,14 @@
 .fe-dtype { grid-column: 1 / -1; display: flex; align-items: center; gap: 6px; }
 .fe-dtype select { flex: 1 1 auto; min-width: 0; }
 .fe-dtype-hint { grid-column: 1 / -1; margin-top: -2px; }
+
+/* rest rules switch (Normal rests | Hexploration), next to the rest buttons */
+.fe-rests-wrap { display: grid; gap: 6px; }
+.fe-rest-mode { flex-wrap: wrap; }
+.fe-sheet button.fe-mode-opt { height: auto; min-height: 26px; line-height: 1.3; padding: 2px 8px; max-width: 100%; white-space: normal; border-radius: 0; }
+.fe-sheet button.fe-mode-opt:first-child { border-radius: var(--radius-s) 0 0 var(--radius-s); }
+.fe-sheet button.fe-mode-opt:last-child { border-radius: 0 var(--radius-s) var(--radius-s) 0; }
+.fe-sheet button.fe-mode-opt.is-on { background: var(--interactive-accent); color: var(--text-on-accent); }
+.fe-mobile button.fe-mode-opt, .fe-tablet button.fe-mode-opt { min-height: 44px; }
+.fe-hd-recharge { margin-top: 4px; }
+.fe-safe-haven { align-items: center; }

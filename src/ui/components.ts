@@ -198,7 +198,15 @@ export const RENDER: Record<string, Render> = {
       ...charged.filter(x => !items.some(p => p.index === x.i)).map(x => h("div", { cls: "fe-kv" }, h("span", { text: `${x.it!.name} charges` }), pips(x.it!.charges!.max, x.e.charges?.used ?? 0, n => ctl.dispatch({ type: "charges", index: x.i, used: n })))));
     if (!pinned.rows.length && !itemRows.length && !derived.length && !c.resources.length && !charged.length) el.hidden = true;
     return el; },
-  rests: ctl => h("div", { cls: "fe-rests" }, ...activeRests(ctl.rules()).map(r => btn(r.label, () => ctl.open({ kind: "rest", id: r.id })))),
+  rests: ctl => {
+    const ex = !!ctl.rules()["rest-excursion"];
+    // the same switch as Customize > Optional rules, kept next to the buttons it changes
+    const mode = (excursion: boolean, label: string) => h("button", { cls: `fe-mode-opt ${ex === excursion ? "is-on" : ""}`.trim(), text: label, data: { restMode: excursion ? "excursion" : "standard" },
+      attrs: { "aria-pressed": String(ex === excursion) }, on: { click: () => { if (ex !== excursion) ctl.setRule("rest-excursion", excursion); } } });
+    return h("div", { cls: "fe-rests-wrap" },
+      h("div", { cls: "fe-seg fe-rest-mode", attrs: { role: "group", "aria-label": "Rest rules" } }, mode(false, "Normal rests (short and long)"), mode(true, "Hexploration (night's rest)")),
+      h("div", { cls: "fe-rests" }, ...activeRests(ctl.rules()).map(r => btn(r.label, () => ctl.open({ kind: "rest", id: r.id })))));
+  },
   inventory: (ctl, st) => { const c = ctl.character!, r = ctl.host.registry;
     return card("Inventory", ...c.inventory.map((e, i) => {
       const s = itemState(ctl, i), it = s.it, name = s.name;
