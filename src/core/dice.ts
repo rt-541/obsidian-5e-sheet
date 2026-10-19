@@ -57,6 +57,13 @@ export function rollDice(title: string, expr: string, rng: Rng = Math.random): R
   return { title, total, dice, detail: parts.join("  "), crit: false, fumble: false, sources: { adv: [], dis: [], fail: [] } };
 }
 
+/** Roll `expr` twice and keep the higher total. */
+export function rollKeepHigher(title: string, expr: string, rng: Rng = Math.random): RollResult {
+  const a = rollDice(title, expr, rng), b = rollDice(title, expr, rng);
+  const hi = (b.total as number) > (a.total as number) ? b : a, max = hi.total as number;
+  return { ...hi, title, dice: [...a.dice, ...b.dice], detail: `rolled twice: ${a.total} and ${b.total}, kept ${max} (${a.detail} / ${b.detail})` };
+}
+
 /** Dice with optional {scale} placeholders: valid when it parses with each placeholder as a count or as a die. */
 export function checkDice(v: unknown): boolean {
   if (typeof v !== "string" || !v.trim()) return false;

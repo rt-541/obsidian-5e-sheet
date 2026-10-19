@@ -1,4 +1,5 @@
-import { rollD20, rollDice, parseDice, seeded } from "../../src/core/dice";
+import { rollD20, rollDice, rollKeepHigher, parseDice, seeded } from "../../src/core/dice";
+import { seq } from "../fixtures/attack-options";
 
 const fixed = (...vals: number[]) => { let i = 0; return () => (vals[i++ % vals.length] - 1) / 20 + 0.0001; }; // d20 faces
 
@@ -51,5 +52,10 @@ describe("rollDice", () => {
   });
   it("seeded is deterministic", () => {
     expect(rollDice("a", "4d6", seeded(7)).dice).toEqual(rollDice("a", "4d6", seeded(7)).dice);
+  });
+  it("rollKeepHigher rolls twice and keeps the higher total", () => {
+    const k = rollKeepHigher("x", "1d8+3 slashing", seq(0.125, 0.75));
+    expect(k.total).toBe(10); expect(k.dice).toEqual([2, 7]);
+    expect(k.detail.startsWith("rolled twice: 5 and 10, kept 10")).toBe(true);
   });
 });

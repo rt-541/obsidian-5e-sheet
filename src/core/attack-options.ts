@@ -3,6 +3,8 @@ import type { AttackOptionDef, ItemData } from "../content/types";
 import type { Character, InventoryEntry } from "./character";
 import type { ResourceRow } from "./derive";
 import { itemWorks, type SourcedEffects } from "./effects";
+import { matchesTag } from "./roll-tags";
+import type { RollTarget } from "./types";
 import { extraDice } from "./attack-rows";
 import { fillDice } from "./formula";
 import type { DeclaredAttackOption } from "./progression";
@@ -17,7 +19,35 @@ export interface AttackOptionRow {
   /** Extra rows: the dice and type added, e.g. "1d6 fire"; perTurn from per: "turn". */ adds?: string; perTurn?: boolean;
 }
 
-/** The resource a name points at: the same match the switch cost uses (derived by id, manual by name). */
+const live = (rows: AttackOptionRow[], t: RollTarget) => rows.filter(o => o.kind === "declared" && o.on && !o.problem && matchesTag(o.tag, t));
+
+/** Declared options that are on and apply to this roll's to-hit. */
+export const toHitOptions = (rows: AttackOptionRow[], t: RollTarget): AttackOptionRow[] => live(rows, t).filter(o => o.toHit);
+
+/** Declared options that are on and apply once the roll hits (extra dice or a reroll). */
+export const onHitOptions = (rows: AttackOptionRow[], t: RollTarget): AttackOptionRow[] => live(rows, t).filter(o => o.onHit || o.reroll);
+
+/** Keep options in order while their resource has dice left this roll (unlimited or none: always). */
+export function affordable(opts: AttackOptionRow[]): AttackOptionRow[] {
+  const spent: Record<string, number> = {};
+  return opts.filter(o => {
+    const r = o.resource;
+    if (!r || r.unlimited) return true;
+    if ((spent[r.id] ?? 0) >= r.left) return false;
+    spent[r.id] = (spent[r.id] ?? 0) + 1;
+    return true;
+  });
+}
+
+/** "1 Focus Dice spent, 2 of 3 left" for an option that spends; undefined otherwise. Counts earlier options in `opts` on the same resource. */
+export function spendWords(opts: AttackOptionRow[], index: number): string | undefined {
+  const r = opts[index]?.resource;
+  if (!r || r.unlimited) return undefined;
+  const used = opts.slice(0, index + 1).filter(o => o.resource?.id === r.id).length;
+  return `1 ${r.name} spent, ${Math.max(0, r.left - used)} of ${r.max} left`;
+}
+
+/** The resource a name points at:the same match the switch cost uses (derived by id, manual by name). */
 export const resourceByName = (rows: ResourceRow[], name: string): ResourceRow | undefined =>
   rows.find(x => x.id === slug(name) || (!x.derived && slug(x.name) === slug(name)));
 

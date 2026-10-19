@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { parseNote, writeInto } from "../../src/core/character";
 import { optChar, optionsRegistry } from "../fixtures/attack-options";
+import type { RollTarget } from "../../src/core/types";
+import { affordable, onHitOptions, spendWords, toHitOptions } from "../../src/core/attack-options";
 import { derive, makeChar, tester } from "../fixtures/mechanics";
 
 describe("declared attack options", () => {
@@ -65,5 +67,20 @@ describe("extra damage switches", () => {
     const off = derive(optChar({ feats: ["test-ember"], optionsOff: ["extra:test-ember"] }), r);
     expect(off.attackOptions[0].on).toBe(false);
     expect(off.attacks.find(a => a.name === "Longsword")!.damage).not.toContain("fire");
+  });
+});
+
+describe("which attack options a roll can use", () => {
+  const r = optionsRegistry();
+  const rows = derive(optChar({ feats: ["test-focus", "test-analysis", "test-steady"], optionsOn: ["test-focus", "test-analysis", "test-steady"], uses: { "focus-dice": 2 } }), r).attackOptions;
+  const melee: RollTarget = { kind: "attack", range: "melee", tags: ["longsword"] }, spell: RollTarget = { kind: "attack" };
+  it("picks the to-hit and on-hit options that match", () => {
+    expect(toHitOptions(rows, melee).map(o => o.id)).toEqual(["test-focus", "test-steady"]);
+    expect(onHitOptions(rows, spell).map(o => o.id)).toEqual([]);
+    expect(onHitOptions(rows, melee).map(o => o.id)).toEqual(["test-analysis"]);
+  });
+  it("keeps options only while dice are left, and words the spend", () => {
+    expect(affordable(toHitOptions(rows, melee)).map(o => o.id)).toEqual(["test-focus"]);
+    expect(spendWords(toHitOptions(rows, melee), 0)).toBe("1 Focus Dice spent, 0 of 3 left");
   });
 });
