@@ -124,6 +124,9 @@ function maxSpellLevel(env: Env, key: string): number {
 /** The languages offered when a language choice names no list of its own. */
 export const LANGUAGE_CHOICES = ["Common", "Dwarvish", "Elvish", "Giant", "Gnomish", "Goblin", "Halfling", "Orc", "Abyssal", "Celestial", "Draconic", "Deep Speech", "Infernal", "Primordial", "Sylvan", "Undercommon"];
 
+/** A language compared the way mergeLanguages does: case-insensitive, spaces as hyphens ("Deep Speech" and "deep-speech" are one language). */
+const langKey = (l: string): string => l.trim().toLowerCase().replace(/\s+/g, "-");
+
 function stepOf(p: PendingChoice, env: Env, maxScores: () => Record<Abil, number>): Step | undefined {
   const { op, key } = p, base = { key, label: p.label, source: p.source };
   const c = env.cand, prog = env.prog;
@@ -150,8 +153,8 @@ function stepOf(p: PendingChoice, env: Env, maxScores: () => Record<Abil, number
         const from = op.from ?? (op.what === "skills" || op.what === "expertise" ? Object.keys(SKILLS) : op.what === "languages" ? LANGUAGE_CHOICES.map(l => l.toLowerCase().replace(/ /g, "-")) : undefined);
         free = op.from === undefined && op.what !== "skills" && op.what !== "expertise";
         const have = op.what === "skills" ? new Set([...c.proficiencies.skills, ...prog.proficiencies.skills]) : op.what === "expertise" ? new Set([...c.proficiencies.expertise, ...prog.proficiencies.expertise])
-          : op.what === "languages" ? new Set(prog.languages) : new Set(prog.proficiencies.other);
-        options = (from ?? []).map(id => ({ id, name: titleCase(id), ...(have.has(id) && env.mode.kind !== "resolve" ? { disabled: op.what === "skills" ? "Already proficient" : "Already have" } : {}) }));
+          : op.what === "languages" ? new Set([...prog.languages, ...c.languages].map(langKey)) : new Set(prog.proficiencies.other);
+        options = (from ?? []).map(id => ({ id, name: titleCase(id), ...((op.what === "languages" ? have.has(langKey(id)) : have.has(id)) && env.mode.kind !== "resolve" ? { disabled: op.what === "skills" ? "Already proficient" : "Already have" } : {}) }));
       }
       return { kind: "pick", ...base, what: op.what, count: op.count, ...(op.list !== undefined ? { list: op.list } : {}), options, free };
     }
@@ -297,11 +300,11 @@ function checkStep(s: Exclude<Step, { kind: "hp" }>, v: unknown, env: Env, taken
         if (s.free && !id.trim()) return { error: `${label}: a pick is empty` };
         if (o?.disabled) return { error: `${label}: ${o.name} is not available (${o.disabled.toLowerCase()})` };
         const set = s.what === "skills" ? taken.skills : s.what === "expertise" ? taken.expertise : s.what === "languages" ? taken.languages : s.what === "tools" ? taken.tools : undefined;
-        if (env.mode.kind === "resolve" ? taken.picked.has(`${s.what}:${id}`) : set?.has(id)) return { error: `${label}: ${optionName(s, id)} is already chosen` };
+        if (env.mode.kind === "resolve" ? taken.picked.has(`${s.what}:${id}`) : set?.has(s.what === "languages" ? langKey(id) : id)) return { error: `${label}: ${optionName(s, id)} is already chosen` };
       }
       v.forEach(x => taken.picked.add(`${s.what}:${x}`));
       if (s.what === "skills") v.forEach(x => taken.skills.add(x)); else if (s.what === "expertise") v.forEach(x => taken.expertise.add(x));
-      else if (s.what === "languages") v.forEach(x => taken.languages.add(x)); else if (s.what === "tools") v.forEach(x => taken.tools.add(x));
+      else if (s.what === "languages") v.forEach(x => taken.languages.add(langKey(x))); else if (s.what === "tools") v.forEach(x => taken.tools.add(x));
       return { ok: v };
     }
     case "spells": {
@@ -337,7 +340,7 @@ function checkSwaps(s: Extract<Step, { kind: "spells" }>, v: unknown, env: Env):
 /** Validate every step's answer and write the effects of the answers into `value`; returns what to record in the log. */
 function commitSteps(steps: Step[], choices: Record<string, unknown>, env: Env, value: Character, c: Character): { record: Record<string, unknown>; summary: string[] } | { error: string } {
   const taken: Taken = { skills: new Set([...c.proficiencies.skills, ...env.prog.proficiencies.skills]), expertise: new Set([...c.proficiencies.expertise, ...env.prog.proficiencies.expertise]),
-    languages: new Set(env.prog.languages), tools: new Set(env.prog.proficiencies.other), picked: new Set() };
+    languages: new Set(env.prog.languages.map(langKey)), tools: new Set(env.prog.proficiencies.other), picked: new Set() };
   const asked = steps.filter((s): s is Exclude<Step, { kind: "hp" }> => s.kind !== "hp");
   // expertise may use skills picked in the same level, so skills are checked first
   const order = [...asked.filter(s => !(s.kind === "pick" && s.what === "expertise")), ...asked.filter(s => s.kind === "pick" && s.what === "expertise")];

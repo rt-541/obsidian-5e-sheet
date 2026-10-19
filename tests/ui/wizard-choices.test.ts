@@ -12,6 +12,7 @@ import { homebrewRegistry } from "../fixtures/homebrew";
 
 const reg = homebrewRegistry([
   { type: "5e-feat", name: "Free Tongue", grants: [{ op: "choose", what: "languages", count: 1 }] },
+  { type: "5e-race", name: "Marsh Heron", grants: [{ op: "grant", languages: ["Deep Speech"] }] },
   { type: "5e-race", name: "Hill Wren", grants: [{ op: "grant", speed: 30, darkvision: 60 }], ability: { con: 2 } },
 ]);
 const abil = { str: 10, dex: 10, con: 14, int: 10, wis: 12, cha: 8 };
@@ -93,5 +94,20 @@ describe("wizard choices a new player can read", () => {
     const other = root.querySelector('input[type=text][data-act=other-language]') as HTMLInputElement;
     other.value = "Thieves Cant"; other.dispatchEvent(new Event("change", { bubbles: true }));
     expect(choices[step.key]).toEqual(["Thieves Cant"]);
+  });
+
+  it("languages already known, however written, are disabled in a language pick", () => {
+    let c: Character = { ...newCharacter("Newbie"), abilities: abil, race: "marsh-heron", languages: ["ELVISH", "Thieves Cant"] };
+    for (const choices of [{ "class:skirmisher:1:skills": ["acrobatics", "athletics"], "class:skirmisher:1:stance": ["duelist"] }, { "class:skirmisher:2:choose-2": ["stealth"] }, { "class:skirmisher:3:subclass-0": "scholar" }]) {
+      const r = applyLevel(c, { class: "skirmisher" }, { hp: { method: "average" }, choices }, reg); if ("error" in r) throw new Error(r.error); c = r.value;
+    }
+    const plan = planLevel(c, "skirmisher", reg, { "class:skirmisher:4:asi-0": { feat: "free-tongue" } });
+    if ("error" in plan) throw new Error(plan.error);
+    const step = plan.steps.find(x => x.kind === "pick" && x.what === "languages");
+    if (!step || step.kind !== "pick") throw new Error("no language step");
+    const dis = (id: string) => step.options.find(o => o.id === id)?.disabled;
+    expect(dis("deep-speech")).toBe("Already have");
+    expect(dis("elvish")).toBe("Already have");
+    expect(dis("dwarvish")).toBeUndefined();
   });
 });
