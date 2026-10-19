@@ -114,10 +114,20 @@ export function slotRows(ctl: SheetController, st: ActorStats): HTMLElement[] {
     h("span", { cls: "fe-res-ctl" }, pips(s.max, s.used, n => ctl.dispatch({ type: "slot", level: s.level, used: n })))));
 }
 
+/** True when the character has spellcasting, any spell of their own, or a spell from an equipped item. */
+export function castsSpells(ctl: SheetController, st: ActorStats): boolean {
+  if (st.spellcasting) return true;
+  const rows = spellRows(ctl.character!, st, ctl.ctx());
+  return rows.own.length > 0 || rows.fromItems.length > 0;
+}
+
 export function spellsFeature(ctl: SheetController, st: ActorStats): HTMLElement {
   const c = ctl.character!, rows = spellRows(c, st, ctl.ctx());
-  const head = h("div", {}, h("div", { cls: "fe-kv" }, h("span", { text: st.spellcasting ? `Spell DC ${st.spellcasting.dc} · attack ${sgn(st.spellcasting.attack)} · ${ABIL[st.spellcasting.abil]}` : "No spellcasting" })),
-    ...slotRows(ctl, st));
+  const casts = castsSpells(ctl, st);
+  const head = h("div", {}, casts
+    ? h("div", { cls: "fe-kv" }, h("span", { text: st.spellcasting ? `Spell DC ${st.spellcasting.dc} · attack ${sgn(st.spellcasting.attack)} · ${ABIL[st.spellcasting.abil]}` : "No spell save DC" }))
+    : h("div", { cls: "fe-faint", data: { noSpells: "" }, text: `${c.name} does not cast spells. Spells from items or feats will show here.` }),
+    ...(casts ? slotRows(ctl, st) : []));
   const byLevel = new Map<number, { r: SpellRow; i: number }[]>();
   rows.own.forEach((r, i) => { const l = r.known ? r.level : 0; byLevel.set(l, [...(byLevel.get(l) ?? []), { r, i }]); });
   const own = [...byLevel.keys()].sort((a, b) => a - b).map(l => h("div", { cls: "fe-spell-group", data: { level: String(l) } },

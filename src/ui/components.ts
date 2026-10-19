@@ -17,7 +17,7 @@ import { togglesFeature } from "./toggles-ui";
 import { coinsRow } from "./coins-ui";
 import { rationsFeature } from "./rations-ui";
 import { inventoryFeature, itemRef, itemState } from "./inventory-ui";
-import { concentrationFeature, pinnedSpellsFeature, slotRows, spellsFeature } from "./spells-ui";
+import { castsSpells, concentrationFeature, pinnedSpellsFeature, slotRows, spellsFeature } from "./spells-ui";
 
 export { describeEffects, pips };
 export type Render = (ctl: SheetController, st: ActorStats) => HTMLElement;
@@ -133,6 +133,9 @@ function identityParts(ctl: SheetController): HTMLElement {
   return h("span", { cls: "fe-muted fe-identity-label" }, ...out);
 }
 
+/** Keeps the element present (layouts count it) but hidden unless `show`. */
+function hideUnless(show: boolean, el: HTMLElement): HTMLElement { if (!show) el.hidden = true; return el; }
+
 export const RENDER: Record<string, Render> = {
   identity: (ctl, st) => h("div", { cls: "fe-identity" }, h("span", { cls: "fe-name", text: st.name }),
     ctl.character && st.kind === "character" ? identityParts(ctl) : h("span", { cls: "fe-muted", text: st.label })),
@@ -163,7 +166,7 @@ export const RENDER: Record<string, Render> = {
   concentration: ctl => concentrationFeature(ctl),
   toggles: (ctl, st) => togglesFeature(ctl, st),
   spells: (ctl, st) => spellsFeature(ctl, st),
-  "pinned-spells": (ctl, st) => pinnedSpellsFeature(ctl, st),
+  "pinned-spells": (ctl, st) => hideUnless(castsSpells(ctl, st), pinnedSpellsFeature(ctl, st)),
   combos: (ctl, st) => combosFeature(ctl, st),
   "pinned-combos": (ctl, st) => pinnedCombosFeature(ctl, st),
   "active-effects": (ctl, st) => activeEffectsFeature(ctl, st),
@@ -171,10 +174,10 @@ export const RENDER: Record<string, Render> = {
   saves: (ctl, st) => card("Saving throws", checks(ctl, st).saves),
   skills: (ctl, st) => card("Skills", checks(ctl, st).skills),
   attacks: (ctl, st) => card("Attacks", attacksList(ctl, st)),
-  "spell-dc": (ctl, st) => h("div", { cls: "fe-kv" }, st.spellcasting
+  "spell-dc": (ctl, st) => hideUnless(castsSpells(ctl, st), card("Spellcasting", h("div", { cls: "fe-kv" }, st.spellcasting
     ? h("span", {}, h("span", { text: `Spell save DC ${st.spellcasting.dc}`, ...whyData(whyOf(st, "spell-dc")) }), " · ", h("span", { text: `spell attack ${sgn(st.spellcasting.attack)}`, ...whyData(whyOf(st, "spell-attack")) }))
-    : "No spellcasting"),
-  "spell-slots": (ctl, st) => card("Spell slots", ...slotRows(ctl, st)),
+    : "No spell save DC"))),
+  "spell-slots": (ctl, st) => hideUnless(castsSpells(ctl, st), card("Spell slots", ...slotRows(ctl, st))),
   resources: (ctl, st) => { const c = ctl.character!, r = ctl.host.registry;
     const charged = c.inventory.map((e, i) => ({ e, i, it: e.id ? r.get<ItemData>("item", e.id)?.data : undefined })).filter(x => x.it?.charges && (!x.it.attunement || x.e.attuned));
     const pinned = pinnedTraits(ctl, st), derived = st.resources.filter(x => x.derived && !pinned.covered.has(x.id));

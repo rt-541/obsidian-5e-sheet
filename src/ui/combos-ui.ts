@@ -95,7 +95,7 @@ export function combosFeature(ctl: SheetController, st: ActorStats): HTMLElement
 /** The combos pinned to the main page; hidden while the character has none. */
 export function pinnedCombosFeature(ctl: SheetController, st: ActorStats): HTMLElement {
   const views = comboViews(ctl.character!, st, ctl.companionStats(), ctl.ctx()), pinned = views.filter(v => v.combo.pinned);
-  const el = h("div", { cls: "fe-combos fe-combos-pinned" }, h("div", { cls: "fe-card-title", text: "Combos" }),
+  const el = h("div", { cls: "fe-card fe-combos fe-combos-pinned" }, h("div", { cls: "fe-card-title", text: "Combos" }),
     ...(pinned.length ? pinned.map(v => comboCard(ctl, st, v, true)) : [h("div", { cls: "fe-faint", text: "Pin a combo on the Combos tab to show it here." })]));
   if (!views.length) el.hidden = true;
   return el;

@@ -25,6 +25,7 @@
 .fe-desktop .fe-pane { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); align-items: start; }
 .fe-col { display: grid; gap: var(--fe-gap); align-content: start; }
 .fe-card { background: var(--background-secondary); border: 1px solid var(--background-modifier-border); border-radius: var(--radius-m); padding: 8px 10px; }
+.fe-card-title:not(:first-child) { margin-top: 10px; }
 .fe-card-title { font-size: var(--font-ui-smaller); text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); margin-bottom: 6px; }
 .fe-kv { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 3px 0; flex-wrap: wrap; }
 .fe-stat { text-align: center; min-width: 56px; } .fe-stat-v { font-size: var(--font-ui-large); font-weight: var(--font-bold); } .fe-stat-l { font-size: var(--font-ui-smaller); color: var(--text-muted); text-transform: uppercase; }
