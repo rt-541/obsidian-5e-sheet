@@ -239,3 +239,8 @@
 .fe-dtype { grid-column: 1 / -1; display: flex; align-items: center; gap: 6px; }
 .fe-dtype select { flex: 1 1 auto; min-width: 0; }
 .fe-dtype-hint { grid-column: 1 / -1; margin-top: -2px; }
+.fe-badges { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 2px; }
+.fe-badge { font-size: var(--font-ui-smaller); padding: 0 6px; border-radius: var(--radius-s); border: 1px solid var(--background-modifier-border); color: var(--text-muted); }
+.fe-badge.is-mine { border-color: var(--interactive-accent); color: var(--text-normal); }
+.fe-spell-add { width: 100%; margin-bottom: 8px; }
+.fe-mobile .fe-spell-add, .fe-tablet .fe-spell-add { min-height: 44px; }
