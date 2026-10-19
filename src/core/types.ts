@@ -79,4 +79,6 @@ export type RollMode = "normal" | "adv" | "dis";
 export interface RollResult {
   title: string; total: number | "fail"; natural?: number; dice: number[]; detail: string;
   crit: boolean; fumble: boolean; sources: { adv: string[]; dis: string[]; fail: string[] };
+  /** Own-dice play: what the player rolled and typed in, instead of the app rolling. */
+  own?: { total?: number };
 }
