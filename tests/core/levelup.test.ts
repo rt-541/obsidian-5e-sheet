@@ -190,7 +190,7 @@ describe("applyLevel: answers are validated and nothing half-applies", () => {
   });
   it("a feat's own choice must be answered", () => {
     const at3 = upTo(3);
-    expect(err(run(at3, "skirmisher", { "class:skirmisher:4:asi-0": { feat: "linguist" } }))).toMatch(/Choose 1 languages still needs an answer/);
+    expect(err(run(at3, "skirmisher", { "class:skirmisher:4:asi-0": { feat: "linguist" } }))).toMatch(/Choose 1 language still needs an answer/);
     expect(err(run(at3, "skirmisher", { "class:skirmisher:4:asi-0": { feat: "linguist" }, "feat:linguist:choose-1": ["klingon"] }))).toMatch(/not one of the choices/);
   });
   it("spells: right number of cantrips and spells, on the list, not known, not above the slots", () => {
@@ -244,7 +244,7 @@ describe("applying a whole career", () => {
     expect(c.value.classes[0]).toMatchObject({ subclass: "pact-mind", level: 3 });
     expect(c.entry.choices).toMatchObject({ "subclass:pact-mind:3:boon": ["tome"], "+subclass": "pact-mind" });
     expect(c.summary).toEqual(expect.arrayContaining(["Subclass: Pact Mind", "Boons: Tome"]));
-    expect(err(applyLevel(upTo(2), { class: "skirmisher" }, { hp: avg, choices: { "class:skirmisher:3:subclass-0": "pact-mind" } }, reg))).toMatch(/Choose 1 \(boons\) still needs an answer/);
+    expect(err(applyLevel(upTo(2), { class: "skirmisher" }, { hp: avg, choices: { "class:skirmisher:3:subclass-0": "pact-mind" } }, reg))).toMatch(/Choose a boon still needs an answer/);
   });
   it("the summary says what happened", () => {
     const r = lvl(upTo(4), "skirmisher", L5);

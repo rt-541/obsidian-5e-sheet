@@ -6,7 +6,8 @@ export const card = (title: string, ...kids: (Node | null | false)[]) => h("div"
 export const btn = (text: string, onClick: (e: MouseEvent) => void, cls = "") => h("button", { cls: `fe-btn ${cls}`.trim(), text, on: { click: onClick } });
 /** A source badge (`WotC · PHB`, `Roll20`, `Homebrew`, `WotC (SRD)`): user sources are accented, WotC content is neutral. */
 export const sourceBadge = (label: string, extra = "") => h("span", { cls: `fe-src ${label.startsWith("WotC") ? "" : "is-hb"} ${extra}`.replace(/\s+/g, " ").trim(), text: label, data: { source: label } });
-export const titleCase = (s: string) => s.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+import { titleCase } from "../core/words";
+export { titleCase };
 
 const TARGET_WORDS: Record<string, string> = { ac: "AC", speed: "Speed", hpMax: "Max HP", carry: "Carrying capacity", save: "Saving throws", attack: "Attack rolls", damage: "Damage",
   spellDC: "Spell save DC", spellAttack: "Spell attack", check: "Ability checks", initiative: "Initiative", passive: "Passive score" };

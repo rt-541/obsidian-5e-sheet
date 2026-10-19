@@ -7,6 +7,7 @@ import { abilityMod, profBonus } from "./abilities";
 import type { Character } from "./character";
 import { gatedByToggle, type SourcedEffects } from "./effects";
 import { evalFormula, isUnlimitedWord, UNLIMITED, type Formula } from "./formula";
+import { optionListLabel, plural } from "./words";
 import { ABILS, SKILLS, type Abil, type Effects } from "./types";
 
 export interface FeatureRow {
@@ -240,11 +241,11 @@ export function progress(c: Character, registry: Registry): Progress {
         }
         case "spells": {
           const v = choice(key, src.classId, src.level);
-          if (!isStrs(v)) out.pending.push({ key, source: src.label, level: src.level, op, label: op.count || op.cantrips ? `Learn ${[op.cantrips ? `${op.cantrips} cantrips` : "", op.count ? `${op.count} spells` : ""].filter(Boolean).join(" and ")}` : "Spells" });
+          if (!isStrs(v)) out.pending.push({ key, source: src.label, level: src.level, op, label: op.count || op.cantrips ? `Learn ${[op.cantrips ? plural(op.cantrips, "cantrip") : "", op.count ? plural(op.count, "spell") : ""].filter(Boolean).join(" and ")}` : "Spells" });
           break;
         }
         case "choose": {
-          const label = op.what === "option" ? `Choose ${op.count} (${op.list})` : `Choose ${op.count} ${op.what}`;
+          const label = op.what === "option" ? optionListLabel(op.list ?? "", op.count, src.classId) : `Choose ${plural(op.count, op.what)}`;
           const v = choice(key, src.classId, src.level);
           const pend = () => out.pending.push({ key, source: src.label, level: src.level, op, label });
           if (!isStrs(v) || v.length !== op.count) { if (v !== undefined) problem(`${src.label}: the saved pick for ${op.id} does not have ${op.count} entries`); pend(); break; }

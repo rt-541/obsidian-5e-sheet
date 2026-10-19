@@ -5,6 +5,7 @@ import type { ActorStats } from "../core/derive";
 import type { SheetController } from "./controller";
 import { clear, h, sgn } from "./h";
 import { sourceBadge } from "./widgets";
+import { titleCase } from "../core/words";
 import { blankSpellDraft, spellDataToDraft, type SpellDraft } from "../content/spell-note";
 import { parseSpellblock, SPELLBLOCK_TEMPLATE } from "../content/spellblock";
 import { spellForm } from "./spell-form";
@@ -194,7 +195,6 @@ function initialAddState(ctl: SheetController, edit: EditSpec | undefined): AddS
   return s;
 }
 
-const titleCase = (s: string) => s.trim().replace(/\b\w/g, ch => ch.toUpperCase());
 
 export function addSpellPanel(ctl: SheetController, panel: object = fallbackPanel): HTMLElement {
   const edit = (panel as { edit?: EditSpec }).edit;
@@ -206,7 +206,7 @@ export function addSpellPanel(ctl: SheetController, panel: object = fallbackPane
   const root = h("div", { cls: "fe-add-spell" }), body = h("div", {});
   root.append(body);
   const go = (mode: AddState["mode"]) => { st.mode = mode; draw(); };
-  const startForm = () => { st.draft = { ...blankSpellDraft(), name: titleCase(st.query) }; st.unread = []; go("form"); };
+  const startForm = () => { st.draft = { ...blankSpellDraft(), name: titleCase(st.query.trim()) }; st.unread = []; go("form"); };
 
   const makeButtons = () => canMake ? h("div", { cls: "fe-cf-row", data: { make: "" } },
     btn("Create a spell", startForm, "", { act: "create-spell" }),

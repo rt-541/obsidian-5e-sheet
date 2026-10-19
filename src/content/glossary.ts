@@ -1,3 +1,4 @@
+import { titleCase } from "../core/words";
 import { ABILS, SKILLS, type Abil } from "../core/types";
 
 /** Short plain-words descriptions of the numbers on the sheet, written for players who do not know the rules. Our own words, never book text. */
@@ -69,7 +70,7 @@ export function glossaryEntry(key: string, excursion = false): GlossaryEntry | u
   if (kind === "ability" && id in ABIL_TEXT) return { title: ABIL_FULL[id as Abil], kind: "Ability score", text: ABIL_TEXT[id as Abil], abil: id as Abil };
   if (kind === "save" && id in SAVE_TEXT) return { title: `${ABIL_FULL[id as Abil]} saving throw`, kind: "Saving throw", text: `${SAVE_TEXT[id as Abil]} Add your proficiency bonus if you are trained in it.`, abil: id as Abil };
   if (kind === "skill" && id in SKILLS) {
-    const title = id.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+    const title = titleCase(id);
     return { title, kind: `Skill · ${ABIL_FULL[SKILLS[id]]}`, text: SKILL_TEXT[id], abil: SKILLS[id] };
   }
   const t = TERMS[key]; if (!t) return undefined;

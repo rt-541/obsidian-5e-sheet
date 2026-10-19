@@ -8,6 +8,7 @@ import { evalFormula } from "./formula";
 import { emptyProgress, formulaVars, progress, type Progress, type DerivedResource } from "./progression";
 import { matchesTag } from "./roll-tags";
 import { slotTable } from "./slots";
+import { titleCase } from "./words";
 import { ABILS, SKILLS, type Abil, type Effects, type Modifier, type RollTarget } from "./types";
 import type { ToggleDef } from "../content/types";
 import { ABIL_LONG, abilTerm, modTerms, sgn as signed, sum, type Term } from "./why";
@@ -182,7 +183,6 @@ export function deriveCharacter(c: Character, ctx: EffectContext): ActorStats {
   const saveFormula = (a: Abil) => saveFormulaTerms(a).reduce((t, x) => t + x.n, 0);
   const saveMod = (a: Abil, concentration = false) => m[a] + (saveProf.has(a) ? prof : 0) + sumModifier(fx, "save", opt({ kind: "save", abil: a, ...(concentration ? { concentration: true } : {}) })).add + saveFormula(a);
   const saves = Object.fromEntries(ABILS.map(a => [a, { mod: saveMod(a), prof: saveProf.has(a) }])) as ActorStats["saves"];
-  const titled = (s: string) => s.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase());
   for (const a of ABILS) {
     const mp = modTerms(modifierParts(fx, "save", opt({ kind: "save", abil: a })));
     why[`save:${a}`] = sum(`${ABIL_LONG[a]} save ${signed(saves[a].mod)}`, "", [abilTerm(a, m[a]), ...(saveProf.has(a) ? [{ label: "Proficiency", n: prof }] : []), ...mp.terms, ...saveFormulaTerms(a)], { notes: mp.notes });
@@ -196,7 +196,7 @@ export function deriveCharacter(c: Character, ctx: EffectContext): ActorStats {
     const p = skillProf.has(id), ex = expertiseProf.has(id);
     const t: RollTarget = { kind: "skill", abil, skill: id };
     const mod = m[abil] + (p ? prof : 0) + (ex ? prof : 0) + (p || ex ? 0 : halfOf(t)) + sumModifier(fx, "check", opt(t)).add, w = checkTerms(t, abil, p, ex);
-    why[`skill:${id}`] = sum(`${titled(id)} ${signed(mod)}`, "", w.terms, { notes: w.notes });
+    why[`skill:${id}`] = sum(`${titleCase(id)} ${signed(mod)}`, "", w.terms, { notes: w.notes });
     return { id, abil, mod, prof: p, expertise: ex };
   });
   const checks = Object.fromEntries(ABILS.map(a => [a, m[a] + halfOf({ kind: "check", abil: a }) + sumModifier(fx, "check", opt({ kind: "check", abil: a })).add])) as Record<Abil, number>;
@@ -223,7 +223,7 @@ export function deriveCharacter(c: Character, ctx: EffectContext): ActorStats {
   const passives = { perception: passive("perception"), investigation: passive("investigation"), insight: passive("insight") };
   for (const [id, abil] of [["perception", "wis"], ["investigation", "int"], ["insight", "wis"]] as const) {
     const t: RollTarget = { kind: "skill", abil, skill: id }, w = checkTerms(t, abil, skillProf.has(id), expertiseProf.has(id)), pp = modTerms(modifierParts(fx, "passive", opt({ kind: "passive", skill: id })));
-    why[`passive:${id}`] = sum(`Passive ${titled(id)}`, passives[id], [{ n: 10 }, ...w.terms, ...pp.terms], { notes: [...w.notes, ...pp.notes] });
+    why[`passive:${id}`] = sum(`Passive ${titleCase(id)}`, passives[id], [{ n: 10 }, ...w.terms, ...pp.terms], { notes: [...w.notes, ...pp.notes] });
   }
   const resources: ResourceRow[] = [...c.resources.map((x, i) => ({ id: `manual:${i}`, name: x.name, max: x.max, used: x.used, reset: x.reset, derived: false })),
     ...prog.resources.map(x => ({ ...x, derived: true }))];

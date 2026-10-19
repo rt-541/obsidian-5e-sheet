@@ -6,6 +6,7 @@ import type { Character, HpMethod, LevelEntry } from "./character";
 import { deriveCharacter } from "./derive";
 import { progress, resolveOptionList, type PendingChoice, type Progress } from "./progression";
 import { slotTable } from "./slots";
+import { titleCase } from "./words";
 import { ABILS, SKILLS, type Abil, type Rng } from "./types";
 
 /** Experience needed to reach level n + 1 (index 0 = level 1), 2014 rules. */
@@ -26,7 +27,6 @@ export function xpProgress(xp: number, level: number): { from: number; next?: nu
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 const isStrs = (v: unknown): v is string[] => Array.isArray(v) && v.every(x => typeof x === "string");
 const totalLevel = (c: Character) => c.classes.reduce((a, k) => a + k.level, 0);
-const titleCase = (s: string) => s.replace(/-/g, " ").replace(/\b\w/g, ch => ch.toUpperCase());
 const ABIL_NAME: Record<Abil, string> = { str: "STR", dex: "DEX", con: "CON", int: "INT", wis: "WIS", cha: "CHA" };
 const sgn = (n: number) => (n >= 0 ? "+" : "") + n;
 

@@ -1,3 +1,4 @@
+import { titleCase } from "../core/words";
 import type { ConditionData, CreatureData, ItemData } from "../content/types";
 import type { ActorStats } from "../core/derive";
 import { ABILS, type Abil, type Effects } from "../core/types";
@@ -29,7 +30,6 @@ const whyOf = (st: ActorStats, key: string): string | undefined => (st.why[key] 
 const whyData = (ref?: string, noclick = false): { data: Record<string, string> } | Record<string, never> => (ref ? { data: { ref, ...(noclick ? { noclick: "" } : {}) } } : {});
 const DAMAGE_TYPES = ["acid", "bludgeoning", "cold", "fire", "force", "lightning", "necrotic", "piercing", "poison", "psychic", "radiant", "slashing", "thunder"];
 const ABIL_NAME: Record<Abil, string> = { str: "STR", dex: "DEX", con: "CON", int: "INT", wis: "WIS", cha: "CHA" };
-const titleCase = (s: string) => s.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase());
 
 export function rollButton(ctl: SheetController, label: string, title: string, mod: number, target: Parameters<SheetController["roll"]>[2], who?: number, why?: string) {
   return h("button", { cls: "fe-roll", text: label, ...whyData(why, true), on: { click: (e: MouseEvent) => ctl.roll(title, mod, target, e, who) } });

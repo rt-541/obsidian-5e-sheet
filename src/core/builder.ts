@@ -1,3 +1,4 @@
+import { titleCase } from "./words";
 import type { Registry } from "../content/registry";
 import type { ClassData, GrantsData, SubraceData } from "../content/types";
 import { abilityKey, describeDelta, increaseDelta, type AbilityDelta } from "./ability-increase";
@@ -6,7 +7,6 @@ import { applyLevel, applyResolve, planLevel, planResolve, type Step } from "./l
 import { ABILS, type Abil, type Rng } from "./types";
 
 const ABIL_NAME: Record<Abil, string> = { str: "STR", dex: "DEX", con: "CON", int: "INT", wis: "WIS", cha: "CHA" };
-const titleCase = (s: string) => s.replace(/-/g, " ").replace(/\b\w/g, ch => ch.toUpperCase());
 
 // ---------------------------------------------------------------- ability scores
 

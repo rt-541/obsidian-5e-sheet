@@ -7,6 +7,7 @@ import type { Panel, SheetController } from "./controller";
 import { creatureForm } from "./creature-form";
 import { clear, h } from "./h";
 import { sourceBadge } from "./widgets";
+import { titleCase } from "../core/words";
 
 export const KIND_LABELS: Record<CompanionKind, string> = { familiar: "Familiar", companion: "Animal companion", steed: "Steed", summon: "Summon", sidekick: "Sidekick" };
 const MAX_ROWS = 80;
@@ -55,7 +56,7 @@ export function addCompanionPanel(ctl: SheetController, panel: Panel): HTMLEleme
     ctl.close();
   };
   const makeButtons = () => canMake ? h("div", { cls: "fe-cf-row", data: { make: "" } },
-    btn("Add custom creature", () => { s.draft = { ...blankDraft(), name: s.query.trim().replace(/\b\w/g, c => c.toUpperCase()) }; s.unread = []; go("form"); }, "", { act: "custom-creature" }),
+    btn("Add custom creature", () => { s.draft = { ...blankDraft(), name: titleCase(s.query.trim()) }; s.unread = []; go("form"); }, "", { act: "custom-creature" }),
     btn("Import from stat block", () => go("import"), "", { act: "import-statblock" })) : null;
 
   function drawPick() {
