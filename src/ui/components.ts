@@ -18,6 +18,7 @@ import { togglesFeature } from "./toggles-ui";
 import { coinsRow } from "./coins-ui";
 import { rationsFeature } from "./rations-ui";
 import { inventoryFeature, itemRef, itemState } from "./inventory-ui";
+import { attacksList } from "./attacks-ui";
 import { rollModeSlider } from "./roll-mode-ui";
 import { castsSpells, concentrationFeature, pinnedSpellsFeature, slotRows, spellsFeature } from "./spells-ui";
 
@@ -86,19 +87,6 @@ function checks(ctl: SheetController, st: ActorStats, who?: number) {
   };
 }
 const legend = (text: string) => h("div", { cls: "fe-faint", data: { legend: "" }, text });
-function attacksList(ctl: SheetController, st: ActorStats, who?: number) {
-  if (!st.attacks.length) return h("div", { cls: "fe-faint", text: "No attacks" });
-  return h("div", { cls: "fe-attacks" },
-    who === undefined && st.kind === "character" && st.attacksPerAction > 1 ? h("div", { cls: "fe-muted fe-attacks-per", text: `Attacks per action: ${st.attacksPerAction}` }) : null,
-    ...st.attacks.map((a, ai) => h("div", { cls: "fe-attack" },
-    h("span", { cls: "fe-grow", text: a.name, ...whyData(a.why ? `why:attack:${ai}` : undefined) }),
-    a.toHit !== undefined ? rollButton(ctl, sgn(a.toHit), `${a.name} to hit`, a.toHit, a.target, who, a.why?.hit ? `why:attack:${ai}:hit` : undefined) : h("span", { cls: "fe-faint", text: "" }),
-    a.save ? h("span", { cls: "fe-faint", text: `DC ${a.save.dc} ${ABIL_NAME[a.save.abil]}` }) : null,
-    a.damage ? h("button", { cls: "fe-roll", text: a.damage, ...whyData(a.why?.damage ? `why:attack:${ai}:damage` : undefined, true), on: { click: () => ctl.damage(`${a.name} damage`, a.damage!) } }) : null,
-    a.critDamage ? h("button", { cls: "fe-roll fe-crit", text: "Crit", title: `Damage on a critical hit: ${a.critDamage}`, attrs: { "aria-label": `${a.name} critical hit damage` },
-      on: { click: () => ctl.damage(`${a.name} critical damage`, a.critDamage!) } }) : null,
-    a.note ? h("div", { cls: "fe-note", text: a.note }) : null)));
-}
 
 function pinnedItems(ctl: SheetController): { index: number; row: HTMLElement }[] {
   const c = ctl.character!;

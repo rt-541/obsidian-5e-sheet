@@ -164,7 +164,15 @@ function whyCard(key: string, ctl: SheetController): HTMLElement | null {
   const am = /^attack:(\d+)(?::(hit|damage))?$/.exec(key);
   const lines = am ? [am[2] ? st.attacks[+am[1]]?.why?.[am[2] as "hit" | "damage"] : st.attacks[+am[1]]?.why?.hit, am[2] ? undefined : st.attacks[+am[1]]?.why?.damage].filter((x): x is string => !!x)
     : st.why[key] ? [st.why[key]] : [];
+  const note = am && !am[2] ? st.attacks[+am[1]]?.note : undefined;
+  if (note) lines.push(`Notes: ${note}`);
   return lines.length ? card("Where this number comes from", am ? st.attacks[+am[1]].name : "", lines, undefined) : null;
+}
+
+/** An attack's note (attack-note:<who|self>:<index>), for rows that have a note but no breakdown. */
+function attackNoteCard(rest: string, ctl: SheetController): HTMLElement | null {
+  const [who, idx] = rest.split(":"), st = who === "self" ? ctl.stats() : ctl.companionStats()[Number(who)];
+  const a = st?.attacks[Number(idx)]; return a?.note ? card(a.name, "", [a.note], undefined) : null;
 }
 
 /** A plain-words card for a glossary term, with this character's own number and its breakdown line when the sheet has one. */
@@ -197,6 +205,7 @@ export function detailCard(ref: string, ctl: SheetController): HTMLElement | nul
     case "spell": { const e = reg.get<SpellData>("spell", rest); return e ? spellCard(reg, e) : null; }
     case "condition": { const e = reg.get<ConditionData>("condition", rest) ?? reg.get<ConditionData>("injury", rest); return e ? conditionCard(e, ctl.value.conditions[rest] ?? 0) : null; }
     case "why": return whyCard(rest, ctl);
+    case "attack-note": return attackNoteCard(rest, ctl);
     case "glossary": return glossaryCard(rest, ctl);
     case "identity": return identityCard(rest, ctl);
     case "effect": return effectCard(rest, ctl);

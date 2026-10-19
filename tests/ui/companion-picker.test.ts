@@ -131,9 +131,9 @@ describe.each(LAYOUTS)("companion picker (%s)", layout => {
     s.click('[data-act="custom-creature"]');
     const form = s.q('[data-form="creature"]');
     s.click('[data-act="add-attack"]'); s.click('[data-act="add-attack"]');
-    expect(s.all("[data-attack]")).toHaveLength(2);
+    expect(s.all('[data-form="creature"] [data-attack]')).toHaveLength(2);
     s.click('[data-attack="0"] [data-act="remove-attack"]');
-    expect(s.all("[data-attack]")).toHaveLength(1);
+    expect(s.all('[data-form="creature"] [data-attack]')).toHaveLength(1);
     s.type(form.querySelector('[aria-label="Creature name"]') as HTMLElement, "Quick Bug");
     s.type(form.querySelector('[aria-label="Armor Class"]') as HTMLElement, "10");
     s.type(form.querySelector('[aria-label="Hit point dice"]') as HTMLElement, "2d8 + 2");
