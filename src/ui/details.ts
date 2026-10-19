@@ -1,6 +1,7 @@
 import { sourceLabel, type Entry, type Registry } from "../content/registry";
 import type { ClassData, ConditionData, CreatureData, FeatData, GrantsData, ItemData, Op, SpellData, SubclassData, SubraceData } from "../content/types";
 import type { Effects } from "../core/types";
+import { isVersatile, versatileDie } from "../content/types/item";
 import { comboViews } from "../core/combos";
 import { diceAt } from "../core/spells";
 import type { SheetController } from "./controller";
@@ -41,7 +42,7 @@ export function priceText(cp: number): string {
 function itemCard(reg: Registry, e: Entry<ItemData>): HTMLElement {
   const d = e.data, lines: string[] = [];
   if (d.armor) lines.push(`Armor: AC ${d.armor.base}${d.armor.dex === "full" ? " + Dex" : d.armor.dex === "max2" ? " + Dex (max 2)" : ""}${d.armor.stealthDis ? ", disadvantage on Stealth" : ""}`);
-  if (d.weapon) lines.push(`Weapon: ${d.weapon.dmg}${d.weapon.bonus ? sgn(d.weapon.bonus) : ""} ${d.weapon.type}${d.weapon.extraDamage ? ` + ${d.weapon.extraDamage}` : ""} (${d.weapon.range})`);
+  if (d.weapon) lines.push(`Weapon: ${d.weapon.dmg}${d.weapon.bonus ? sgn(d.weapon.bonus) : ""} ${d.weapon.type}${d.weapon.extraDamage ? ` + ${d.weapon.extraDamage}` : ""} (${d.weapon.range})${isVersatile(d.weapon) ? ` (two hands: ${versatileDie(d.weapon)})` : ""}`);
   lines.push(...effectLines(d.effects));
   if (d.heal) lines.push(`Healing: ${d.heal}`);
   if (d.weight) lines.push(`Weight: ${d.weight} lb`);

@@ -12,7 +12,9 @@ export interface WeaponData { dmg: string; type: string; ab: "str" | "dex" | "fi
   /** Weapon category; a character needs the matching proficiency (Simple Weapons, Martial Weapons, or the weapon by name) to add the proficiency bonus. */
   category?: "simple" | "martial";
   /** Properties that rules can aim at with weapon:<property> (light, heavy, thrown, versatile, two-handed, one-handed). */
-  props?: string[]; }
+  props?: string[];
+  /** The damage dice when a versatile weapon is held in two hands. Left out: the dice in the "Versatile (1d10)" property, or the next die size up. */
+  versatile?: string; }
 export interface GrantedSpell { id: string; cost: { kind: "charges"; amount: number } | { kind: "perDay"; uses: number } | { kind: "atWill" }; level?: number; dc?: number; attack?: number; }
 export interface ItemData { name: string; kind: "armor" | "shield" | "weapon" | "wondrous" | "gear" | "consumable"; rarity?: string; attunement: boolean; weight: number; /** Price in copper pieces. */ value?: number;
   armor?: ArmorData; weapon?: WeaponData; charges?: { max: number; reset: "dawn" | "short" | "long" | "none" }; heal?: string; effects: Effects; rules?: string; grants?: { spells: GrantedSpell[] };
@@ -51,9 +53,10 @@ export const itemType: TypeDef<ItemData> = {
       else {
         const w = raw.weapon, dmg = dice(w.dmg, "weapon.dmg", e);
         const extra = w.extraDamage === undefined ? undefined : dice(w.extraDamage, "weapon.extraDamage", e);
+        const versatile = w.versatile === undefined ? undefined : dice(w.versatile, "weapon.versatile", e);
         if (dmg) out.weapon = { dmg, type: str(w.type, "weapon.type", e) ?? "", ab: oneOf(w.ab, ["str", "dex", "finesse"] as const, "weapon.ab", e, "str")!,
           range: oneOf(w.range, ["melee", "ranged"] as const, "weapon.range", e, "melee")!,
-          ...(typeof w.bonus === "number" ? { bonus: w.bonus } : {}), ...(extra ? { extraDamage: extra } : {}),
+          ...(typeof w.bonus === "number" ? { bonus: w.bonus } : {}), ...(extra ? { extraDamage: extra } : {}), ...(versatile ? { versatile } : {}),
           ...(w.category === "simple" || w.category === "martial" ? { category: w.category } : {}),
           ...(Array.isArray(w.props) && w.props.every(x => typeof x === "string") && w.props.length ? { props: w.props as string[] } : {}) };
         if (w.category !== undefined && w.category !== "simple" && w.category !== "martial") e.push("weapon.category: must be simple or martial");
@@ -101,3 +104,14 @@ export const itemType: TypeDef<ItemData> = {
     return { errors: e, value: out as ItemData };
   },
 };
+
+/** A weapon with the versatile property: it can be held in one hand or two. */
+export const isVersatile = (w: WeaponData): boolean => (w.props ?? []).some(p => /^versatile\b/i.test(p));
+const NEXT_DIE: Record<string, string> = { "4": "6", "6": "8", "8": "10", "10": "12", "12": "12" };
+/** The damage dice with two hands: the weapon's own versatile dice, the dice written in its property ("Versatile (1d10)"), or its single die one size up. */
+export function versatileDie(w: WeaponData): string {
+  if (w.versatile) return w.versatile;
+  for (const p of w.props ?? []) { const m = /^versatile\b.*?\((\d*d\d+(?:\s*[+-]\s*\d+)?)\)/i.exec(p); if (m) return m[1].replace(/\s+/g, ""); }
+  const m = /^(\d*)d(\d+)$/.exec(w.dmg);
+  return m && NEXT_DIE[m[2]] ? `${m[1]}d${NEXT_DIE[m[2]]}` : w.dmg;
+}

@@ -1,6 +1,7 @@
 import { slug } from "../content/registry";
 import type { ItemData } from "../content/types";
-import type { AttackStat } from "./derive";
+import { isVersatile, versatileDie } from "../content/types/item";
+import type { AttackGrip, AttackStat } from "./derive";
 import { averageDice, critDamageOf, parseDice } from "./dice";
 import { itemWorks, modifierParts, sumModifier, type ModOpts, type SourcedEffects } from "./effects";
 import type { InventoryEntry } from "./character";
@@ -13,7 +14,7 @@ const sgn = (n: number) => (n >= 0 ? "+" : "") + n;
 export const NOT_PROFICIENT = "Not proficient with this weapon, so the proficiency bonus is not added.";
 
 export interface AttackInputs {
-  fx: SourcedEffects[]; mods: Record<Abil, number>; prof: number; scales: Record<string, string | number>; vars: Record<string, number>;
+  fx: SourcedEffects[]; /** A shield is equipped. */ shield: boolean; mods: Record<Abil, number>; prof: number; scales: Record<string, string | number>; vars: Record<string, number>;
   items: { e: InventoryEntry; it: ItemData | undefined }[];
   weaponProf: (name: string, id: string | undefined, category: "simple" | "martial" | undefined) => boolean;
   opt: (t?: RollTarget) => ModOpts; problem: (msg: string) => void;
@@ -23,6 +24,7 @@ export interface AttackInputs {
 interface Row {
   name: string; /** Base damage dice; `1` means the flat 1 damage of an unarmed strike. */ dmg: string; type: string; abils: Abil[]; range: "melee" | "ranged";
   bonus: number; trained: boolean; tags: string[]; itemExtra?: string; offhand?: boolean; addMod?: boolean; dieRules: string[]; notes: string[];
+  /** Inventory index of the weapon. */ item?: number; grip?: AttackGrip; twoHands?: boolean;
 }
 
 /** The better ability of the list for this character (the first one wins a tie, so finesse prefers Dex). */
@@ -36,22 +38,25 @@ const isMonkWeapon = (id: string | undefined, w: NonNullable<ItemData["weapon"]>
  */
 export function buildAttacks(i: AttackInputs): AttackStat[] {
   const rows: Row[] = [];
-  const equipped = i.items.filter(x => x.e.equipped && x.it?.weapon);
+  const equipped = i.items.map((x, index) => ({ ...x, index })).filter(x => x.e.equipped && x.it?.weapon);
   // "one-handed": the only melee weapon in hand and not a two-handed one (Dueling). A versatile weapon counts, since the player chooses the grip.
   const meleeInHand = equipped.filter(x => x.it!.weapon!.range === "melee").length;
-  for (const { e, it } of equipped) {
+  for (const { e, it, index } of equipped) {
     const w = it!.weapon!, works = itemWorks(e, it), bonus = works ? (w.bonus ?? 0) : 0;
     const oneHanded = w.range === "melee" && meleeInHand === 1 && !(w.props ?? []).includes("two-handed");
-    rows.push({ name: it!.name, dmg: w.dmg, type: w.type, abils: w.ab === "finesse" ? ["dex", "str"] : [w.ab], range: w.range, bonus, trained: i.weaponProf(it!.name, e.id, w.category),
-      tags: [...(e.id ? [e.id] : []), ...(w.props ?? []), ...(oneHanded && !(w.props ?? []).includes("one-handed") ? ["one-handed"] : []), ...(isMonkWeapon(e.id, w) ? ["monk"] : []), ...(bonus > 0 || (it!.rarity && !/^(mundane|none)$/i.test(it!.rarity)) ? ["magic"] : [])],
-      ...(works && w.extraDamage ? { itemExtra: w.extraDamage } : {}), dieRules: [], notes: [] });
+    const versatile = isVersatile(w), twoHands = versatile && e.hands === 2 && !i.shield, twoHanded = versatileDie(w);
+    const props = w.props ?? [], handTags = twoHands ? (props.includes("two-handed") ? [] : ["two-handed"]) : oneHanded && !props.includes("one-handed") ? ["one-handed"] : [];
+    rows.push({ name: it!.name, dmg: twoHands ? twoHanded : w.dmg, type: w.type, abils: w.ab === "finesse" ? ["dex", "str"] : [w.ab], range: w.range, bonus, trained: i.weaponProf(it!.name, e.id, w.category),
+      tags: [...(e.id ? [e.id] : []), ...(w.props ?? []), ...handTags, ...(isMonkWeapon(e.id, w) ? ["monk"] : []), ...(bonus > 0 || (it!.rarity && !/^(mundane|none)$/i.test(it!.rarity)) ? ["magic"] : [])],
+      ...(works && w.extraDamage ? { itemExtra: w.extraDamage } : {}), dieRules: [], notes: [],
+      item: index, twoHands, ...(versatile ? { grip: { hands: twoHands ? 2 : 1, twoHanded, shield: i.shield } } : {}) });
   }
   rows.push({ name: "Unarmed Strike", dmg: "1", type: "bludgeoning", abils: ["str"], range: "melee", bonus: 0, trained: true, tags: ["unarmed"], dieRules: [], notes: [] });
   // Two light melee weapons in hand: the second one also gets an off-hand attack, which has no positive ability modifier.
   const melee = rows.filter(r => r.range === "melee" && !r.tags.includes("unarmed"));
   if (melee.length >= 2 && melee[0].tags.includes("light") && melee[1].tags.includes("light")) {
     const o = melee[1];
-    rows.push({ ...o, name: `${o.name} (off-hand)`, tags: [...o.tags, "offhand"], offhand: true, dieRules: [], notes: ["Bonus action, when you attack with a light weapon in your main hand."] });
+    rows.push({ ...o, name: `${o.name} (off-hand)`, tags: [...o.tags, "offhand"], offhand: true, grip: undefined, twoHands: false, dieRules: [], notes: ["Bonus action, when you attack with a light weapon in your main hand."] });
   }
   const seen = new Set(rows.map(r => r.name));
   for (const s of i.fx) for (const nw of s.effects.weapons ?? []) {
@@ -108,9 +113,9 @@ export function buildAttacks(i: AttackInputs): AttackStat[] {
         ...(row.bonus ? [{ n: row.bonus, from: "weapon bonus" }] : []), ...hitMods.terms], { notes: hitMods.notes }),
       damage: sum(`Damage ${dmg === "1" ? Math.max(0, 1 + dm) : `${dmg}${dm ? sgn(dm) : ""}`}`, "",
         [...(mod ? [abilTerm(abil, mod, row.offhand && !row.addMod ? "off-hand: only a penalty counts" : undefined)] : []), ...(row.bonus ? [{ n: row.bonus, from: "weapon bonus" }] : []), ...dmgMods.terms],
-        { lead: dmg, tail, notes: dmgMods.notes }),
+        { lead: row.twoHands && dmg === row.dmg ? `${dmg} (two hands)` : dmg, tail, notes: dmgMods.notes }),
     };
-    return { name: row.name, toHit, why, damage,
+    return { name: row.name, toHit, why, damage, ...(row.item !== undefined ? { item: row.item } : {}), ...(row.grip ? { grip: row.grip } : {}),
       ...(crit ? { critDamage: crit } : {}), target, ...(row.trained ? {} : { proficient: false as const }), ...(notes.length ? { note: notes.join(" ") } : {}) };
   });
 }

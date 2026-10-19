@@ -2,7 +2,8 @@ import { parseModifier } from "./modifier";
 import { ABILS, type Abil, type Modifier } from "./types";
 
 export interface ClassLevel { class: string; subclass?: string; level: number; }
-export interface InventoryEntry { id?: string; name?: string; qty: number; equipped: boolean; attuned: boolean; charges?: { used: number }; weight?: number; spellUses?: Record<string, number>; /** Used up when used. Left out: a compendium potion is, a custom item is not. */ consumable?: boolean; }
+export interface InventoryEntry { id?: string; name?: string; qty: number; equipped: boolean; attuned: boolean; charges?: { used: number }; weight?: number; spellUses?: Record<string, number>; /** Used up when used. Left out: a compendium potion is, a custom item is not. */ consumable?: boolean;
+  /** Held in two hands (versatile weapons). Left out for one hand. */ hands?: 2; }
 export type CompanionKind = "familiar" | "companion" | "steed" | "summon" | "sidekick";
 export interface CompanionEntry { creature: string; name: string; kind: CompanionKind; hp: { current?: number; temp: number }; conditions: Record<string, number>; }
 export interface Resource { name: string; max: number; used: number; reset: "short" | "long" | "dawn" | "none"; }
@@ -204,6 +205,8 @@ function parseCharacter(fm: R): Parsed {
   c.inventory = r.list(fm.inventory, "inventory").flatMap((x, i) => {
     if (!isObj(x) || (typeof x.id !== "string" && typeof x.name !== "string")) { r.errors.push(`inventory[${i}]: needs an id or a name`); return []; }
     const e: InventoryEntry = { ...x, qty: r.whole(x.qty, `inventory[${i}].qty`, 1), equipped: r.bool(x.equipped, `inventory[${i}].equipped`), attuned: r.bool(x.attuned, `inventory[${i}].attuned`) };
+    delete e.hands;
+    if (x.hands !== undefined) { if (x.hands === 2) e.hands = 2; else if (x.hands !== 1) r.errors.push(`inventory[${i}].hands: must be 1 or 2`); }
     if (typeof x.id === "string") e.id = x.id; if (typeof x.name === "string") e.name = x.name;
     if (x.charges !== undefined) { const ch = r.obj(x.charges, `inventory[${i}].charges`); e.charges = { ...ch, used: r.whole(ch.used, `inventory[${i}].charges.used`) }; }
     if (x.spellUses !== undefined) {
