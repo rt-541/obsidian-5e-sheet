@@ -30,7 +30,7 @@ export const DESKTOP: LayoutSpec = {
 export const MOBILE: LayoutSpec = {
   pinned: ["identity", "hp", "ac", "initiative", "speed", "level-up", "roll-mode", "conditions", "concentration", "roll-log"],
   tabs: [
-    { id: "combat", label: "Combat", columns: [["toggles", "hp-controls", "coins", "attacks", "pinned-spells", "pinned-combos", "spell-dc", "spell-slots", "resources", "rations", "traits", "hit-dice", "rests", "death-saves"]] },
+    { id: "combat", label: "Combat", columns: [["hp-controls", "death-saves", "attacks", "resources", "rations", "toggles", "pinned-spells", "pinned-combos", "spell-dc", "spell-slots", "coins", "traits", "hit-dice", "rests"]] },
     { id: "combos", label: "Combos", columns: [["combos"]] },
     { id: "checks", label: "Checks", columns: [["abilities", "saves", "skills", "passive-perception"]] },
     { id: "spells", label: "Spells", columns: [["spells"]] },
@@ -63,8 +63,8 @@ export const TABLET: LayoutSpec = {
   pinned: ["identity", "hp", "ac", "initiative", "speed", "conditions", "concentration", "roll-mode", "level-up", "roll-log"],
   tabs: [
     { id: "main", label: "Main", columns: [
-      ["abilities", "saves", "skills", "passive-perception"],
-      ["hp-controls", "toggles", "attacks", "pinned-spells", "pinned-combos", "traits", "resources", "rations", "coins", "hit-dice", "rests", "death-saves", "active-effects"]] },
+      ["abilities", "saves", "skills", "passive-perception", "traits"],
+      ["hp-controls", "death-saves", "attacks", "resources", "rations", "toggles", "pinned-spells", "pinned-combos", "coins", "hit-dice", "rests", "active-effects"]] },
     { id: "combos", label: "Combos", columns: [["combos"]] },
     { id: "spells", label: "Spells", columns: [["spell-dc", "spell-slots", "spells"]] },
     { id: "gear", label: "Gear", columns: [["inventory"]] },

@@ -168,6 +168,12 @@
 
 /* tablet: a header that stays put, two columns, and 44px touch targets */
 .fe-tablet .fe-pinned { position: sticky; top: 0; z-index: 5; background: var(--background-primary); padding-top: 6px; }
+.fe-mobile .fe-pinned { position: sticky; top: 0; z-index: 5; background: var(--background-primary); padding-top: 4px; gap: 4px 10px; }
+.fe-mobile .fe-pinned .fe-identity .fe-name, .fe-mobile .fe-pinned .fe-identity { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+/* the sheet pane pads 10px; this shadow paints over that gap so scrolled content never shows above the header */
+.fe-tablet .fe-pinned, .fe-mobile .fe-pinned { box-shadow: 0 -10px 0 var(--background-primary); }
+.fe-mobile .fe-tabs { display: grid; grid-template-columns: repeat(var(--fe-tabs), minmax(0, 1fr)); gap: 0; overflow-x: visible; }
+.fe-mobile button.fe-tab { min-width: 0; padding: 0 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .fe-tablet .fe-pane { grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); align-items: start; }
 .fe-tablet button.fe-btn, .fe-tablet button.fe-roll, .fe-tablet button.fe-tab, .fe-tablet button.fe-chip, .fe-tablet button.fe-chip-add { min-height: 44px; }
 .fe-tablet button.fe-toggle-btn, .fe-sheet.fe-tablet button.fe-toggle-btn { min-height: 48px; }
