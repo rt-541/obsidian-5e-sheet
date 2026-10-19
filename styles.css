@@ -353,3 +353,11 @@
 .fe-sheet button.fe-hit-window { flex: none; background: var(--interactive-accent); color: var(--text-on-accent); animation: fe-hit-fade 3s linear forwards; }
 @keyframes fe-hit-fade { from { opacity: 1; } to { opacity: .4; } }
 @media (prefers-reduced-motion: reduce) { .fe-sheet button.fe-hit-window { animation: none; } }
+/* I roll my own dice: the box that says what to roll */
+.fe-sheet .fe-own-roll { position: fixed; z-index: 40; left: 50%; bottom: 20px; transform: translateX(-50%); width: min(480px, 92vw); background: var(--background-primary); border: 1px solid var(--background-modifier-border); border-left: 4px solid var(--interactive-accent); border-radius: var(--radius-m); padding: 10px 12px; box-shadow: var(--shadow-l); display: flex; flex-direction: column; gap: 8px; }
+.fe-sheet .fe-own-say { font-size: 1.05em; }
+.fe-sheet .fe-own-error { color: var(--text-error); }
+.fe-sheet .fe-own-roll input { flex: 1; min-width: 0; }
+.fe-sheet .fe-own-hit button.fe-btn { flex: 1; }
+.fe-mobile .fe-own-roll { left: 12px; right: 12px; bottom: 12px; width: auto; transform: none; }
+.fe-sheet.fe-tablet .fe-own-roll button.fe-btn, .fe-sheet.fe-mobile .fe-own-roll button.fe-btn, .fe-tablet .fe-own-roll input, .fe-mobile .fe-own-roll input { min-height: 44px; }

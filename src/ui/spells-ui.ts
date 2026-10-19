@@ -24,7 +24,7 @@ export function rolls(ctl: SheetController, r: SpellRow): (Node | null)[] {
   return [
     r.attack !== undefined ? h("button", { cls: "fe-roll", text: sgn(r.attack), title: "Spell attack", on: { click: (e: MouseEvent) => ctl.roll(`${r.name} attack`, r.attack!, { kind: "attack", range: r.data?.attack }, e) } }) : null,
     r.dc !== undefined && r.data?.save ? h("span", { cls: "fe-faint", text: `DC ${r.dc} ${ABIL[r.data.save.abil]}` }) : null,
-    r.damage ? h("button", { cls: "fe-roll", text: r.damage, title: "Damage", on: { click: () => ctl.damage(`${r.name} damage`, r.damage!) } }) : null,
+    r.damage ? h("button", { cls: "fe-roll", text: r.damage, title: "Damage", on: { click: () => ctl.damage(`${r.name} damage`, r.damage!, r.dc !== undefined && r.data?.save ? { save: { abil: r.data.save.abil, dc: r.dc, half: r.data.save.onSuccess === "half" } } : {}) } }) : null,
     r.heal ? h("button", { cls: "fe-roll", text: r.heal, title: "Healing", on: { click: () => ctl.damage(`${r.name} healing`, r.heal!) } }) : null,
   ];
 }

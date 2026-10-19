@@ -8,14 +8,15 @@ import type { Character, Combo, Npc, Parsed } from "../core/character";
 import { blankCombo, validateCombo } from "../core/combos";
 import { deriveCharacter, deriveCompanion, deriveNpc, type ActorStats } from "../core/derive";
 import { critDamageOf, rollD20, rollDice, rollKeepHigher } from "../core/dice";
-import { affordable, onHitOptions, toHitOptions, type AttackOptionRow } from "../core/attack-options";
+import { affordable, onHitOptions, spendWords, toHitOptions, type AttackOptionRow } from "../core/attack-options";
+import { d20Words, damageWords, saveWords, spaced, type Extra } from "../core/own-dice";
 import { matchesTag } from "../core/roll-tags";
 import { critInfo, d20Rules, rollSources } from "../core/effects";
 import { explainChange, type ChangeGroup } from "../core/level-diff";
 import { evalFormula, fillDice } from "../core/formula";
 import { applyLevel, applyResolve, levelFromXp, planLevel, planResolve, rollHitDie, undoLevel, xpProgress, MAX_TOTAL_LEVEL, type LevelPlan, type Step } from "../core/levelup";
 import { formulaVars, type FeatureRow } from "../core/progression";
-import type { RollMode, RollResult, RollTarget, Rng } from "../core/types";
+import type { Abil, RollMode, RollResult, RollTarget, Rng } from "../core/types";
 import { activeRests, MODULES, OWN_DICE } from "../rules";
 import { blankItemDraft, parseItemBlock, validateItemDraft, type ChargeReset, type ItemDraft, type ItemKind } from "../content/itemblock";
 import { blankItemSearch, type ItemSearch } from "./additem-ui";
@@ -71,6 +72,12 @@ export const blankCustomItem = (): CustomItemForm => ({ name: "", qty: "1", weig
   chargesMax: "", chargesReset: "dawn", attackBonus: "", damageBonus: "", acBonus: "", heal: "", description: "", importing: false, importText: "", showTemplate: false, unread: [] });
 type Mods = { shiftKey?: boolean; ctrlKey?: boolean; metaKey?: boolean };
 
+/** The box that tells a player who rolls their own dice what to roll. */
+export type OwnRoll =
+  | { kind: "say"; entry: RollResult; error?: string }
+  | { kind: "attack"; entry: RollResult; ai: number; crit: boolean; error?: string }
+  | { kind: "total"; title: string; say: string; min?: number; max?: number; error?: string; roll(): number; apply(total: number): void };
+
 export const LOG_MAX = 50;
 /** How long after an attack roll the damage button still counts as "it hit". */
 export const HIT_WINDOW_MS = 3000;
@@ -98,6 +105,8 @@ export class SheetController {
   panel: Panel | null = null; levelUp: LevelUpState | null = null; confirmUndo = false; lastRoll?: RollResult; toastItem?: { kind: "roll"; roll: RollResult } | { kind: "notice"; text: string }; restOpts: RestOptions = { samePlace: true, safeHaven: false };
   /** Set for a few seconds after an own attack is rolled to hit; the damage button then counts as a hit. */
   hitWindow: { ai: number; name: string; crit: boolean } | null = null;
+  /** Own-dice play: the open "roll this" box, if any. */
+  ownRoll: OwnRoll | null = null;
   private hitTimer: ReturnType<typeof setTimeout> | undefined;
   private subs = new Set<() => void>();
   private collapsed?: Set<string>;
@@ -112,7 +121,7 @@ export class SheetController {
   emit() { this.subs.forEach(f => f()); }
 
   /** Replace the value after an external file change (Obsidian Sync, manual edit). */
-  reload(parsed: Exclude<Parsed, { kind: "none" }>) { this.closeHitWindow(); this.value = parsed.value; this.errors = parsed.errors; this.writable = parsed.writable; this.emit(); }
+  reload(parsed: Exclude<Parsed, { kind: "none" }>) { this.closeHitWindow(); this.ownRoll = null; this.value = parsed.value; this.errors = parsed.errors; this.writable = parsed.writable; this.emit(); }
 
   /** The registry the pickers (level-up wizard, add spell / item / companion) list from: sources this campaign switched off are left out. */
   pickers(): Registry { return this.host.registry.scoped(this.host.campaign?.sources); }
@@ -384,8 +393,8 @@ export class SheetController {
   private record(r: RollResult) {
     this.lastRoll = r; this.toastItem = { kind: "roll", roll: r }; this.host.log.unshift(r); if (this.host.log.length > LOG_MAX) this.host.log.length = LOG_MAX; this.emit(); return r;
   }
-  /** d20 roll for the sheet's actor or companion `who`. Shift = adv, Ctrl/Cmd = dis, else the one-shot mode switch. */
-  roll(title: string, mod: number, target: RollTarget, ev: Mods = {}, who?: number, force?: RollMode): RollResult {
+  /** The mode, sources and rules for one d20 roll; also snaps the one-shot mode switch back. */
+  private d20Setup(target: RollTarget, ev: Mods, who?: number, force?: RollMode) {
     const st = who === undefined ? this.stats() : this.companionStats()[who];
     const src = st ? rollSources(st.effects, target) : { adv: [], dis: [], fail: [] };
     const chosen: RollMode = ev.shiftKey ? "adv" : (ev.ctrlKey || ev.metaKey) ? "dis" : this.mode;
@@ -396,6 +405,32 @@ export class SheetController {
     // Reliable Talent, Halfling Lucky and the like: a minimum for the die, or a reroll of low dice.
     const skill = target.kind === "skill" ? st?.skills.find(k => k.id === target.skill) : undefined;
     const rules = st ? d20Rules(st.effects, target, !!skill && (skill.prof || skill.expertise)) : undefined;
+    return { st, src, mode, crit, rules };
+  }
+  /** What a player who rolls their own dice is told for a d20 roll. */
+  private d20Say(mod: number, s: ReturnType<SheetController["d20Setup"]>, extras: Extra[] = []): string {
+    const adv = s.mode === "adv" || s.src.adv.length > 0, dis = s.mode === "dis" || s.src.dis.length > 0;
+    return d20Words({ mod, mode: adv && dis ? "cancel" : adv ? "adv" : dis ? "dis" : "normal", extras, fail: s.src.fail,
+      ...(s.rules?.reroll !== undefined ? { reroll: s.rules.reroll } : {}), ...(s.rules?.min !== undefined ? { min: s.rules.min } : {}),
+      ...(s.crit && s.crit.range < 20 ? { critRange: s.crit.range } : {}) });
+  }
+  /** Own-dice play: record one entry that says what to roll (nothing is rolled) and open the box for it. */
+  private ownSay(title: string, words: string, sources = { adv: [] as string[], dis: [] as string[], fail: [] as string[] }): RollResult {
+    const entry = this.record({ title, total: 0, dice: [], detail: words, crit: false, fumble: false, sources, own: {} });
+    this.ownRoll = { kind: "say", entry }; this.emit(); return entry;
+  }
+  /** d20 roll for the sheet's actor or companion `who`. Shift = adv, Ctrl/Cmd = dis, else the one-shot mode switch. */
+  roll(title: string, mod: number, target: RollTarget, ev: Mods = {}, who?: number, force?: RollMode): RollResult {
+    const s = this.d20Setup(target, ev, who, force), { st, src, mode, crit, rules } = s;
+    if (this.ownDice()) {
+      let extras: Extra[] = [];
+      if (who === undefined && target.kind === "attack" && st && !src.fail.length) {
+        const used = affordable(toHitOptions(st.attackOptions, target));
+        extras = used.map((o, i) => ({ dice: o.toHit!, name: o.name, ...(spendWords(used, i) ? { spent: spendWords(used, i)! } : {}) }));
+        this.spend(used);
+      }
+      return this.ownSay(title, this.d20Say(mod, s, extras), src);
+    }
     const rolled = rollD20({ title, mod, mode, ...src, ...(crit ? { critRange: crit.range, critNote: crit.hints } : {}), ...(this.host.rng ? { rng: this.host.rng } : {}),
       ...(rules?.min !== undefined ? { min: rules.min } : {}), ...(rules?.reroll !== undefined ? { reroll: rules.reroll } : {}), ...(rules?.notes.length ? { ruleNotes: rules.notes } : {}) });
     if (who === undefined && target.kind === "attack" && st && rolled.total !== "fail") this.addToHitOptions(rolled, st, target);
@@ -447,6 +482,10 @@ export class SheetController {
     if (!a || a.toHit === undefined) return undefined;
     const r = this.roll(`${a.name} to hit`, a.toHit, a.target, ev);
     this.closeHitWindow();
+    if (this.ownRoll?.kind === "say" && this.ownRoll.entry === r) {
+      if (!r.sources.fail.length) this.ownRoll = { kind: "attack", entry: r, ai, crit: false };
+      this.emit(); return r;
+    }
     if (r.total !== "fail") {
       this.hitWindow = { ai, name: a.name, crit: r.crit };
       this.hitTimer = setTimeout(() => { this.hitTimer = undefined; this.hitWindow = null; this.emit(); }, HIT_WINDOW_MS);
@@ -463,6 +502,13 @@ export class SheetController {
     if (!a || !expr) return undefined;
     const opts = affordable(onHitOptions(st.attackOptions, a.target));
     const title = `${a.name} ${crit ? "critical damage" : "damage"}`, rng = this.host.rng;
+    if (this.ownDice()) {
+      const extras: Extra[] = opts.flatMap((o, i) => o.onHit ? [{ dice: crit ? critDamageOf(o.onHit) ?? o.onHit : o.onHit, name: o.name, ...(spendWords(opts, i) ? { spent: spendWords(opts, i)! } : {}) }] : []);
+      const rr = opts.filter(o => o.reroll).map(o => o.name).join(", ");
+      const words = damageWords({ expr, extras, ...(rr ? { reroll: rr } : {}), ...(a.grip?.hands === 2 ? { weaponNote: "two hands" } : {}) });
+      this.spend(opts); this.closeHitWindow();
+      return this.ownSay(title, words);
+    }
     let r: RollResult;
     if (opts.some(o => o.reroll)) {
       const terms = expr.split(" + "), first = rollKeepHigher(title, terms[0], rng);
@@ -482,7 +528,30 @@ export class SheetController {
     this.closeHitWindow();
     return this.record(r);
   }
-  damage(title: string, expr: string): RollResult { return this.record(rollDice(title, expr, this.host.rng)); }
+  damage(title: string, expr: string, ctx: { save?: { abil: Abil; dc: number; half: boolean } } = {}): RollResult {
+    if (this.ownDice()) {
+      const sv = ctx.save;
+      return this.ownSay(title, sv ? `${saveWords(sv.abil, sv.dc)}; you roll ${spaced(expr)}${sv.half ? ", half on a save" : ""}` : damageWords({ expr }));
+    }
+    return this.record(rollDice(title, expr, this.host.rng));
+  }
+
+  /** Own-dice play: the player answers whether the attack hit. Hit and Crit say the damage to roll; Miss closes the box. */
+  answerHit(outcome: "hit" | "miss" | "crit"): void {
+    const o = this.ownRoll; if (!o || o.kind !== "attack") return;
+    this.ownRoll = null;
+    if (outcome === "miss") { this.emit(); return; }
+    if (!this.attackDamage(o.ai, outcome === "crit")) this.emit();
+  }
+  /** Add the total the player typed to the log entry. Empty just closes; anything but a whole number keeps the box open with a message. */
+  logOwnTotal(text: string): boolean {
+    const o = this.ownRoll; if (!o || o.kind === "total") return false;
+    const t = text.trim(), n = Number(t);
+    if (t !== "" && !Number.isInteger(n)) { o.error = "Type the total you rolled, a whole number."; this.emit(); return false; }
+    if (t !== "") o.entry.own = { total: n };
+    this.ownRoll = null; this.emit(); return true;
+  }
+  closeOwnRoll(): void { this.ownRoll = null; this.emit(); }
 
   setMode(m: RollMode) { this.mode = m; this.emit(); }
   setEditing(on: boolean) { this.editing = on; this.confirmUndo = false; if (!on && this.panel?.kind === "customize") this.panel = null; this.emit(); }
@@ -606,7 +675,7 @@ export class SheetController {
   useAction(f: FeatureRow) {
     const a = f.action, c = this.character, st = this.stats();
     if (!a || !c || !st || !this.guard()) return;
-    const plain = { crit: false, fumble: false, sources: { adv: [], dis: [], fail: [] } };
+    const plain = { crit: false, fumble: false, sources: { adv: [], dis: [], fail: [] } }, own = this.ownDice();
     try {
       const scales = st.progress.scales, vars = formulaVars(c, scales), parts: string[] = [];
       if (a.cost && "resource" in a.cost) {
@@ -618,12 +687,25 @@ export class SheetController {
         else { if (!this.dispatch({ type: "uses", id, used: r.used + amount }).ok) return; parts.push(`${r.name} -${amount}`); }
       }
       if (a.cost && "selfDamage" in a.cost) {
-        const roll = this.damage(`${a.name} (self damage)`, fillDice(a.cost.selfDamage, scales));
-        this.dispatch({ type: "damage", amount: Number(roll.total) }); parts.push(`${roll.total} damage to you`);
+        if (own) parts.push(`Roll ${spaced(fillDice(a.cost.selfDamage, scales))} for the damage to you`);
+        else {
+          const roll = this.damage(`${a.name} (self damage)`, fillDice(a.cost.selfDamage, scales));
+          this.dispatch({ type: "damage", amount: Number(roll.total) }); parts.push(`${roll.total} damage to you`);
+        }
       }
+      let saveAt = -1;
       if (a.save) {
         const dc = st.progress.dcs.find(x => x.id === slug(a.save!.dc));
-        parts.push(`${a.save.abil.toUpperCase()} save DC ${dc ? dc.dc : "?"}`);
+        saveAt = parts.length;
+        parts.push(own && dc ? saveWords(a.save.abil, dc.dc) : `${a.save.abil.toUpperCase()} save DC ${dc ? dc.dc : "?"}`);
+      }
+      if (own && (a.attack !== undefined || a.damage || a.heal)) {
+        // one entry with every part of the action in words
+        const words = [...parts];
+        if (a.attack !== undefined) words.splice(saveAt >= 0 ? saveAt : words.length, 0, this.d20Say(Math.floor(evalFormula(a.attack, vars)), this.d20Setup({ kind: "attack" }, {})));
+        if (a.damage) words.push(`you roll ${spaced(fillDice(a.damage, scales))}`);
+        if (a.heal) words.push(`Roll ${spaced(fillDice(a.heal, scales))} healing`);
+        this.ownSay(a.name, words.join("; ")); return;
       }
       if (a.attack === undefined && !a.damage && !a.heal) { this.record({ title: a.name, total: 0, dice: [], detail: [...parts, a.text ?? ""].filter(Boolean).join(" · "), ...plain }); return; }
       if (parts.length) this.record({ title: `${a.name} used`, total: 0, dice: [], detail: parts.join(" · "), ...plain });
@@ -635,6 +717,7 @@ export class SheetController {
 
   setRule(id: string, on: boolean) {
     if (!this.guard()) return;
+    this.ownRoll = null;
     const v = structuredClone(this.value); v.rules[id] = on; this.commit(v);
   }
   setHidden(section: string, hidden: boolean) {

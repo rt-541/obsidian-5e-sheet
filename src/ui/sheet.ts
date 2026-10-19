@@ -4,6 +4,7 @@ import { clear, h } from "./h";
 import { CHARACTER_FEATURES, NPC_FEATURES, layoutFor, type LayoutName } from "./layouts";
 import { detailCard } from "./details";
 import { renderPanel } from "./panels";
+import { ownRollBox } from "./own-dice-ui";
 
 const TOAST_MS = 2600, TOAST_LONG_MS = 5000, HOVER_MS = 250;
 const LAYOUT_CLASSES = ["fe-desktop", "fe-tablet", "fe-mobile"];
@@ -120,8 +121,9 @@ export function mountSheet(root: HTMLElement, ctl: SheetController, layoutIn: La
       const ms = it?.kind === "notice" && it.text.length > 40 ? TOAST_LONG_MS : TOAST_MS;
       toastTimer = window.setTimeout(() => { toastLive = false; if (toastEl) toastEl.hidden = true; }, ms);
     }
-    toast.hidden = !(toastLive && !!it); toastEl = toast;
+    toast.hidden = !(toastLive && !!it) || !!r?.own; toastEl = toast;   // an own-dice entry is shown in its box instead
     root.append(toast);
+    const own = ownRollBox(ctl); if (own) root.append(own);
     if (sp && keepTop) sp.scrollTop = keepTop;
   };
   const off = ctl.subscribe(render); render();
