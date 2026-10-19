@@ -204,7 +204,7 @@ export class SheetController {
     }
     if (this.ownDice()) {
       const expr = it.data.heal, title = `${name} healing`;
-      this.askTotal({ title, say: damageWords({ expr }), roll: () => Number(rollDice(title, expr, this.host.rng).total),
+      this.askTotal({ title, say: damageWords({ expr }), min: 0, roll: () => Number(rollDice(title, expr, this.host.rng).total),
         apply: n => { const now = this.character?.inventory[index]; if (now && now.id === e.id && now.qty > 0) this.healWith(index, name, n); } });
       return true;
     }
@@ -361,7 +361,7 @@ export class SheetController {
   }
   /** Roll a death save: a 20 brings you back up, a 1 is two failures, 10 or more a success, anything else a failure. */
   rollDeathSave(ev: Mods = {}): void {
-    const c = this.character; if (!c) return;
+    const c = this.character; if (!c || !this.deathSaveOpen()) return;
     const target: RollTarget = { kind: "death-save" }, title = "Death save";
     if (this.ownDice()) {
       const setup = this.d20Setup(target, ev);
@@ -371,8 +371,13 @@ export class SheetController {
     const r = this.roll(title, 0, target, ev);
     this.deathSaveWith(r.total === "fail" ? 2 : r.natural ?? Number(r.total));
   }
+  /** A death save is only for someone at 0 hit points who is neither stable (3 successes) nor dead (3 failures). */
+  deathSaveOpen(): boolean {
+    const c = this.character; if (!c) return false;
+    return this.stats()?.hp.current === 0 && c.deathSaves.successes < 3 && c.deathSaves.failures < 3;
+  }
   private deathSaveWith(n: number): void {
-    const c = this.character; if (!c) return;
+    const c = this.character; if (!c || !this.deathSaveOpen()) return;
     if (n >= 20) { this.dispatch({ type: "heal", amount: 1 }); this.host.notify("Natural 20: you are back up with 1 hit point."); return; }
     const ds = c.deathSaves;
     if (n >= 10) {
@@ -621,6 +626,8 @@ export class SheetController {
     let bad = "";
     if (!/^-?\d+$/.test(t) || !Number.isSafeInteger(n)) bad = "Type the total you rolled, a whole number.";
     else if (o.min !== undefined && o.max !== undefined && (n < o.min || n > o.max)) bad = `Type a number from ${o.min} to ${o.max}.`;
+    else if (o.min !== undefined && n < o.min) bad = `Type a number ${o.min} or more.`;
+    else if (o.max !== undefined && n > o.max) bad = `Type a number ${o.max} or less.`;
     if (bad) { o.error = bad; this.emit(); return false; }
     this.ownRoll = null; o.apply(n); this.emit(); return true;
   }
@@ -677,7 +684,7 @@ export class SheetController {
     if (this.ownDice()) {
       const ctx = this.restCtx(), con = ctx.stats.mods.con, pre = spendHitDie(ctx, die, undefined, 0);
       if (pre.error) { this.host.notify(pre.error); return; }
-      this.askTotal({ title: `Hit Die ${die}`, say: damageWords({ expr: `1${die}${con === 0 ? "" : con > 0 ? `+${con}` : `${con}`}` }),
+      this.askTotal({ title: `Hit Die ${die}`, say: damageWords({ expr: `1${die}${con === 0 ? "" : con > 0 ? `+${con}` : `${con}`}` }), min: 0,
         roll: () => Number(rollDice(`Hit Die ${die}`, `1${die}`, this.host.rng).total) + con, apply: n => this.spendHitDieWith(die, n) });
       return;
     }
@@ -815,7 +822,7 @@ export class SheetController {
         const rest = words.slice(selfAt + 1), title = `${a.name} (self damage)`;
         const say = words[selfAt] + (rest.length ? `. Then: ${rest.join("; ")}` : "");
         this.record({ title: a.name, total: 0, dice: [], detail: words.join("; "), ...plain, own: {} });
-        this.askTotal({ title, say, roll: () => Number(rollDice(title, selfDie, this.host.rng).total), apply: n => { this.dispatch({ type: "damage", amount: n }); } });
+        this.askTotal({ title, say, min: 0, roll: () => Number(rollDice(title, selfDie, this.host.rng).total), apply: n => { this.dispatch({ type: "damage", amount: n }); } });
         return;
       }
       if (a.attack === undefined && !a.damage && !a.heal) { this.record({ title: a.name, total: 0, dice: [], detail: [...parts, a.text ?? ""].filter(Boolean).join(" · "), ...plain }); return; }

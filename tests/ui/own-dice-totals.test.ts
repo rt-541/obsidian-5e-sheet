@@ -47,6 +47,27 @@ for (const layout of ["desktop", "tablet", "mobile"] as const) describe(`own dic
     expect(s.ctl.character!.inventory[0].qty).toBe(1); expect(s.ctl.stats()!.hp.current).toBe(11);
   });
 
+  it("a negative total is refused for healing, and the item stays", () => {
+    const s = sheetWith(layout, { ...own, inventory: [{ id: "test-tonic", qty: 2 }], hp: { max: 20, current: 5, temp: 0 } });
+    s.ctl.useItem(0);
+    expect(s.ctl.submitTotal("-3")).toBe(false);
+    expect(s.q(".fe-own-roll").textContent).toContain("Type a number 0 or more.");
+    expect(s.ctl.character!.inventory[0].qty).toBe(2); expect(s.ctl.stats()!.hp.current).toBe(5);
+  });
+
+  for (const [name, ds] of [["3 successes", { successes: 3, failures: 0 }], ["3 failures", { successes: 0, failures: 3 }]] as const) {
+    it(`no death save button or roll at ${name}`, () => {
+      const s = sheetWith(layout, { ...own, hp: { max: 20, current: 0, temp: 0 }, deathSaves: ds });
+      expect(s.q('[data-act="death-save-roll"]')).toBeNull();
+      s.ctl.rollDeathSave(); expect(s.q(".fe-own-roll")).toBeNull();
+      expect(s.ctl.character!.deathSaves).toEqual(ds); expect(s.ctl.stats()!.hp.current).toBe(0);
+    });
+  }
+  it("the death save button shows at 0 hit points with saves left", () => {
+    const s = sheetWith(layout, { ...own, hp: { max: 20, current: 0, temp: 0 }, deathSaves: { successes: 2, failures: 2 } });
+    expect(s.q('[data-act="death-save-roll"]')).not.toBeNull();
+  });
+
   it("concentration asks for the save total and ends the spell on a low one", () => {
     const s = sheetWith(layout, { ...own, concentration: "bless" });
     s.ctl.concentrationCheck = { dc: 10, spell: "bless" };

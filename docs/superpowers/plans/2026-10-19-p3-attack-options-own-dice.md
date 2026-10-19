@@ -762,3 +762,5 @@ P1 and P2 plan files did not exist when this plan was written. The names below a
 ## Pending manual checks before merge
 
 - **Obsidian rendering of Task 7 controls (not closable from jsdom).** The Attack options switches (`.fe-opt-switch`) and the hit-window button are only checked structurally in tests. Deploy the build to the vault and look at them on desktop, tablet and phone widths, confirming that Obsidian's `button:not(.clickable-icon)` styling does not override the plugin rules (`.fe-sheet button.fe-opt-switch`, hit-window button), that targets are 44px on tablet and phone, and that on/off states are visibly distinct. Record the result here or attach a screenshot.
+
+**Status 2026-10-19: OPEN, merge gate.** `npm run build` passes, so `main.js` and `styles.css` are ready to copy to the dnd vault, but nobody has yet looked at them in real Obsidian. Result to record here (desktop / tablet / phone): not yet checked.
