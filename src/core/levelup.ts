@@ -340,7 +340,7 @@ function checkSwaps(s: Extract<Step, { kind: "spells" }>, v: unknown, env: Env):
 /** Validate every step's answer and write the effects of the answers into `value`; returns what to record in the log. */
 function commitSteps(steps: Step[], choices: Record<string, unknown>, env: Env, value: Character, c: Character): { record: Record<string, unknown>; summary: string[] } | { error: string } {
   const taken: Taken = { skills: new Set([...c.proficiencies.skills, ...env.prog.proficiencies.skills]), expertise: new Set([...c.proficiencies.expertise, ...env.prog.proficiencies.expertise]),
-    languages: new Set(env.prog.languages.map(langKey)), tools: new Set(env.prog.proficiencies.other), picked: new Set() };
+    languages: new Set([...env.prog.languages, ...c.languages].map(langKey)), tools: new Set(env.prog.proficiencies.other), picked: new Set() };
   const asked = steps.filter((s): s is Exclude<Step, { kind: "hp" }> => s.kind !== "hp");
   // expertise may use skills picked in the same level, so skills are checked first
   const order = [...asked.filter(s => !(s.kind === "pick" && s.what === "expertise")), ...asked.filter(s => s.kind === "pick" && s.what === "expertise")];

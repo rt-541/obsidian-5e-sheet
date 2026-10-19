@@ -193,6 +193,10 @@ describe("applyLevel: answers are validated and nothing half-applies", () => {
     expect(err(run(at3, "skirmisher", { "class:skirmisher:4:asi-0": { feat: "linguist" } }))).toMatch(/Choose 1 language still needs an answer/);
     expect(err(run(at3, "skirmisher", { "class:skirmisher:4:asi-0": { feat: "linguist" }, "feat:linguist:choose-1": ["klingon"] }))).toMatch(/not one of the choices/);
   });
+  it("a language already on the note (any casing) cannot be picked again", () => {
+    const at3 = { ...upTo(3), languages: ["ELVISH"] };
+    expect(err(run(at3, "skirmisher", { "class:skirmisher:4:asi-0": { feat: "linguist" }, "feat:linguist:choose-1": ["elvish"] }))).toMatch(/already/i);
+  });
   it("spells: right number of cantrips and spells, on the list, not known, not above the slots", () => {
     const at4 = upTo(4), spells = (v: unknown) => run(at4, "skirmisher", { "class:skirmisher:5:spells-2": v });
     expect(err(spells(["acid-splash", "burning-hands"]))).toMatch(/pick 1 cantrip and 2 spells/);
