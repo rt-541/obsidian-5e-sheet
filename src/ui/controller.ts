@@ -1,5 +1,6 @@
 import type { Registry } from "../content/registry";
 import { slug } from "../content/registry";
+import type { Draft } from "../content/creature-note";
 import type { CampaignData, ItemData, LevelingMode, SpellData } from "../content/types";
 import { apply, applyNpc, type Action, type Limits } from "../core/actions";
 import type { Character, Combo, Npc, Parsed } from "../core/character";
@@ -26,6 +27,8 @@ export interface SheetHost {
   renderMarkdown?(md: string, el: HTMLElement): void;
   /** Open the new-character builder (offered on a sheet that has no class yet). */
   openBuilder?(): void;
+  /** Save a custom creature as a Homebrew note and register it; resolves to its creature id. Never overwrites an existing note. */
+  saveCreature?(draft: Draft): Promise<string>;
   /** Trait groups the player collapsed, kept per character in plugin data (not in the note). */
   collapsedGroups?(): string[];
   setCollapsedGroups?(ids: string[]): void;

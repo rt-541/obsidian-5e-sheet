@@ -207,3 +207,23 @@
 .fe-bar-num { font-variant-numeric: tabular-nums; color: var(--text-muted); font-size: var(--font-ui-smaller); white-space: nowrap; }
 .fe-bar-ctl { display: inline-flex; align-items: center; gap: 4px; }
 .fe-bar-amt { width: 56px; text-align: center; }
+
+/* Companion picker, custom creature form and the 5e-statblock card */
+.fe-cf-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; margin-bottom: 8px; }
+.fe-cf-field { display: flex; flex-direction: column; gap: 2px; min-width: 90px; }
+.fe-cf-grow { flex: 1 1 160px; }
+.fe-cf-label { color: var(--text-muted); font-size: var(--font-ui-smaller); }
+.fe-cf-input { width: 100%; }
+.fe-cf-paste { width: 100%; font-family: var(--font-monospace); }
+.fe-cf-card { border: 1px solid var(--background-modifier-border); border-radius: var(--radius-m); padding: 8px; margin-bottom: 8px; }
+.fe-cf-unread { border: 1px solid var(--background-modifier-border); border-radius: var(--radius-m); padding: 8px; margin-bottom: 8px; }
+.fe-cf-actions { margin-top: 8px; }
+.fe-mobile .fe-cform input, .fe-mobile .fe-cform select, .fe-mobile .fe-cform textarea, .fe-mobile .fe-companion-panel input, .fe-mobile .fe-companion-panel select,
+.fe-tablet .fe-cform input, .fe-tablet .fe-cform select, .fe-tablet .fe-cform textarea, .fe-tablet .fe-companion-panel input, .fe-tablet .fe-companion-panel select { min-height: 44px; }
+.fe-mobile .fe-companion-panel button.fe-btn, .fe-mobile .fe-cform button.fe-btn { min-height: 44px; }
+.fe-sb { border: 1px solid var(--background-modifier-border); border-radius: var(--radius-m); padding: 10px 12px; margin: 8px 0; }
+.fe-sb-name { font-size: var(--font-ui-large); font-weight: var(--font-bold); }
+.fe-sb-scores { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; text-align: center; margin: 8px 0; }
+.fe-sb-actions { margin-top: 8px; }
+.fe-sb button.fe-btn { min-height: 36px; }
+.is-mobile .fe-sb button.fe-btn, .is-tablet .fe-sb button.fe-btn { min-height: 44px; }

@@ -78,6 +78,7 @@ export class CharacterView extends FileView {
       log, body,
       collapsedGroups: () => this.plugin.data.collapsed?.[file.path] ?? [],
       setCollapsedGroups: ids => { const d = (this.plugin.data.collapsed ??= {}); if (ids.length) d[file.path] = ids; else delete d[file.path]; this.plugin.saveLogsSoon(); },
+      saveCreature: async d => (await this.plugin.saveCreature(d)).id,
       renderMarkdown: (md, el) => { void MarkdownRenderer.render(this.app, md, el, file.path, this); },
     }, parsed);
     if (prev) { ctl.tab = prev.tab; ctl.mode = prev.mode; ctl.editing = prev.editing; }
