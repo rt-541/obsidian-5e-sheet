@@ -7,7 +7,8 @@ import { activeRests } from "../rules";
 import type { SheetController } from "./controller";
 import { h, sgn } from "./h";
 import { slug } from "../content/registry";
-import { btn, card, describeEffects, pips, bar, restModeControl, usesPips } from "./widgets";
+import { btn, card, describeEffects, pips, bar, usesPips } from "./widgets";
+import { settingsFeature } from "./settings-ui";
 import { featuresFeature, levelUpFeature, xpFeature } from "./features-ui";
 import { combosFeature, pinnedCombosFeature } from "./combos-ui";
 import { pinnedTraits, traitsFeature } from "./traits-ui";
@@ -222,9 +223,9 @@ export const RENDER: Record<string, Render> = {
   rests: ctl => {
     // a card on the Main page, under Hit Dice: resting and spending hit dice go together
     return card("Rest", h("div", { cls: "fe-rests-wrap" },
-      restModeControl(ctl),
       h("div", { cls: "fe-rests" }, ...activeRests(ctl.rules()).map(r => btn(r.label, () => ctl.open({ kind: "rest", id: r.id }))))));
   },
+  settings: ctl => settingsFeature(ctl),
   inventory: (ctl, st) => inventoryFeature(ctl, st),
   companions: ctl => { const c = ctl.character!, sts = ctl.companionStats(), r = ctl.host.registry;
     return card("Companions", ...c.companions.map((comp, i) => {

@@ -15,14 +15,15 @@ const tester = {
 afterEach(() => document.body.replaceChildren());
 
 for (const layout of LAYOUTS) describe(`rest words (${layout})`, () => {
-  it("the Rest card and Customize use the same single two-way control", () => {
+  it("the Settings card and Customize use the same wording for the two-way rest control", () => {
     const s = sheet(layout, thalia);
-    const opts = s.all('[data-feature="rests"] [data-rest-mode]');
-    expect(opts.map(o => o.textContent)).toEqual(["Normal", "Hexploration"]);
-    expect(s.q('[data-feature="rests"] [data-rest-hint]').textContent).toBe("Short and long rests.");
+    const opts = s.all('[data-feature="settings"] [data-rest-mode]');
+    expect(opts.map(o => o.textContent)).toEqual(["Normal (short and long)", "Hexploration (night's rest)"]);
+    expect(s.root.querySelector('[data-feature="rests"] [data-rest-mode]')).toBeNull();
     s.ctl.setEditing(true); s.ctl.open({ kind: "customize" });
     const panel = s.q('[data-panel="customize"]');
     expect(panel.querySelectorAll("[data-rest-mode]")).toHaveLength(2);
+    expect(panel.querySelector("[data-rest-hint]")!.textContent).toBe("Short and long rests.");
     expect(panel.querySelector('[data-rule="rest-standard"]')).toBeNull();   // no second, independent switch
     expect(panel.textContent).not.toMatch(/Excursion|Standard rests/);
   });

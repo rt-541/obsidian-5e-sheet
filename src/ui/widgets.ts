@@ -216,6 +216,6 @@ export function restModeControl(ctl: SheetController): HTMLElement {
     data: { restMode: excursion ? "excursion" : "standard", ...(excursion ? { rule: "rest-excursion" } : {}) },
     attrs: { "aria-pressed": String(ex === excursion) }, on: { click: () => { if (ex !== excursion) ctl.setRule("rest-excursion", excursion); } } });
   return h("div", { cls: "fe-rest-mode-wrap" },
-    h("div", { cls: "fe-seg fe-rest-mode", attrs: { role: "group", "aria-label": "Rest rules" } }, opt(false, "Normal"), opt(true, "Hexploration")),
+    h("div", { cls: "fe-seg fe-rest-mode", attrs: { role: "group", "aria-label": "Rest rules" } }, opt(false, "Normal (short and long)"), opt(true, "Hexploration (night's rest)")),
     h("div", { cls: "fe-faint", data: { restHint: "" }, text: ex ? "A night's rest each night; 3 nights in one place (or a safe haven) is a Good Rest." : "Short and long rests." }));
 }

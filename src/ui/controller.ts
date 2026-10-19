@@ -14,7 +14,7 @@ import { evalFormula, fillDice } from "../core/formula";
 import { applyLevel, applyResolve, levelFromXp, planLevel, planResolve, rollHitDie, undoLevel, xpProgress, MAX_TOTAL_LEVEL, type LevelPlan, type Step } from "../core/levelup";
 import { formulaVars, type FeatureRow } from "../core/progression";
 import type { RollMode, RollResult, RollTarget, Rng } from "../core/types";
-import { activeRests, MODULES } from "../rules";
+import { activeRests, MODULES, OWN_DICE } from "../rules";
 import { blankItemDraft, parseItemBlock, validateItemDraft, type ChargeReset, type ItemDraft, type ItemKind } from "../content/itemblock";
 import { blankItemSearch, type ItemSearch } from "./additem-ui";
 import { findRations, foodDays } from "../rules/hexploration";
@@ -111,6 +111,8 @@ export class SheetController {
   pickers(): Registry { return this.host.registry.scoped(this.host.campaign?.sources); }
   ctx() { return { registry: this.host.registry, ...(this.host.campaign ? { campaign: this.host.campaign } : {}) }; }
   rules() { return resolveRules(MODULES, [this.host.ruleDefaults, this.host.campaign?.rules, this.value.rules]); }
+  /** Whether the player rolls their own dice (a setting only; P3 gives it effect). */
+  ownDice(): boolean { return !!this.rules()[OWN_DICE]; }
   visible(features: string[]) {
     const keep = new Set(["identity", "play-edit"]);
     const shown = new Set(resolveSections(features, [this.host.campaign?.sections, this.value.sheet], this.rules(), MODULES));

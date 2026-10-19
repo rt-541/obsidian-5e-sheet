@@ -82,7 +82,7 @@ describe.each([["desktop", false], ["mobile", true]] as const)("level up on the 
   it("subclass cards add the subclass's own steps; the ASI page enforces +2 / +1 +1; a feat adds its choice", () => {
     const s = setup(noteOf(upTo(2)), mobile);
     s.click('[data-act="level-up"]'); s.click('[data-class="skirmisher"]'); s.next(); s.click('[data-hp="average"]'); s.next();
-    expect(s.qa("[data-opt]").map(b => b.dataset.opt)).toEqual(["pact-mind", "scholar"]);
+    expect(s.qa('[data-panel="level-up"] [data-opt]').map(b => b.dataset.opt)).toEqual(["pact-mind", "scholar"]);
     s.click('[data-opt="pact-mind"]'); s.next();
     expect(s.q('[data-step="subclass:pact-mind:3:boon"]')).not.toBeNull();
     s.click('[data-act="lu-back"]'); s.click('[data-opt="scholar"]'); s.next();

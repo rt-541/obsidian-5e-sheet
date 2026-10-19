@@ -24,10 +24,10 @@ function setup(layout: "desktop" | "tablet" | "mobile", note: object = thalia) {
 describe.each(["desktop", "tablet", "mobile"] as const)("rest rules switch (%s)", layout => {
   afterEach(() => document.body.replaceChildren());
 
-  it("offers both options next to the rest buttons, with standard rests on by default", () => {
+  it("the Settings card offers both options, with standard rests on by default", () => {
     const s = setup(layout);
-    const opts = [...s.root.querySelectorAll('[data-feature="rests"] [data-rest-mode]')];
-    expect(opts.map(o => o.textContent)).toEqual(["Normal", "Hexploration"]);
+    const opts = [...s.root.querySelectorAll('[data-feature="settings"] [data-rest-mode]')];
+    expect(opts.map(o => o.textContent)).toEqual(["Normal (short and long)", "Hexploration (night's rest)"]);
     expect(opts.map(o => o.getAttribute("aria-pressed"))).toEqual(["true", "false"]);
     expect(s.buttons()).toEqual(["Short rest", "Long rest"]);
   });
