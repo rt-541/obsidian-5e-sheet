@@ -10,7 +10,7 @@ export function optionWords(row: AttackOptionRow): string {
   if (row.kind === "extra") {
     parts.push(`+${row.adds ?? ""} damage on ${tagWords(row.tag)}`);
     if (row.perTurn) parts.push("once per turn");
-    parts.push("added by itself while on");
+    parts.push("added automatically while on");
     return parts.join(", ");
   }
   if (row.toHit) parts.push(`+${row.toHit} to each attack roll`);
@@ -26,12 +26,14 @@ export function optionWords(row: AttackOptionRow): string {
 export function attackOptionsFeature(ctl: SheetController, st: ActorStats): HTMLElement {
   const rows = st.attackOptions;
   const el = card("Attack options", ...rows.map(row => {
-    const blocked = !!row.problem;
+    const r = row.resource, empty = !!r && !r.unlimited && r.left <= 0;
+    const reason = row.problem ?? (empty ? `No ${r!.name} left` : undefined);
+    const blocked = !!row.problem || (empty && !row.on);
     const sw = h("button", { cls: `fe-opt-switch${row.on ? " is-on" : ""}`, data: { act: "attack-option" },
       attrs: { "aria-pressed": String(row.on), "aria-label": `Switch ${row.name} ${row.on ? "off" : "on"}`, ...(blocked ? { disabled: "" } : {}) },
       on: { click: () => { ctl.setAttackOption(row.id, !row.on); } } });
     const name = h("span", { cls: "fe-opt-name", text: row.name, ...(row.ref ? { data: { ref: row.ref } } : {}) });
-    const words = h("span", { cls: `fe-opt-words ${blocked ? "fe-step-problem" : "fe-muted"}`, text: `: ${blocked ? row.problem : optionWords(row)}` });
+    const words = h("span", { cls: `fe-opt-words ${reason ? "fe-step-problem" : "fe-muted"}`, text: `: ${reason ?? optionWords(row)}` });
     return h("div", { cls: `fe-opt${row.on ? " is-on" : ""}`, data: { attackOption: row.id } }, sw, h("span", { cls: "fe-grow" }, name, words));
   }));
   if (!rows.length) el.hidden = true;

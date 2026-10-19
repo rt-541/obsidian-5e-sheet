@@ -1,3 +1,4 @@
+import { resourceCount } from "./words";
 import { slug } from "../content/registry";
 import type { AttackOptionDef, ItemData } from "../content/types";
 import type { Character, InventoryEntry } from "./character";
@@ -44,7 +45,7 @@ export function spendWords(opts: AttackOptionRow[], index: number): string | und
   const r = opts[index]?.resource;
   if (!r || r.unlimited) return undefined;
   const used = opts.slice(0, index + 1).filter(o => o.resource?.id === r.id).length;
-  return `1 ${r.name} spent, ${Math.max(0, r.left - used)} of ${r.max} left`;
+  return `${resourceCount(1, r.name)} spent, ${Math.max(0, r.left - used)} of ${r.max} left`;
 }
 
 /** The resource a name points at:the same match the switch cost uses (derived by id, manual by name). */

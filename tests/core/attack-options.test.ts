@@ -81,6 +81,6 @@ describe("which attack options a roll can use", () => {
   });
   it("keeps options only while dice are left, and words the spend", () => {
     expect(affordable(toHitOptions(rows, melee)).map(o => o.id)).toEqual(["test-focus"]);
-    expect(spendWords(toHitOptions(rows, melee), 0)).toBe("1 Focus Dice spent, 0 of 3 left");
+    expect(spendWords(toHitOptions(rows, melee), 0)).toBe("1 Focus Die spent, 0 of 3 left");
   });
 });

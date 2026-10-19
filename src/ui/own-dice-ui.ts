@@ -13,7 +13,7 @@ export function ownRollBox(ctl: SheetController): HTMLElement | null {
     rows.push(h("div", { cls: "fe-kv" }, input, act("Add to log", "own-log", () => ctl.logOwnTotal(input!.value))));
   }
   if (o.kind === "attack") rows.push(h("div", { cls: "fe-kv fe-own-hit" },
-    act("Hit", "own-hit", () => ctl.answerHit("hit"), "mod-cta"), act("Miss", "own-miss", () => ctl.answerHit("miss")), act("Crit", "own-crit", () => ctl.answerHit("crit"), "mod-cta")));
+    act("Hit", "own-hit", () => ctl.answerHit("hit"), "mod-cta"), act("Miss", "own-miss", () => ctl.answerHit("miss")), act("Crit", "own-crit", () => ctl.answerHit("crit"), "fe-own-crit")));
   if (o.kind === "total") {
     input = h("input", { cls: "fe-search", data: { keep: "own-total" }, attrs: { type: "number", inputmode: "numeric", required: "", placeholder: "Total", "aria-label": "The total you rolled" } });
     rows.push(h("div", { cls: "fe-kv" }, input, act("Apply", "own-apply", () => ctl.submitTotal(input!.value), "mod-cta")),

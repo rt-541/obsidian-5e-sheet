@@ -24,11 +24,20 @@ describe("Attack options card and attack row buttons", () => {
     it("shows each option in words, switches on a tap and disables an option with a problem", () => {
       const s = sheetWith(layout, { feats: ["test-focus", "test-ember", "test-lost"] });
       expect(s.q('[data-attack-option="test-focus"]').textContent).toContain("Test Focus: +1d4 to each attack roll, 3 of 3 Focus Dice left");
-      expect(s.q('[data-attack-option="extra:test-ember"]').textContent).toContain("+1d6 fire damage on weapon attacks, added by itself while on");
+      expect(s.q('[data-attack-option="extra:test-ember"]').textContent).toContain("+1d6 fire damage on weapon attacks, added automatically while on");
       expect(s.q('[data-attack-option="test-lost"] button').hasAttribute("disabled")).toBe(true);
       s.click(s.q('[data-attack-option="test-focus"] [data-act="attack-option"]'));
       expect(s.ctl.character!.optionsOn).toEqual(["test-focus"]);
       expect(s.q('[data-attack-option="test-focus"] [data-act="attack-option"]').getAttribute("aria-pressed")).toBe("true");
+    });
+    it("disables an option whose pool is empty, with the reason, until dice are back", () => {
+      const s = sheetWith(layout, { feats: ["test-focus"], uses: { "focus-dice": 3 } });
+      const sw = () => s.q('[data-attack-option="test-focus"] [data-act="attack-option"]');
+      expect(sw().hasAttribute("disabled")).toBe(true);
+      expect(s.q('[data-attack-option="test-focus"]').textContent).toContain("No Focus Dice left");
+      s.ctl.dispatch({ type: "uses", id: "focus-dice", used: 2 });
+      expect(sw().hasAttribute("disabled")).toBe(false);
+      expect(s.q('[data-attack-option="test-focus"]').textContent).toContain("Test Focus: +1d4 to each attack roll, 1 of 3 Focus Dice left");
     });
     it("hides the card when there are no options", () => {
       expect(sheetWith(layout).q('[data-feature="attack-options"]').hidden).toBe(true);
@@ -60,6 +69,23 @@ describe("Attack options card and attack row buttons", () => {
     });
   });
 
+  it("the hit-window button is an overlay slot on the row, so the card never grows", () => {
+    for (const [name] of layouts) {
+      const h = sheetWith(name, { feats: ["test-analysis"], optionsOn: ["test-analysis"] }, seq(0.5));
+      h.click(h.row("Longsword").querySelector('[data-act="to-hit"]'));
+      const btn = h.row("Longsword").querySelector('[data-act="hit-window"]')!, slot = btn.closest(".fe-hit-slot")!;
+      expect(slot).not.toBeNull(); expect(slot.parentElement).toBe(h.row("Longsword"));
+      expect(btn.closest(".fe-attack-ctl")).toBeNull();
+    }
+    expect(css).toMatch(/\.fe-attack \{[^}]*position: relative/);
+    expect(css).toMatch(/\.fe-hit-slot \{[^}]*position: absolute/);
+    expect(css).toMatch(/\.fe-tablet \.fe-hit-slot button\.fe-hit-window, \.fe-mobile \.fe-hit-slot button\.fe-hit-window[^{]*\{[^}]*min-height: 44px/);
+  });
+  it("styles: off knob is visible, Off/On buttons are 44px wide on touch layouts", () => {
+    expect(css).toMatch(/\.fe-opt-switch::after \{[^}]*background: var\(--text-muted\)/);
+    expect(css).toMatch(/\.fe-opt-switch\.is-on::after \{[^}]*background: var\(--background-primary\)/);
+    expect(css).toMatch(/\.fe-mobile button\.fe-mode-opt, \.fe-tablet button\.fe-mode-opt \{[^}]*min-width: 44px/);
+  });
   it("styles: switch, 44px targets on tablet and phone, fading hit-window button", () => {
     expect(css).toMatch(/\.fe-sheet button\.fe-opt-switch \{/);
     expect(css).toMatch(/\.fe-sheet\.fe-tablet button\.fe-opt-switch, \.fe-sheet\.fe-mobile button\.fe-opt-switch[^{]*\{[^}]*min-height: 44px/);

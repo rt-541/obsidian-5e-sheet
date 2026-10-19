@@ -49,8 +49,15 @@ for (const layout of ["desktop", "tablet", "mobile"] as const) {
       m.ctl.attackRoll(ai); vi.advanceTimersByTime(HIT_WINDOW_MS);
       expect(m.ctl.stats()!.attackOptions[0].on).toBe(true);
       const hit = m.ctl.attackDamage(ai)!;
-      expect(hit.detail).toContain("rolled twice"); expect(hit.detail).toContain("Test Savage is off (once per turn)");
+      expect(hit.detail).toContain("rolled twice"); expect(hit.detail).not.toMatch(/ {2}/); expect(hit.detail).toContain("Test Savage is off (once per turn)");
       expect(m.ctl.stats()!.attackOptions[0].on).toBe(false);
+    });
+
+    it("a reroll with extra damage dice reads in words, joined by plus", () => {
+      const m = sheetWith(layout, { feats: ["test-savage", "test-ember"], optionsOn: ["test-savage"] }, seq(0.5));
+      const d = m.ctl.attackDamage(attackIndex(m))!.detail;
+      expect(d).not.toMatch(/ {2}/);
+      expect(d).toMatch(/^rolled twice: \d+ and \d+, kept \d+ \([^)]*\) \+ 1d6 fire/);
     });
 
     it("extra switches are listed, and off means left out", () => {

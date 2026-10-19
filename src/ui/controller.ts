@@ -577,7 +577,7 @@ export class SheetController {
     if (opts.some(o => o.reroll)) {
       const terms = expr.split(" + "), first = rollKeepHigher(title, terms[0], rng);
       const rest = terms.length > 1 ? rollDice(title, terms.slice(1).join(" + "), rng) : undefined;
-      r = rest ? { ...first, total: (first.total as number) + (rest.total as number), dice: [...first.dice, ...rest.dice], detail: `${first.detail}  ${rest.detail}` } : first;
+      r = rest ? { ...first, total: (first.total as number) + (rest.total as number), dice: [...first.dice, ...rest.dice], detail: `${first.detail} + ${rest.detail}` } : first;
     } else r = rollDice(title, expr, rng);
     let total = r.total as number;
     for (const o of opts) {
@@ -684,7 +684,7 @@ export class SheetController {
     if (this.ownDice()) {
       const ctx = this.restCtx(), con = ctx.stats.mods.con, pre = spendHitDie(ctx, die, undefined, 0);
       if (pre.error) { this.host.notify(pre.error); return; }
-      this.askTotal({ title: `Hit Die ${die}`, say: damageWords({ expr: `1${die}${con === 0 ? "" : con > 0 ? `+${con}` : `${con}`}` }), min: 0,
+      this.askTotal({ title: `Hit Die ${die}`, say: `${damageWords({ expr: `1${die}${con === 0 ? "" : con > 0 ? `+${con}` : `${con}`}` })} and enter the total: you heal that much`, min: 0,
         roll: () => Number(rollDice(`Hit Die ${die}`, `1${die}`, this.host.rng).total) + con, apply: n => this.spendHitDieWith(die, n) });
       return;
     }

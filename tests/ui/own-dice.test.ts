@@ -17,13 +17,16 @@ for (const layout of ["desktop", "tablet", "mobile"] as const) describe(`own dic
     const a = s.ctl.stats()!.attacks.find(x => x.name === "Longsword")!;
     s.click(s.row("Longsword").querySelector('[data-act="to-hit"]'));
     expect(rngSpy).not.toHaveBeenCalled();
-    expect(s.q(".fe-own-roll").textContent).toContain(`Roll 1d20 ${a.toHit! < 0 ? "-" : "+"} ${Math.abs(a.toHit!)}, plus 1d4 for Test Focus (1 Focus Dice spent, 2 of 3 left)`);
+    expect(s.q(".fe-own-roll").textContent).toContain(`Roll 1d20 ${a.toHit! < 0 ? "-" : "+"} ${Math.abs(a.toHit!)}, plus 1d4 for Test Focus (1 Focus Die spent, 2 of 3 left)`);
     expect(s.left("focus-dice").used).toBe(1);
     expect(s.q(".fe-toast").hidden).toBe(true);
+    expect(s.q('[data-act="own-hit"]').classList.contains("mod-cta")).toBe(true);
+    expect(s.q('[data-act="own-crit"]').classList.contains("mod-cta")).toBe(false);
+    expect(s.q('[data-act="own-crit"]').classList.contains("fe-own-crit")).toBe(true);
     s.click(s.q('[data-act="own-miss"]'));
     expect(s.left("insight-dice").used).toBe(0); expect(s.q(".fe-own-roll")).toBeNull();
     s.click(s.row("Longsword").querySelector('[data-act="to-hit"]')); s.click(s.q('[data-act="own-crit"]'));
-    expect(s.q(".fe-own-roll").textContent).toContain("+ 2d4 for Test Analysis (1 Insight Dice spent, 1 of 2 left)");
+    expect(s.q(".fe-own-roll").textContent).toContain("+ 2d4 for Test Analysis (1 Insight Die spent, 1 of 2 left)");
     expect(s.q(".fe-own-roll").textContent).toContain("Roll 2d8 + 3 slashing");
     expect(rngSpy).not.toHaveBeenCalled();
     // a total is optional; a bad one keeps the box open with a message
