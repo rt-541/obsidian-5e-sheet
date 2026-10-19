@@ -197,15 +197,26 @@ export class SheetController {
     const c = this.character, e = c?.inventory[index];
     if (!c || !e || e.qty <= 0) return false;
     const it = e.id ? this.host.registry.get<ItemData>("item", e.id) : undefined, name = it?.name ?? e.name ?? "Item", left = e.qty - 1;
-    const tail = left > 0 ? `${left} left.` : "None left. It stays in your inventory, greyed out.";
     if (!it?.data.heal) {
       this.dispatch({ type: "itemQty", index, qty: left });
       this.host.notify(left > 0 ? `Used ${name}: ${left} left.` : `Used ${name}: none left. It stays in your inventory, greyed out.`);
       return true;
     }
+    if (this.ownDice()) {
+      const expr = it.data.heal, title = `${name} healing`;
+      this.askTotal({ title, say: damageWords({ expr }), roll: () => Number(rollDice(title, expr, this.host.rng).total),
+        apply: n => { const now = this.character?.inventory[index]; if (now && now.id === e.id && now.qty > 0) this.healWith(index, name, n); } });
+      return true;
+    }
     let rolled: number;
     try { rolled = Number(this.damage(`${name} healing`, it.data.heal).total); }
     catch (x) { this.host.notify(`${name}: ${(x as Error).message}`); return false; }
+    return this.healWith(index, name, rolled);
+  }
+  /** Use one of entry `index` and heal `rolled`, saying what happened. */
+  private healWith(index: number, name: string, rolled: number): boolean {
+    const e = this.character?.inventory[index]; if (!e) return false;
+    const left = e.qty - 1, tail = left > 0 ? `${left} left.` : "None left. It stays in your inventory, greyed out.";
     const before = this.stats()!.hp.current;
     if (!this.dispatch({ type: "itemQty", index, qty: left }).ok || !this.dispatch({ type: "heal", amount: rolled }).ok) return false;
     const healed = this.stats()!.hp.current - before;
@@ -230,9 +241,20 @@ export class SheetController {
   forage(quick: boolean, ev: Mods = {}): void {
     const c = this.character, st = this.stats(); if (!c || !st || !this.guard()) return;
     const sk = st.skills.find(k => k.id === "survival");
+    if (this.ownDice()) {
+      const target: RollTarget = { kind: "skill", abil: "wis", skill: "survival" }, title = quick ? "Quick forage (Wisdom, Survival)" : "Forage (Wisdom, Survival)";
+      const mod = sk?.mod ?? st.mods.wis, setup = this.d20Setup(target, ev, undefined, quick ? "dis" : undefined);
+      this.askTotal({ title, say: `${this.d20Say(mod, setup)} (Wisdom, Survival)`, roll: this.d20Roller(title, mod, setup), apply: n => this.forageWith(n) });
+      return;
+    }
     const r = this.roll(quick ? "Quick forage (Wisdom, Survival)" : "Forage (Wisdom, Survival)", sk?.mod ?? st.mods.wis, { kind: "skill", abil: "wis", skill: "survival" }, ev, undefined, quick ? "dis" : undefined);
-    const total = typeof r.total === "number" ? r.total : 0, days = foodDays(total);
-    if (!days) { this.host.notify(`Found nothing to eat (rolled ${r.total}, needed 10).`); return; }
+    this.forageWith(typeof r.total === "number" ? r.total : 0, r.total);
+  }
+  /** The result of a forage check that came to `total`. */
+  private forageWith(total: number, shown: number | string = total): void {
+    const c = this.character; if (!c) return;
+    const days = foodDays(total);
+    if (!days) { this.host.notify(`Found nothing to eat (rolled ${shown}, needed 10).`); return; }
     const tonight = (c.rest.foraged ?? 0) === 0, extra = tonight ? days - 1 : days, dayWord = `${days} day${days === 1 ? "" : "s"}`;
     if (tonight) { const v = structuredClone(this.character!); v.rest.foraged = 1; this.commit(v); }
     if (extra > 0) this.addRations(extra);
@@ -321,10 +343,20 @@ export class SheetController {
     const chk = this.concentrationCheck, st = this.stats(), c = this.character;
     if (!chk || !st || !c) return;
     const name = this.host.registry.get<SpellData>("spell", chk.spell)?.name ?? chk.spell;
+    const target: RollTarget = { kind: "save", abil: "con", concentration: true }, title = `Concentration save (DC ${chk.dc})`;
+    if (this.ownDice()) {
+      const setup = this.d20Setup(target, {});
+      this.askTotal({ title, say: `${this.d20Say(st.concentrationSave, setup)} (Constitution save, DC ${chk.dc})`, roll: this.d20Roller(title, st.concentrationSave, setup),
+        apply: n => { this.concentrationCheck = null; this.concentrationResult(chk.spell, name, n >= chk.dc); } });
+      return;
+    }
     this.concentrationCheck = null;
-    const r = this.roll(`Concentration save (DC ${chk.dc})`, st.concentrationSave, { kind: "save", abil: "con", concentration: true });
-    if (r.total !== "fail" && r.total >= chk.dc) { this.host.notify(`Concentration kept: ${name} continues.`); return; }
-    if (c.concentration === chk.spell) this.dispatch({ type: "endConcentration" });
+    const r = this.roll(title, st.concentrationSave, target);
+    this.concentrationResult(chk.spell, name, r.total !== "fail" && r.total >= chk.dc);
+  }
+  private concentrationResult(spell: string, name: string, kept: boolean) {
+    if (kept) { this.host.notify(`Concentration kept: ${name} continues.`); return; }
+    if (this.character?.concentration === spell) this.dispatch({ type: "endConcentration" });
     this.host.notify(`Concentration lost: ${name} ends.`);
   }
   dismissConcentrationCheck() { this.concentrationCheck = null; this.emit(); }
@@ -556,6 +588,34 @@ export class SheetController {
   }
   closeOwnRoll(): void { this.ownRoll = null; this.emit(); }
 
+  /** Own-dice play: ask for the total of a roll that changes the sheet. Nothing changes until `apply` runs. */
+  askTotal(p: Omit<Extract<OwnRoll, { kind: "total" }>, "kind" | "error">): void { this.ownRoll = { kind: "total", ...p }; this.emit(); }
+  /** Check the typed total and apply it. A bad value says why and keeps the box open. */
+  submitTotal(text: string): boolean {
+    const o = this.ownRoll; if (!o || o.kind !== "total") return false;
+    const t = text.trim(), n = Number(t);
+    let bad = "";
+    if (!/^-?\d+$/.test(t) || !Number.isSafeInteger(n)) bad = "Type the total you rolled, a whole number.";
+    else if (o.min !== undefined && o.max !== undefined && (n < o.min || n > o.max)) bad = `Type a number from ${o.min} to ${o.max}.`;
+    if (bad) { o.error = bad; this.emit(); return false; }
+    this.ownRoll = null; o.apply(n); this.emit(); return true;
+  }
+  /** "Roll it for me": the app rolls the dice and applies the result. */
+  rollItForMe(): void {
+    const o = this.ownRoll; if (!o || o.kind !== "total") return;
+    let n: number;
+    try { n = o.roll(); } catch (x) { this.host.notify((x as Error).message); return; }
+    this.ownRoll = null; o.apply(n); this.emit();
+  }
+  /** A function that rolls the d20 of an own-dice question with the mode and sources already worked out. */
+  private d20Roller(title: string, mod: number, s: ReturnType<SheetController["d20Setup"]>): () => number {
+    return () => {
+      const r = rollD20({ title, mod, mode: s.mode, ...s.src, ...(this.host.rng ? { rng: this.host.rng } : {}),
+        ...(s.rules?.min !== undefined ? { min: s.rules.min } : {}), ...(s.rules?.reroll !== undefined ? { reroll: s.rules.reroll } : {}) });
+      return typeof r.total === "number" ? r.total : 0;
+    };
+  }
+
   setMode(m: RollMode) { this.mode = m; this.emit(); }
   setEditing(on: boolean) { this.editing = on; this.confirmUndo = false; if (!on && this.panel?.kind === "customize") this.panel = null; this.emit(); }
   /** Whether the traits card section `id` is collapsed (default: expanded). */
@@ -590,7 +650,18 @@ export class SheetController {
   }
   spendHitDie(die: string) {
     if (!this.guard() || !this.character) return;
-    const out = spendHitDie(this.restCtx(), die, this.host.rng);
+    if (this.ownDice()) {
+      const ctx = this.restCtx(), con = ctx.stats.mods.con, pre = spendHitDie(ctx, die, undefined, 0);
+      if (pre.error) { this.host.notify(pre.error); return; }
+      this.askTotal({ title: `Hit Die ${die}`, say: damageWords({ expr: `1${die}${con === 0 ? "" : con > 0 ? `+${con}` : `${con}`}` }),
+        roll: () => Number(rollDice(`Hit Die ${die}`, `1${die}`, this.host.rng).total) + con, apply: n => this.spendHitDieWith(die, n) });
+      return;
+    }
+    this.spendHitDieWith(die);
+  }
+  private spendHitDieWith(die: string, total?: number) {
+    if (!this.guard() || !this.character) return;
+    const out = spendHitDie(this.restCtx(), die, this.host.rng, total);
     if (out.error) { this.host.notify(out.error); return; }
     this.commit(out.value); this.record(out.roll!);
   }
@@ -624,7 +695,10 @@ export class SheetController {
     this.levelUp = next; this.emit();
   }
   pick(key: string, value: unknown) { if (this.levelUp) this.setLevelUp({ choices: { ...this.levelUp.choices, [key]: value } }); }
-  rollLevelHp(die: number) { this.setLevelUp({ hp: { method: "roll", roll: rollHitDie(die, this.host.rng) } }); }
+  rollLevelHp(die: number) {
+    if (!this.ownDice()) { this.setLevelUp({ hp: { method: "roll", roll: rollHitDie(die, this.host.rng) } }); return; }
+    this.askTotal({ title: "Hit points for this level", say: `Roll 1d${die}`, min: 1, max: die, roll: () => rollHitDie(die, this.host.rng), apply: n => this.setLevelUp({ hp: { method: "roll", roll: n } }) });
+  }
   /** The wizard's plan for its current picks (no class yet is just no steps). */
   levelUpSteps(): { steps: Step[]; plan?: LevelPlan; error?: string } {
     const c = this.character, st = this.levelUp;
@@ -689,8 +763,9 @@ export class SheetController {
         if (r.unlimited) parts.push(`${r.name} (${r.unlimited.toLowerCase()})`);
         else { if (!this.dispatch({ type: "uses", id, used: r.used + amount }).ok) return; parts.push(`${r.name} -${amount}`); }
       }
+      let selfAt = -1, selfDie = "";
       if (a.cost && "selfDamage" in a.cost) {
-        if (own) parts.push(`Roll ${spaced(fillDice(a.cost.selfDamage, scales))} for the damage to you`);
+        if (own) { selfAt = parts.length; selfDie = fillDice(a.cost.selfDamage, scales); parts.push(`Roll ${spaced(selfDie)} for the damage to you`); }
         else {
           const roll = this.damage(`${a.name} (self damage)`, fillDice(a.cost.selfDamage, scales));
           this.dispatch({ type: "damage", amount: Number(roll.total) }); parts.push(`${roll.total} damage to you`);
@@ -702,7 +777,7 @@ export class SheetController {
         saveAt = parts.length;
         parts.push(own && dc ? saveWords(a.save.abil, dc.dc) : `${a.save.abil.toUpperCase()} save DC ${dc ? dc.dc : "?"}`);
       }
-      if (own && (a.attack !== undefined || a.damage || a.heal)) {
+      if (own && (a.attack !== undefined || a.damage || a.heal || selfAt >= 0)) {
         // one entry with every part of the action in words
         const words = [...parts];
         if (a.attack !== undefined) {
@@ -711,7 +786,13 @@ export class SheetController {
         }
         if (a.damage) words.push(`you roll ${spaced(fillDice(a.damage, scales))}`);
         if (a.heal) words.push(`Roll ${spaced(fillDice(a.heal, scales))} healing`);
-        this.ownSay(a.name, words.join("; ")); return;
+        if (selfAt < 0) { this.ownSay(a.name, words.join("; ")); return; }
+        // the damage to you changes the sheet, so it asks for its total; the rest of the action is said in the same box
+        const rest = words.slice(selfAt + 1), title = `${a.name} (self damage)`;
+        const say = words[selfAt] + (rest.length ? `. Then: ${rest.join("; ")}` : "");
+        this.record({ title: a.name, total: 0, dice: [], detail: words.join("; "), ...plain, own: {} });
+        this.askTotal({ title, say, roll: () => Number(rollDice(title, selfDie, this.host.rng).total), apply: n => { this.dispatch({ type: "damage", amount: n }); } });
+        return;
       }
       if (a.attack === undefined && !a.damage && !a.heal) { this.record({ title: a.name, total: 0, dice: [], detail: [...parts, a.text ?? ""].filter(Boolean).join(" · "), ...plain }); return; }
       if (parts.length) this.record({ title: `${a.name} used`, total: 0, dice: [], detail: parts.join(" · "), ...plain });

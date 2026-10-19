@@ -32,12 +32,21 @@ export function resolveSections(all: string[], layers: ({ hide: string[]; show: 
   return all.filter(s => !hidden.has(s));
 }
 
-export function spendHitDie(ctx: RestCtx, die: string, rng?: Rng): { value: Character; roll?: RollResult; error?: string } {
+/** Spend one Hit Die and heal. Given `total` (the player rolled their own die and typed the whole total, modifier included) no dice are rolled and the heal is max(1, total). */
+export function spendHitDie(ctx: RestCtx, die: string, rng?: Rng, total?: number): { value: Character; roll?: RollResult; error?: string } {
   const hd = ctx.stats.hitDice.find(h => h.die === die);
   if (!hd || hd.used >= hd.max) return { value: ctx.c, error: `No ${die} Hit Dice left` };
-  const roll = rollDice(`Hit Die ${die}`, `1${die}`, rng), heal = Math.max(1, (roll.total as number) + ctx.stats.mods.con);
   const c = structuredClone(ctx.c);
   c.hitDice[die] = { used: hd.used + 1 };
+  let heal: number, roll: RollResult;
+  if (total !== undefined) {
+    heal = Math.max(1, total);
+    roll = { title: `Hit Die ${die}`, total: heal, dice: [], detail: `you rolled ${total}`, crit: false, fumble: false, sources: { adv: [], dis: [], fail: [] } };
+  } else {
+    const r = rollDice(`Hit Die ${die}`, `1${die}`, rng);
+    heal = Math.max(1, (r.total as number) + ctx.stats.mods.con);
+    roll = { ...r, total: heal, detail: `${r.detail} ${ctx.stats.mods.con >= 0 ? "+" : ""}${ctx.stats.mods.con} CON` };
+  }
   c.hp.current = Math.min(ctx.stats.hp.max, c.hp.current + heal);
-  return { value: c, roll: { ...roll, total: heal, detail: `${roll.detail} ${ctx.stats.mods.con >= 0 ? "+" : ""}${ctx.stats.mods.con} CON` } };
+  return { value: c, roll };
 }

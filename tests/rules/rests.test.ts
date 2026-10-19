@@ -43,6 +43,13 @@ describe("standard rests", () => {
     const none = spendHitDie(ctx(char({ hitDice: { d8: { used: 5 } } })), "d8");
     expect(none.error).toBe("No d8 Hit Dice left");
   });
+  it("given a total the player rolled: no dice, heals the total (min 1), says what was rolled", () => {
+    const c = char({ hp: { max: 43, current: 20, temp: 0 }, hitDice: { d8: { used: 0 } } });
+    const zero = spendHitDie(ctx(c), "d8", undefined, 0);
+    expect(zero.value.hp.current).toBe(21); expect(zero.value.hitDice.d8.used).toBe(1);
+    expect(zero.roll!.detail).toBe("you rolled 0"); expect(zero.roll!.dice).toEqual([]);
+    expect(spendHitDie(ctx(c), "d8", undefined, 9).value.hp.current).toBe(29);
+  });
 });
 
 describe("excursion rests", () => {
