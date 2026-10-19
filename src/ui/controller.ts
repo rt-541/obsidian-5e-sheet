@@ -145,13 +145,22 @@ export class SheetController {
     const out = this.value.type === "5e-character" ? apply(this.value, a, this.limits()) : applyNpc(this.value, a, st, n => deriveNpc(n, this.ctx()));
     if (out.error) { this.host.notify(out.error); return { ok: false }; }
     this.commit(out.value);
-    if ((a.type === "damage" || a.type === "equip" || a.type === "attune") && "note" in out && out.note) this.host.notify(out.note);
+    if ((a.type === "damage" || a.type === "equip" || a.type === "attune" || a.type === "hands") && "note" in out && out.note) this.host.notify(out.note);
     if ("concentrationCheck" in out && out.concentrationCheck) {
       const prev = this.concentrationCheck;
       this.concentrationCheck = prev && prev.spell === out.concentrationCheck.spell && prev.dc > out.concentrationCheck.dc ? prev : out.concentrationCheck;
       this.emit();
     } else if (this.concentrationCheck && (a.type === "endConcentration" || this.character?.concentration !== this.concentrationCheck.spell)) { this.concentrationCheck = null; this.emit(); }
     return { ok: true, ...("note" in out && out.note ? { note: out.note } : {}) };
+  }
+
+  /** The inventory index whose "put away your shield?" question is open. */
+  gripPrompt: number | null = null;
+  askGrip(index: number | null): void { this.gripPrompt = index; this.emit(); }
+  /** Hold a weapon in one or two hands; two hands can put the shield away in the same step. */
+  setHands(index: number, hands: 1 | 2, putAwayShield = false): boolean {
+    this.gripPrompt = null;
+    return this.dispatch({ type: "hands", index, hands, ...(putAwayShield ? { putAwayShield } : {}) }).ok;
   }
 
   /** Add one of a compendium item to the pack (a second copy bumps the count) and say what happened. */

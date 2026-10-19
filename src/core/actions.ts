@@ -2,6 +2,8 @@ import type { Character, Combo, CompanionEntry, Npc } from "./character";
 import { validateCombo } from "./combos";
 import type { ActorStats } from "./derive";
 import type { ConditionData, ItemData, SpellData } from "../content/types";
+import { isVersatile } from "../content/types/item";
+import type { Registry } from "../content/registry";
 import { itemWorks, type EffectContext } from "./effects";
 import { slug } from "../content/registry";
 import { evalFormula } from "./formula";
@@ -16,6 +18,7 @@ export type Action =
   | { type: "charges"; index: number; used: number } | { type: "hitDie"; die: string; used: number }
   | { type: "deathSave"; which: "successes" | "failures"; value: number }
   | { type: "equip"; index: number; on: boolean } | { type: "attune"; index: number; on: boolean }
+  | { type: "hands"; index: number; hands: 1 | 2; /** Also put away every equipped shield (the one-tap "Put away shield"). */ putAwayShield?: boolean }
   | { type: "inspiration"; on: boolean }
   | { type: "addItem"; id: string } | { type: "removeItem"; index: number }
   /** An item that is not in the compendium: a name, how many, an optional weight per piece in pounds, and whether using one up it. */
@@ -87,6 +90,23 @@ function putAwayRivals(c: Character, keep: number, lim: Limits): string | undefi
   });
   return out.length ? out.join(" ") : undefined;
 }
+
+/** A shield was just equipped: every equipped weapon held in two hands goes back to one. Returns the words for it. */
+function oneHandAll(c: Character, reg: Registry | undefined): string | undefined {
+  if (!reg) return undefined;
+  const out: string[] = [];
+  c.inventory.forEach(x => {
+    if (!x.equipped || x.hands !== 2) return;
+    delete x.hands;
+    const name = (x.id ? reg.get<ItemData>("item", x.id)?.name : undefined) ?? x.name ?? "Weapon";
+    out.push(`${name} switched to one hand (shield equipped).`);
+  });
+  return out.length ? out.join(" ") : undefined;
+}
+const isShield = (c: Character, i: number, reg: Registry | undefined): boolean => {
+  const id = c.inventory[i]?.id; return !!(id && reg?.get<ItemData>("item", id)?.data.kind === "shield");
+};
+const joinNotes = (...n: (string | undefined)[]) => { const t = n.filter(Boolean).join(" "); return t || undefined; };
 
 const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
 const esc = (t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -257,14 +277,30 @@ export function apply(c0: Character, a: Action, lim: Limits): Applied {
     case "equip": {
       const e = c.inventory[a.index]; if (!e) break;
       e.equipped = a.on; if (!a.on) e.attuned = false;
-      const note = a.on ? putAwayRivals(c, a.index, lim) : undefined;
+      const note = a.on ? joinNotes(putAwayRivals(c, a.index, lim), isShield(c, a.index, lim.ctx?.registry) ? oneHandAll(c, lim.ctx?.registry) : undefined) : undefined;
       return { value: c, ...(note ? { note } : {}) };
+    }
+    case "hands": {
+      const e = c.inventory[a.index]; if (!e) break;
+      if (a.hands === 1) { delete e.hands; break; }
+      const reg = lim.ctx?.registry, w = e.id ? reg?.get<ItemData>("item", e.id)?.data.weapon : undefined;
+      if (!w || !isVersatile(w)) return { value: c0, error: "This weapon cannot be held in two hands." };
+      const shields = c.inventory.map((_, i) => i).filter(i => c.inventory[i].equipped && isShield(c, i, reg));
+      if (shields.length && !a.putAwayShield) return { value: c0, error: "Put away your shield to use two hands." };
+      const notes: string[] = [];
+      for (const i of shields) {
+        const sh = c.inventory[i]; sh.equipped = false; sh.attuned = false;
+        notes.push(`${reg!.get<ItemData>("item", sh.id!)!.name} put away.`);
+      }
+      e.hands = 2;
+      if (notes.length) notes.push(`${reg!.get<ItemData>("item", e.id!)!.name} in two hands.`);
+      return { value: c, ...(notes.length ? { note: notes.join(" ") } : {}) };
     }
     case "attune": {
       const e = c.inventory[a.index]; if (!e) break;
       if (a.on && !e.attuned && c.inventory.filter(x => x.attuned).length >= MAX_ATTUNED) return { value: c0, error: "Already attuned to 3 items" };
       e.attuned = a.on; if (a.on) e.equipped = true;
-      const note = a.on ? putAwayRivals(c, a.index, lim) : undefined;
+      const note = a.on ? joinNotes(putAwayRivals(c, a.index, lim), isShield(c, a.index, lim.ctx?.registry) ? oneHandAll(c, lim.ctx?.registry) : undefined) : undefined;
       return { value: c, ...(note ? { note } : {}) };
     }
     case "inspiration": c.inspiration = a.on; break;
