@@ -49,6 +49,19 @@ for (const mobile of [false, true]) describe(`Use next to a resource (${mobile ?
     const s = setup(mobile, { uses: { "spark-breath": 2 } });
     expect((s.q(`${res("spark-breath")} [data-act="use-resource"]`) as HTMLButtonElement).disabled).toBe(true);
   });
+  it("the name sits on the left and the pips and Use button stay together on the right", () => {
+    const s = setup(mobile);
+    const row = s.q(res("spark-breath")), ctlBox = row.querySelector(".fe-res-ctl")!;
+    expect(row.children[0].classList.contains("fe-grow")).toBe(true);
+    expect(ctlBox.querySelector('[data-act="use-resource"]')).not.toBeNull();
+    expect(ctlBox.querySelector(".fe-pip, .fe-pips, .fe-barbox, .fe-muted")).not.toBeNull();
+  });
+  it("Rest is a card on the main page, not in the header", () => {
+    const s = setup(mobile);
+    expect(s.q('.fe-pinned [data-feature="rests"]')).toBeNull();
+    const pane = s.q(`[data-pane="${mobile ? "combat" : "main"}"]`);
+    expect(pane.querySelector('[data-feature="rests"] .fe-card-title')!.textContent).toBe("Rest");
+  });
   it("a resource several actions spend gets one button per action, named after it", () => {
     const s = setup(mobile);
     expect([...s.q(res("grit")).querySelectorAll('[data-act="use-resource"]')].map(b => b.textContent)).toEqual(["Grit Jab", "Grit Guard"]);

@@ -55,14 +55,14 @@ describe("the tablet layout", () => {
   it("has the six tabs and the sticky header from the plan", () => {
     const s = setup({}, "tablet");
     expect(s.all(".fe-tab").map(t => t.textContent)).toEqual(["Main", "Combos", "Spells", "Gear", "Features", "More"]);
-    expect(feats(s.q(".fe-pinned"))).toEqual(["identity", "hp", "ac", "initiative", "speed", "conditions", "concentration", "roll-mode", "rests", "level-up", "roll-log"]);
+    expect(feats(s.q(".fe-pinned"))).toEqual(["identity", "hp", "ac", "initiative", "speed", "conditions", "concentration", "roll-mode", "level-up", "roll-log"]);
     expect(s.root.classList.contains("fe-tablet")).toBe(true); expect(s.root.classList.contains("fe-mobile")).toBe(false);
   });
   it("Main has two columns: the checks, then what you use in a fight", () => {
     const s = setup({}, "tablet"), cols = s.all('[data-pane="main"] .fe-col');
     expect(cols.map(c => feats(c))).toEqual([
       ["abilities", "saves", "skills", "passive-perception"],
-      ["hp-controls", "toggles", "attacks", "pinned-spells", "pinned-combos", "traits", "resources", "coins", "hit-dice", "death-saves", "active-effects"]]);
+      ["hp-controls", "toggles", "attacks", "pinned-spells", "pinned-combos", "traits", "resources", "coins", "hit-dice", "rests", "death-saves", "active-effects"]]);
   });
   it("the other tabs hold what the plan says", () => {
     const s = setup({}, "tablet"), pane = (id: string) => s.all(`[data-pane="${id}"] .fe-col`).map(c => feats(c));

@@ -181,8 +181,8 @@ export const RENDER: Record<string, Render> = {
     const pinned = pinnedTraits(ctl, st), derived = st.resources.filter(x => x.derived && !pinned.covered.has(x.id));
     const items = pinnedItems(ctl), itemRows = items.map(x => x.row);
     const el = card("Resources and charges", ...pinned.rows, ...itemRows,
-      ...derived.map(x => h("div", { cls: "fe-kv", data: { resource: x.id } }, h("span", { text: x.unlimited ? x.name : `${x.name}: ${Math.max(0, x.max - x.used)} of ${x.max} left` }),
-        usesPips(x, n => ctl.dispatch({ type: "uses", id: x.id, used: n })), ...resourceUseButtons(ctl, st, x))),
+      ...derived.map(x => h("div", { cls: "fe-kv fe-res-row", data: { resource: x.id } }, h("span", { cls: "fe-grow", text: x.unlimited ? x.name : `${x.name}: ${Math.max(0, x.max - x.used)} of ${x.max} left` }),
+        h("span", { cls: "fe-res-ctl" }, usesPips(x, n => ctl.dispatch({ type: "uses", id: x.id, used: n })), ...resourceUseButtons(ctl, st, x)))),
       ...c.resources.map((res, i) => {
         // `track: progress` (downtime, training, crafting) counts up toward max instead of spending uses down.
         const progress = (res as { track?: string }).track === "progress", setUsed = (n: number) => ctl.dispatch({ type: "resource", index: i, used: n });
@@ -197,9 +197,10 @@ export const RENDER: Record<string, Render> = {
     // the same switch as Customize > Optional rules, kept next to the buttons it changes
     const mode = (excursion: boolean, label: string) => h("button", { cls: `fe-mode-opt ${ex === excursion ? "is-on" : ""}`.trim(), text: label, data: { restMode: excursion ? "excursion" : "standard" },
       attrs: { "aria-pressed": String(ex === excursion) }, on: { click: () => { if (ex !== excursion) ctl.setRule("rest-excursion", excursion); } } });
-    return h("div", { cls: "fe-rests-wrap" },
+    // a card on the Main page, under Hit Dice: resting and spending hit dice go together
+    return card("Rest", h("div", { cls: "fe-rests-wrap" },
       h("div", { cls: "fe-seg fe-rest-mode", attrs: { role: "group", "aria-label": "Rest rules" } }, mode(false, "Normal rests (short and long)"), mode(true, "Hexploration (night's rest)")),
-      h("div", { cls: "fe-rests" }, ...activeRests(ctl.rules()).map(r => btn(r.label, () => ctl.open({ kind: "rest", id: r.id })))));
+      h("div", { cls: "fe-rests" }, ...activeRests(ctl.rules()).map(r => btn(r.label, () => ctl.open({ kind: "rest", id: r.id }))))));
   },
   inventory: (ctl, st) => inventoryFeature(ctl, st),
   companions: ctl => { const c = ctl.character!, sts = ctl.companionStats(), r = ctl.host.registry;
