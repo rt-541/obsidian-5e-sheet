@@ -74,10 +74,10 @@
 .fe-switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: var(--background-primary); transition: left .15s; }
 .fe-sheet button.fe-switch.is-on { background: var(--interactive-accent); } .fe-switch.is-on::after { left: 21px; }
 .fe-log { padding: 6px 0; border-bottom: 1px solid var(--background-modifier-border); }
-.fe-toast { position: fixed; right: 20px; bottom: 20px; z-index: 30; min-width: 220px; background: var(--background-secondary); border: 1px solid var(--background-modifier-border); border-left: 4px solid var(--interactive-accent); border-radius: var(--radius-m); padding: 8px 12px; box-shadow: var(--shadow-l); }
+.fe-toast { pointer-events: none; position: fixed; right: 20px; bottom: 20px; z-index: 30; min-width: 220px; background: var(--background-secondary); border: 1px solid var(--background-modifier-border); border-left: 4px solid var(--interactive-accent); border-radius: var(--radius-m); padding: 8px 12px; box-shadow: var(--shadow-l); }
 .fe-toast.is-crit { border-left-color: var(--color-green); } .fe-toast.is-fumble { border-left-color: var(--color-red); }
 .fe-toast-total { font-size: 1.8em; font-weight: var(--font-bold); }
-/* mobile: big targets, tabs scroll, toast near the top so the thumb does not cover it */
+/* mobile: big targets, tabs scroll, toast at the bottom; it never takes taps (pointer-events none) so it cannot block panel buttons */
 .fe-mobile button.fe-btn, .fe-mobile button.fe-roll, .fe-mobile button.fe-tab { min-height: 44px; }
 .fe-sheet.fe-mobile button.fe-pip { width: 26px; height: 26px; }
 .fe-sheet.fe-mobile button.fe-dot { width: 24px; height: 24px; }

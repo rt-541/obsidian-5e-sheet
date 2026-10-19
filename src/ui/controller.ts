@@ -212,8 +212,8 @@ export class SheetController {
     this.host.notify(`Found food for ${dayWord}: ${what}`);
   }
 
-  toggleItemMenu(index: number) { this.itemMenu = this.itemMenu === index ? null : index; this.confirmRemove = false; this.emit(); }
-  toggleCompanionMenu(index: number) { this.companionMenu = this.companionMenu === index ? null : index; this.confirmRemove = false; this.emit(); }
+  toggleItemMenu(index: number) { this.itemMenu = this.itemMenu === index ? null : index; this.companionMenu = null; this.confirmRemove = false; this.emit(); }
+  toggleCompanionMenu(index: number) { this.companionMenu = this.companionMenu === index ? null : index; this.itemMenu = null; this.confirmRemove = false; this.emit(); }
   /** Remove the companion (after the Yes tap). */
   removeCompanionAt(index: number): boolean {
     const comp = this.character?.companions[index]; if (!comp) return false;

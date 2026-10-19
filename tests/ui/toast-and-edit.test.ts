@@ -25,3 +25,12 @@ for (const layout of LAYOUTS) describe(`feedback (${layout})`, () => {
 it("the Obsidian view sends sheet messages to the sheet", () =>
   expect(readFileSync("src/obsidian/character-view.ts", "utf8")).toMatch(/notify: m => \(?\w+ \? \w+\.say\(m\) : this\.plugin\.notice\(m\)/));
 it("the phone toast sits at the bottom", () => expect(readFileSync("styles.css", "utf8")).toMatch(/\.fe-mobile \.fe-toast \{ left: 12px; right: 12px; top: auto; bottom: 12px; \}/));
+it("the toast never swallows taps meant for panel buttons", () =>
+  expect(readFileSync("styles.css", "utf8")).toMatch(/\.fe-toast \{ pointer-events: none;/));
+for (const layout of LAYOUTS) it(`opening one ... menu closes the other (${layout})`, () => {
+  const s = sheet(layout, thalia);
+  s.ctl.toggleItemMenu(0); s.ctl.toggleCompanionMenu(0);
+  expect(s.ctl.itemMenu).toBeNull(); expect(s.ctl.companionMenu).toBe(0);
+  s.ctl.toggleItemMenu(1);
+  expect(s.ctl.companionMenu).toBeNull(); expect(s.ctl.itemMenu).toBe(1);
+});
