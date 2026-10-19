@@ -50,3 +50,17 @@ for (const layout of LAYOUTS) describe(`resources (${layout})`, () => {
     expect(card.querySelectorAll("[data-step] .fe-pips")).toHaveLength(0);
   });
 });
+
+for (const layout of LAYOUTS) describe(`no repeated slots or spell DC (${layout})`, () => {
+  afterEach(() => document.body.replaceChildren());
+  it("in every pane, each slot row and the spell DC appear at most once", () => {
+    const s = sheet(layout, thalia);
+    const panes = s.all("[data-pane]");
+    expect(panes.length).toBeGreaterThan(0);
+    for (const p of panes) {
+      const slots = Array.from(p.querySelectorAll("[data-slot]")).map(e => e.getAttribute("data-slot"));
+      expect(new Set(slots).size).toBe(slots.length);
+      expect((p.textContent!.match(/Spell (save )?DC/g) ?? []).length).toBeLessThanOrEqual(1);
+    }
+  });
+});

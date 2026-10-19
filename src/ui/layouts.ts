@@ -64,9 +64,9 @@ export const TABLET: LayoutSpec = {
   tabs: [
     { id: "main", label: "Main", columns: [
       ["abilities", "saves", "skills", "passive-perception", "traits"],
-      ["hp-controls", "death-saves", "attacks", "resources", "rations", "toggles", "pinned-spells", "pinned-combos", "coins", "hit-dice", "rests", "active-effects"]] },
+      ["hp-controls", "death-saves", "attacks", "resources", "rations", "toggles", "pinned-spells", "pinned-combos", "spell-dc", "spell-slots", "coins", "hit-dice", "rests", "active-effects"]] },
     { id: "combos", label: "Combos", columns: [["combos"]] },
-    { id: "spells", label: "Spells", columns: [["spell-dc", "spell-slots", "spells"]] },
+    { id: "spells", label: "Spells", columns: [["spells"]] },
     { id: "gear", label: "Gear", columns: [["inventory"]] },
     { id: "features", label: "Features", columns: [["features"]] },
     { id: "more", label: "More", columns: [["companions"], ["inspiration", "prof", "xp", "play-edit", "notes"]] },
