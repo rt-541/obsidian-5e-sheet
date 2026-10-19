@@ -44,6 +44,10 @@ export type Action =
   | { type: "dcAlt"; id: string; on: boolean }
   /** Switch a toggle (Rage, a stance) on or off. Starting spends its cost and ends the others in its group; `value` sets a value toggle's number. */
   | { type: "toggle"; id: string; on: boolean; value?: number }
+  /** Switch an attack option (a focus die, an on-hit die, extra damage) on or off. */
+  | { type: "attackOption"; id: string; on: boolean }
+  /** One roll used these options: spend 1 of each one's resource (not unlimited), switch off once-per-turn ones and any whose resource is now empty. */
+  | { type: "attackOptionsUsed"; ids: string[] }
   /** Save a combo: replaces the one at `index`, or adds a new one at the end when `index` is left out. */
   | { type: "combo"; index?: number; combo: Combo } | { type: "comboRemove"; index: number }
   | { type: "comboMove"; index: number; by: -1 | 1 } | { type: "comboPin"; index: number; on: boolean };
@@ -232,6 +236,50 @@ function toggle(c0: Character, c: Character, a: Extract<Action, { type: "toggle"
   return { value: c, note: [`${t.name} started`, spent, ended.length ? `${ended.join(" and ")} ended` : ""].filter(Boolean).join(". ") + "." };
 }
 
+/** Add or remove an id from an optional list, leaving the list undefined when it is empty. */
+function setIn(c: Character, key: "optionsOn" | "optionsOff", id: string, present: boolean): void {
+  const list = (c[key] ?? []).filter(x => x !== id);
+  if (present) list.push(id);
+  if (list.length) c[key] = list; else delete c[key];
+}
+
+/** Switch an attack option: declared ones are listed in optionsOn, extra-damage ones in optionsOff (they start on). Switching a declared one on needs its resource. */
+function attackOption(c0: Character, c: Character, a: Extract<Action, { type: "attackOption" }>, lim: Limits): Applied {
+  const row = lim.self.attackOptions.find(x => x.id === a.id);
+  if (!row) return { value: c0, error: "That attack option isn't on this character." };
+  if (row.kind === "extra") { setIn(c, "optionsOff", a.id, !a.on); return { value: c }; }
+  if (a.on) {
+    if (row.problem) return { value: c0, error: `${row.name} ${row.problem}.` };
+    if (row.resource && !row.resource.unlimited && row.resource.left <= 0) return { value: c0, error: `No ${row.resource.name} left, so ${row.name} can't be switched on. Take a rest first.` };
+  }
+  setIn(c, "optionsOn", a.id, a.on);
+  return { value: c };
+}
+
+/** One roll used these options: spend one of each one's resource, then switch off once-per-turn options and those whose resource ran dry. */
+function attackOptionsUsed(c0: Character, c: Character, a: Extract<Action, { type: "attackOptionsUsed" }>, lim: Limits): Applied {
+  const rows = lim.self.attackOptions, used = new Map<string, number>();
+  for (const id of a.ids) {
+    const row = rows.find(x => x.id === id);
+    if (row?.kind !== "declared" || !row.on || !row.resource || row.resource.unlimited) continue;
+    const r = lim.self.resources.find(x => x.id === row.resource!.id); if (!r) continue;
+    const n = used.get(r.id) ?? r.used;
+    if (n >= r.max) continue; // never spend more than the maximum
+    used.set(r.id, n + 1);
+    if (r.derived) c.uses[r.id] = n + 1; else { const i = Number(r.id.split(":")[1]); if (c.resources[i]) c.resources[i].used = n + 1; }
+  }
+  const dry = new Set<string>();
+  for (const [id, n] of used) if (n >= lim.self.resources.find(x => x.id === id)!.max) dry.add(id);
+  const named: string[] = []; let what = "";
+  for (const row of rows) {
+    if (row.kind !== "declared" || !row.on) continue;
+    const out = !!row.resource && dry.has(row.resource.id);
+    if (out) { named.push(row.name); what ||= row.resource!.name; }
+    if (out || (row.oncePerTurn && a.ids.includes(row.id))) setIn(c, "optionsOn", row.id, false);
+  }
+  return { value: c, ...(named.length ? { note: `No ${what} left: ${named.join(" and ")} ${named.length === 1 ? "is" : "are"} off.` } : {}) };
+}
+
 export function apply(c0: Character, a: Action, lim: Limits): Applied {
   const c = structuredClone(c0);
   const who = "who" in a ? a.who : undefined;
@@ -333,6 +381,8 @@ export function apply(c0: Character, a: Action, lim: Limits): Applied {
     }
     case "cast": return cast(c0, c, a, lim);
     case "toggle": return toggle(c0, c, a, lim);
+    case "attackOption": return attackOption(c0, c, a, lim);
+    case "attackOptionsUsed": return attackOptionsUsed(c0, c, a, lim);
     case "endConcentration": delete c.concentration; break;
     case "addSpell": if (!c.spells.some(x => x.id === a.id)) c.spells.push({ id: a.id, prepared: false }); break;
     case "removeSpell": { const gone = c.spells.splice(a.index, 1)[0]; if (gone) c.mainSpells = c.mainSpells.filter(k => k !== gone.id); break; }
