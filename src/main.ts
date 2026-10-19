@@ -18,6 +18,9 @@ import { campaignLink, NoteStore } from "./obsidian/store";
 import { newCharacterAction } from "./obsidian/menu";
 import { obsidianCreateNote, vaultNoteIO } from "./obsidian/vault-note";
 import { saveCreature, type SavedCreature } from "./obsidian/save-creature";
+import { saveSpell, updateSpell, type SavedSpell, type SpellIO } from "./obsidian/save-spell";
+import type { SpellDraft } from "./content/spell-note";
+import { renderSpellblock } from "./ui/spellblock-card";
 import { renderStatblock } from "./ui/statblock-card";
 import type { Draft } from "./content/creature-note";
 import { ObsidianVaultAdapter } from "./obsidian/vault-adapter";
@@ -57,6 +60,7 @@ export default class FiveESheetPlugin extends Plugin {
     this.addSettingTab(new FiveESettingTab(this.app, this));
     this.registry.onChange(() => this.refreshViews());
     this.registerMarkdownCodeBlockProcessor("5e-statblock", (src, el) => renderStatblock(el, src, d => this.saveCreature(d)));
+    this.registerMarkdownCodeBlockProcessor("5e-spell", (src, el) => renderSpellblock(el, src, d => this.saveSpell(d)));
 
     this.app.workspace.onLayoutReady(async () => {
       const moved = await healCompendiumFolder(this.data.settings.compendiumFolder, p => this.app.vault.adapter.exists(p));
@@ -103,6 +107,20 @@ export default class FiveESheetPlugin extends Plugin {
   /** Write a custom creature into Homebrew/Creatures and register it right away (see obsidian/save-creature.ts). */
   saveCreature(draft: Draft): Promise<SavedCreature> {
     return saveCreature({ registry: this.registry, io: vaultNoteIO(this.app), compendiumFolder: this.data.settings.compendiumFolder, stringify: o => stringifyYaml(o) }, draft);
+  }
+  /** Write a custom spell into Homebrew/Spells and register it right away (see obsidian/save-spell.ts). */
+  saveSpell(draft: SpellDraft): Promise<SavedSpell> {
+    return saveSpell({ registry: this.registry, io: vaultNoteIO(this.app), compendiumFolder: this.data.settings.compendiumFolder, stringify: o => stringifyYaml(o) }, draft);
+  }
+  /** Rewrite the spell fields of a spell note in place and refresh the registry. */
+  updateSpell(target: { id: string; path: string; sourceName: string; body?: string }, draft: SpellDraft): Promise<SavedSpell> {
+    const io: SpellIO = { ...vaultNoteIO(this.app),
+      processFrontMatter: async (path, fn) => { const f = this.app.vault.getAbstractFileByPath(path); if (!(f instanceof TFile)) return false; await this.app.fileManager.processFrontMatter(f, fn); return true; },
+      replaceBody: async (path, body) => {
+        const f = this.app.vault.getAbstractFileByPath(path); if (!(f instanceof TFile)) return;
+        await this.app.vault.process(f, data => { const m = /^---\r?\n[\s\S]*?\r?\n---[ \t]*(?:\r?\n|$)/.exec(data); return `${m ? m[0] : ""}\n${body.trim()}\n`; });
+      } };
+    return updateSpell({ registry: this.registry, io }, target, draft);
   }
   async persist() { await this.saveData(this.data); }
   saveLogsSoon() { window.clearTimeout(this.logTimer); this.logTimer = window.setTimeout(() => { void this.persist(); }, LOG_SAVE_MS); }
