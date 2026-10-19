@@ -106,9 +106,9 @@ describe.each([["desktop", false], ["mobile", true]] as const)("level up on the 
   it("spells step: add from the list up to the counts, with a swap-free level", () => {
     const s = setup(noteOf(upTo(4)), mobile);
     s.click('[data-act="level-up"]'); s.click('[data-class="skirmisher"]'); s.next(); s.click('[data-hp="average"]'); s.next();
-    expect(s.q('[data-step="class:skirmisher:5:spells-2"]').textContent).toContain("cantrips 0 of 1, spells 0 of 2");
+    expect(s.q('[data-step="class:skirmisher:5:spells-2"]').textContent).toContain("Learn 1 cantrip: 0 of 1 chosen; learn 2 spells: 0 of 2 chosen");
     for (const id of ["acid-splash", "burning-hands", "charm-person"]) s.click(`[data-spell="${id}"] .fe-btn`);
-    expect(s.q('[data-step="class:skirmisher:5:spells-2"]').textContent).toContain("cantrips 1 of 1, spells 2 of 2");
+    expect(s.q('[data-step="class:skirmisher:5:spells-2"]').textContent).toContain("Learn 1 cantrip: 1 of 1 chosen; learn 2 spells: 2 of 2 chosen");
     s.click('[data-spell="alarm"] .fe-btn'); expect(s.notices.at(-1)).toBe("Only 2 spells here");
     s.next(); s.click('[data-act="lu-apply"]');
     expect(last(s).spells.map(x => x.id)).toEqual(["acid-splash", "burning-hands", "charm-person"]);

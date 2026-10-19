@@ -1,9 +1,10 @@
 import { sourceLabel, type Registry } from "../content/registry";
 import type { FeatData } from "../content/types";
 import type { Character } from "../core/character";
-import { levelOptions, type Step } from "../core/levelup";
+import { levelOptions, type Step, type StepOption } from "../core/levelup";
 import { ABILS, type Abil } from "../core/types";
 import type { LevelUpState, LevelUpView, SheetController } from "./controller";
+import { plural } from "../core/words";
 import { clear, h } from "./h";
 import { btn, sourceBadge, titleCase } from "./widgets";
 
@@ -124,6 +125,24 @@ export function pickPage(ctl: PageCtl, s: Pick<"pick">, st: PageState): HTMLElem
   return h("div", { cls: "fe-lu-body", data: { step: s.key } }, h("div", { cls: "fe-muted", text: `${s.label} (${cur.length} of ${s.count})` }), ...body);
 }
 
+/** The spell step's rows: cantrips only when no spells are owed, cantrips first, spells the character cannot cast yet left out. */
+export function spellStepRows(s: Extract<Step, { kind: "spells" }>, query: string): StepOption[] {
+  const q = query.toLowerCase();
+  return s.options
+    .filter(o => (s.count > 0 || (o.level ?? 1) === 0) && !((o.level ?? 0) > s.maxLevel && o.disabled) && o.name.toLowerCase().includes(q))
+    .sort((a, b) => ((a.level ?? 0) === 0 ? 0 : 1) - ((b.level ?? 0) === 0 ? 0 : 1) || (a.level ?? 0) - (b.level ?? 0) || a.name.localeCompare(b.name));
+}
+
+/** "Learn 3 cantrips: 1 of 3 chosen; learn 2 spells: 0 of 2 chosen", never a "0 of 0" half. */
+export function spellStepHeading(s: Extract<Step, { kind: "spells" }>, nCantrips: number, nSpells: number): string {
+  const parts: string[] = [];
+  if (s.cantrips > 0) parts.push(`learn ${plural(s.cantrips, "cantrips")}: ${nCantrips} of ${s.cantrips} chosen`);
+  if (s.count > 0) parts.push(`learn ${plural(s.count, "spells")}: ${nSpells} of ${s.count} chosen`);
+  if (!parts.length) return s.label;
+  const text = parts.join("; ");
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
 export function spellsPage(ctl: PageCtl, s: Pick<"spells">, st: PageState): HTMLElement {
   const v = st.choices[s.key], cur = isStrs(v) ? v : [];
   const level = (id: string) => s.options.find(o => o.id === id)?.level ?? 1;
@@ -137,12 +156,13 @@ export function spellsPage(ctl: PageCtl, s: Pick<"spells">, st: PageState): HTML
   const list = h("div", {});
   const fill = () => {
     clear(list);
-    const q = st.view.spellQuery.toLowerCase(), rows = s.options.filter(o => o.name.toLowerCase().includes(q));
-    for (const o of rows.slice(0, 80)) list.append(h("div", { cls: "fe-inv", data: { spell: o.id } },
+    const query = st.view.spellQuery, rows = spellStepRows(s, query), shown = s.count === 0 ? rows : rows.slice(0, 80);
+    for (const o of shown) list.append(h("div", { cls: "fe-inv", data: { spell: o.id } },
       h("div", { cls: "fe-grow" }, h("span", { cls: "fe-spell-name", text: o.name, data: { ref: `spell:${o.id}`, noclick: "" } }), o.source ? sourceBadge(o.source) : null, h("div", { cls: "fe-faint", text: o.text ?? "" })),
       o.disabled ? h("span", { cls: "fe-faint", text: o.disabled.toLowerCase() }) : btn(cur.includes(o.id) ? "Chosen" : "Add", () => toggle(o.id), cur.includes(o.id) ? "is-on" : "", )));
-    if (rows.length > 80) list.append(h("div", { cls: "fe-faint", text: `${rows.length - 80} more: narrow the search.` }));
-    if (!rows.length) list.append(h("div", { cls: "fe-faint", text: "No spells match." }));
+    if (rows.length > shown.length) list.append(h("div", { cls: "fe-faint", text: `${rows.length - shown.length} more: narrow the search.` }));
+    if (!query && !rows.some(o => !o.disabled)) list.append(h("div", { cls: "fe-warn", text: s.count === 0 ? "Every cantrip on this list is already known." : "Every spell on this list is already known." }));
+    else if (!rows.length) list.append(h("div", { cls: "fe-faint", text: "No spells match." }));
   };
   fill();
   const swaps = Array.isArray(st.choices[`${s.key}:swap`]) ? st.choices[`${s.key}:swap`] as { out: string; in: string }[] : [];
@@ -157,8 +177,8 @@ export function spellsPage(ctl: PageCtl, s: Pick<"spells">, st: PageState): HTML
     h("select", { attrs: { "aria-label": "Spell to swap in" }, on: { change: (e: Event) => setSwap(i, "in", (e.target as HTMLSelectElement).value) } },
       h("option", { text: "Swap in...", attrs: { value: "" } }), ...s.options.filter(o => !o.disabled && o.level !== 0).map(o => h("option", { text: o.name, attrs: { value: o.id, ...(swaps[i]?.in === o.id ? { selected: "" } : {}) } })))));
   return h("div", { cls: "fe-lu-body", data: { step: s.key } },
-    h("div", { cls: "fe-muted", text: `${s.label}: ${s.cantrips ? `cantrips ${nCantrips} of ${s.cantrips}, ` : ""}spells ${nSpells} of ${s.count}` }),
-    h("input", { cls: "fe-search", attrs: { placeholder: "Search spells", value: st.view.spellQuery }, on: { input: (e: Event) => { st.view.spellQuery = (e.target as HTMLInputElement).value; fill(); } } }),
+    h("div", { cls: "fe-muted", text: spellStepHeading(s, nCantrips, nSpells) }),
+    h("input", { cls: "fe-search", attrs: { type: "search", placeholder: "Search spells", value: st.view.spellQuery }, on: { input: (e: Event) => { st.view.spellQuery = (e.target as HTMLInputElement).value; fill(); } } }),
     list, s.swap ? h("div", {}, h("div", { cls: "fe-card-title", text: `Swap up to ${s.swap}` }), ...swapRows) : null);
 }
 
