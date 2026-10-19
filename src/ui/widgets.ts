@@ -6,6 +6,7 @@ import { tagParts } from "../core/roll-tags";
 import type { Effects, Modifier } from "../core/types";
 import { formulaWords } from "../core/words";
 import { h, sgn } from "./h";
+import type { SheetController } from "./controller";
 
 export const card = (title: string, ...kids: (Node | null | false)[]) => h("div", { cls: "fe-card" }, title ? h("div", { cls: "fe-card-title", text: title }) : null, ...kids);
 export const btn = (text: string, onClick: (e: MouseEvent) => void, cls = "") => h("button", { cls: `fe-btn ${cls}`.trim(), text, on: { click: onClick } });
@@ -205,3 +206,14 @@ export function pips(max: number, used: number, set: (n: number) => void, cls = 
     h("button", { cls: `fe-pip ${cls} ${i < used ? "is-used" : ""}`, attrs: { "aria-label": `${i + 1} of ${max}` }, on: { click: () => set(used === i + 1 ? i : i + 1) } })));
 }
 
+
+/** The one two-way rest-mode control (Normal | Hexploration) with a line saying what the chosen mode does. Shared by the Rest card and Customize. */
+export function restModeControl(ctl: SheetController): HTMLElement {
+  const ex = !!ctl.rules()["rest-excursion"];
+  const opt = (excursion: boolean, label: string) => h("button", { cls: `fe-mode-opt ${ex === excursion ? "is-on" : ""}`.trim(), text: label,
+    data: { restMode: excursion ? "excursion" : "standard", ...(excursion ? { rule: "rest-excursion" } : {}) },
+    attrs: { "aria-pressed": String(ex === excursion) }, on: { click: () => { if (ex !== excursion) ctl.setRule("rest-excursion", excursion); } } });
+  return h("div", { cls: "fe-rest-mode-wrap" },
+    h("div", { cls: "fe-seg fe-rest-mode", attrs: { role: "group", "aria-label": "Rest rules" } }, opt(false, "Normal"), opt(true, "Hexploration")),
+    h("div", { cls: "fe-faint", data: { restHint: "" }, text: ex ? "A night's rest each night; 3 nights in one place (or a safe haven) is a Good Rest." : "Short and long rests." }));
+}

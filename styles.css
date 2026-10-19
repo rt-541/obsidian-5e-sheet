@@ -266,7 +266,9 @@
 .fe-mobile button.fe-qty-btn, .fe-tablet button.fe-qty-btn { min-width: 44px; min-height: 44px; }
 /* rest rules switch (Normal rests | Hexploration), next to the rest buttons */
 .fe-rests-wrap { display: grid; gap: 6px; }
-.fe-rest-mode { flex-wrap: wrap; }
+.fe-rest-mode-wrap { display: grid; gap: 4px; }
+.fe-rest-mode { flex-wrap: nowrap; }
+.fe-sheet button.fe-mode-opt { flex: 1 1 0; }
 .fe-sheet button.fe-mode-opt { height: auto; min-height: 26px; line-height: 1.3; padding: 2px 8px; max-width: 100%; white-space: normal; border-radius: 0; }
 .fe-sheet button.fe-mode-opt:first-child { border-radius: var(--radius-s) 0 0 var(--radius-s); }
 .fe-sheet button.fe-mode-opt:last-child { border-radius: 0 var(--radius-s) var(--radius-s) 0; }

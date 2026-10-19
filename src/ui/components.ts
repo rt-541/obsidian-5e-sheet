@@ -6,7 +6,7 @@ import { hitDiceRecharge } from "../content/glossary";
 import { activeRests } from "../rules";
 import type { SheetController } from "./controller";
 import { h, sgn } from "./h";
-import { btn, card, describeEffects, pips, bar, usesPips } from "./widgets";
+import { btn, card, describeEffects, pips, bar, restModeControl, usesPips } from "./widgets";
 import { featuresFeature, levelUpFeature, xpFeature } from "./features-ui";
 import { combosFeature, pinnedCombosFeature } from "./combos-ui";
 import { pinnedTraits, traitsFeature } from "./traits-ui";
@@ -193,13 +193,9 @@ export const RENDER: Record<string, Render> = {
     if (!pinned.rows.length && !itemRows.length && !derived.length && !c.resources.length && !charged.length) el.hidden = true;
     return el; },
   rests: ctl => {
-    const ex = !!ctl.rules()["rest-excursion"];
-    // the same switch as Customize > Optional rules, kept next to the buttons it changes
-    const mode = (excursion: boolean, label: string) => h("button", { cls: `fe-mode-opt ${ex === excursion ? "is-on" : ""}`.trim(), text: label, data: { restMode: excursion ? "excursion" : "standard" },
-      attrs: { "aria-pressed": String(ex === excursion) }, on: { click: () => { if (ex !== excursion) ctl.setRule("rest-excursion", excursion); } } });
     // a card on the Main page, under Hit Dice: resting and spending hit dice go together
     return card("Rest", h("div", { cls: "fe-rests-wrap" },
-      h("div", { cls: "fe-seg fe-rest-mode", attrs: { role: "group", "aria-label": "Rest rules" } }, mode(false, "Normal rests (short and long)"), mode(true, "Hexploration (night's rest)")),
+      restModeControl(ctl),
       h("div", { cls: "fe-rests" }, ...activeRests(ctl.rules()).map(r => btn(r.label, () => ctl.open({ kind: "rest", id: r.id }))))));
   },
   inventory: (ctl, st) => inventoryFeature(ctl, st),

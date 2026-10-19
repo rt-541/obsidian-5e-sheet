@@ -50,7 +50,8 @@ function dawnParts(ctx: RestCtx, c: Character | null): string[] {
 function bigParts(ctx: RestCtx, c: Character | null, allHitDice: boolean): string[] {
   const out: string[] = endToggles(ctx, c, ["short", "long"]), ex = ctx.c.conditions.exhaustion ?? 0;
   if (ex) out.push(`Exhaustion ${ex} -> ${ex - 1}`);
-  out.push(`HP to ${hpMaxAfterExhaustion(ctx)}`, "All spell slots");
+  out.push(`HP to ${hpMaxAfterExhaustion(ctx)}`);
+  if (ctx.stats.slots.length) out.push("All spell slots");
   const dawn = dawnOnLongRest(ctx);
   ctx.c.resources.forEach(r => { if (r.used && r.reset !== "none" && (r.reset !== "dawn" || dawn)) out.push(`${r.name} recharges`); });
   ctx.stats.resources.forEach(r => { if (r.derived && r.used && r.reset !== "none" && (r.reset !== "dawn" || dawn)) out.push(`${r.name} recharges`); });
@@ -108,5 +109,5 @@ export const holyDay: RestDef = {
   preview: ctx => { const p = dawnParts(ctx, null); return p.length ? p : ["Nothing that resets at dawn is spent"]; },
   apply: ctx => { const c = structuredClone(ctx.c); return { value: c, summary: dawnParts(ctx, c) }; },
 };
-export const restStandard: RuleModule = { id: "rest-standard", title: "Standard rests (short and long)", defaultOn: true, excludes: ["rest-excursion"], rests: [short, long], sections: [] };
-export const restExcursion: RuleModule = { id: "rest-excursion", title: "Excursion resting (night's rest and good rest)", defaultOn: false, excludes: ["rest-standard"], rests: [night], sections: [] };
+export const restStandard: RuleModule = { id: "rest-standard", title: "Normal rests (short and long)", defaultOn: true, excludes: ["rest-excursion"], rests: [short, long], sections: [] };
+export const restExcursion: RuleModule = { id: "rest-excursion", title: "Hexploration (night's rest and Good Rest)", defaultOn: false, excludes: ["rest-standard"], rests: [night], sections: [] };

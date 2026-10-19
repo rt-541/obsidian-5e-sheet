@@ -27,7 +27,7 @@ describe.each(["desktop", "tablet", "mobile"] as const)("rest rules switch (%s)"
   it("offers both options next to the rest buttons, with standard rests on by default", () => {
     const s = setup(layout);
     const opts = [...s.root.querySelectorAll('[data-feature="rests"] [data-rest-mode]')];
-    expect(opts.map(o => o.textContent)).toEqual(["Normal rests (short and long)", "Hexploration (night's rest)"]);
+    expect(opts.map(o => o.textContent)).toEqual(["Normal", "Hexploration"]);
     expect(opts.map(o => o.getAttribute("aria-pressed"))).toEqual(["true", "false"]);
     expect(s.buttons()).toEqual(["Short rest", "Long rest"]);
   });

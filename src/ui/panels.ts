@@ -4,7 +4,7 @@ import { MODULES } from "../rules";
 import { isGood } from "../rules/rests";
 import type { Panel, SheetController } from "./controller";
 import { comboForm } from "./combos-ui";
-import { describeEffects, sourceBadge } from "./widgets";
+import { describeEffects, restModeControl, sourceBadge } from "./widgets";
 import { detailCard } from "./details";
 import { h } from "./h";
 import { levelUpPanel } from "./levelup-ui";
@@ -46,17 +46,17 @@ function conditionsPanel(ctl: SheetController, who?: number): HTMLElement {
 
 function restPanel(ctl: SheetController, id: string): HTMLElement {
   const excursion = id === "night";
-  const opt = (label: string, key: "samePlace" | "safeHaven") => h("label", { cls: "fe-kv" },
-    h("input", { attrs: { type: "checkbox", ...(ctl.restOpts[key] ? { checked: "" } : {}) }, on: { change: (e: Event) => { ctl.restOpts[key] = (e.target as HTMLInputElement).checked; ctl.emit(); } } }), label);
   const st = ctl.stats()!;
   const haven = h("div", { cls: "fe-safe-haven" },
-    h("label", { cls: "fe-kv fe-safe-haven-row" }, h("span", { text: "Resting in a safe haven (GM decides)" }),
+    h("label", { cls: "fe-kv fe-rest-opt fe-safe-haven-row" }, h("span", { text: "Resting in a safe haven (GM decides)" }),
       h("button", { cls: `fe-switch ${ctl.restOpts.safeHaven ? "is-on" : ""}`.trim(), data: { opt: "safe-haven" }, attrs: { role: "switch", "aria-checked": String(!!ctl.restOpts.safeHaven), "aria-label": "Resting in a safe haven" },
         on: { click: () => { ctl.restOpts.safeHaven = !ctl.restOpts.safeHaven; ctl.emit(); } } })),
     h("div", { cls: "fe-faint", text: "A safe haven turns tonight into a Good Rest: full recovery." }),
     h("div", { cls: "fe-muted", data: { nights: "" }, text: `Night ${isGood(ctl.restCtx(), ctl.restOpts).nights} in this place (3 nights = Good Rest)` }));
   return h("div", {},
-    excursion ? opt("Same place as last night", "samePlace") : null, excursion ? haven : null,
+    excursion ? h("label", { cls: "fe-kv fe-rest-opt" }, h("span", { text: "Same place as last night" }),
+      h("button", { cls: `fe-switch ${ctl.restOpts.samePlace ? "is-on" : ""}`.trim(), data: { opt: "same-place" }, attrs: { role: "switch", "aria-checked": String(!!ctl.restOpts.samePlace), "aria-label": "Same place as last night" },
+        on: { click: () => { ctl.restOpts.samePlace = !ctl.restOpts.samePlace; ctl.emit(); } } })) : null, excursion ? haven : null,
     h("div", { cls: "fe-muted", text: "This rest will:" }), h("ul", {}, ...ctl.restPreview(id).map(x => h("li", { text: x }))),
     id === "short" || (excursion && !ctl.restPreview(id)[0]?.startsWith("Good Rest"))
       ? h("div", {}, ...st.hitDice.map(d => h("div", { cls: "fe-kv" }, h("span", { text: `${d.die}: ${d.max - d.used} left` }), h("button", { cls: "fe-btn", text: "Spend 1", on: { click: () => ctl.spendHitDie(d.die) } }))))
@@ -69,8 +69,9 @@ const sectionName = (id: string) => { const t = id.replace(/-/g, " "); return t.
 function customizePanel(ctl: SheetController, features: readonly string[]): HTMLElement {
   const visible = new Set(ctl.visible([...features])), rules = ctl.rules();
   return h("div", {},
+    h("div", { cls: "fe-card-title", text: "Resting" }), restModeControl(ctl),
     h("div", { cls: "fe-card-title", text: "Optional rules" }),
-    ...MODULES.map(m => h("label", { cls: "fe-kv" }, h("span", { text: m.title }),
+    ...MODULES.filter(m => m.id !== "rest-standard" && m.id !== "rest-excursion").map(m => h("label", { cls: "fe-kv" }, h("span", { text: m.title }),
       h("button", { cls: `fe-switch ${rules[m.id] ? "is-on" : ""}`, data: { rule: m.id }, on: { click: () => ctl.setRule(m.id, !rules[m.id]) } }))),
     h("div", { cls: "fe-card-title", text: "Parts of the sheet" }),
     ...features.filter(f => f !== "identity" && f !== "play-edit").map(f => h("label", { cls: "fe-kv" }, h("span", { text: sectionName(f) }),
