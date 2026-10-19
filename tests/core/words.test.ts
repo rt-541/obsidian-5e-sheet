@@ -1,4 +1,14 @@
-import { optionListLabel, plural, titleCase } from "../../src/core/words";
+import { optionListLabel, plural, resourceCount, titleCase } from "../../src/core/words";
+it("resourceCount keeps free-form names as written", () => {
+  expect(resourceCount(1, "Ki Points")).toBe("1 Ki Point");
+  expect(resourceCount(3, "Ki Points")).toBe("3 Ki Points");
+  expect(resourceCount(2, "Superiority Dice")).toBe("2 Superiority Dice");
+  expect(resourceCount(1, "Superiority Dice")).toBe("1 Superiority Die");
+  expect(resourceCount(1, "Lay on Hands")).toBe("1 Lay on Hands");
+  expect(resourceCount(2, "Channel Divinity")).toBe("2 Channel Divinity");
+  expect(resourceCount(2, "Bardic Inspiration")).toBe("2 Bardic Inspiration");
+  expect(resourceCount(1, "Bonus")).toBe("1 Bonus");
+});
 it("title case leaves apostrophes and small words alone", () => {
   expect(titleCase("sleight-of-hand")).toBe("Sleight of Hand");
   expect(titleCase("smith's tools")).toBe("Smith's Tools");

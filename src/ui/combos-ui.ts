@@ -6,7 +6,7 @@ import type { SheetController } from "./controller";
 import { h, sgn } from "./h";
 import { castButton, rolls } from "./spells-ui";
 import { pips } from "./widgets";
-import { plural } from "../core/words";
+import { resourceCount } from "../core/words";
 
 const ABIL = { str: "STR", dex: "DEX", con: "CON", int: "INT", wis: "WIS", cha: "CHA" } as const;
 const btn = (text: string, onClick: () => void, cls = "", data?: Record<string, string>) =>
@@ -39,7 +39,7 @@ function stepButtons(ctl: SheetController, st: ActorStats, v: StepView, combo: C
     const r = v.resource, row = r.row;
     if (row.unlimited) out.push(h("span", { cls: "fe-src", text: `${row.name}: ${row.unlimited.toLowerCase()}` }));
     else {
-      if (r.cost > 0 && !paysItself) out.push(h("button", { cls: `fe-btn ${r.out ? "is-out" : ""}`.trim(), text: `Spend ${plural(r.cost, row.name)}`, data: { act: "step-spend" }, on: { click: () => ctl.spendResource(row.name, r.cost) } }));
+      if (r.cost > 0 && !paysItself) out.push(h("button", { cls: `fe-btn ${r.out ? "is-out" : ""}`.trim(), text: `Spend ${resourceCount(r.cost, row.name)}`, data: { act: "step-spend" }, on: { click: () => ctl.spendResource(row.name, r.cost) } }));
       out.push(h("span", { cls: "fe-src", text: `${r.left} of ${row.max} left`, data: { left: String(r.left) } }));
       if (row.max <= 10 && !paysItself) out.push(pips(row.max, row.used, n => setUsed(ctl, st, row.name, n)));
     }

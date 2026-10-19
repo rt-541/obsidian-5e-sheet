@@ -28,6 +28,22 @@ export function plural(n: number, word: string): string {
   return `${n} ${inflect(n, word)}`;
 }
 
+const COUNT_NOUNS: Record<string, [string, string]> = {
+  point: ["Point", "Points"], points: ["Point", "Points"],
+  die: ["Die", "Dice"], dice: ["Die", "Dice"],
+  charge: ["Charge", "Charges"], charges: ["Charge", "Charges"],
+  use: ["Use", "Uses"], uses: ["Use", "Uses"],
+  slot: ["Slot", "Slots"], slots: ["Slot", "Slots"],
+};
+
+/** Free-form resource names stay as written; only a trailing count noun (Points, Dice, Charges, Uses, Slots) agrees with n. */
+export function resourceCount(n: number, name: string): string {
+  const m = name.match(/^(.*?)(\S+)$/s);
+  const noun = m ? COUNT_NOUNS[m[2].toLowerCase()] : undefined;
+  if (!m || !noun) return `${n} ${name}`;
+  return `${n} ${m[1]}${n === 1 ? noun[0] : noun[1]}`;
+}
+
 /** "fighter:fighter-fighting-style" -> "Choose a fighting style". */
 export function optionListLabel(list: string, count: number, classId?: string): string {
   let name = list, cls = classId;
