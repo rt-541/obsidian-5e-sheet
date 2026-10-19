@@ -3,7 +3,7 @@ import type { Character } from "../core/character";
 import type { RestCtx, RestDef, RestOptions, RuleModule } from "./module";
 
 const exhaustionDown = (c: Character) => { if (c.conditions.exhaustion) { c.conditions.exhaustion--; if (!c.conditions.exhaustion) delete c.conditions.exhaustion; } };
-const hpMaxAfterExhaustion = (ctx: RestCtx) => (ctx.c.conditions.exhaustion ?? 0) - 1 >= 4 ? Math.floor(ctx.c.hp.max / 2) : ctx.c.hp.max;
+const hpMaxAfterExhaustion = (ctx: RestCtx) => (ctx.c.conditions.exhaustion ?? 0) - 1 >= 4 ? Math.floor(ctx.stats.hpFull / 2) : ctx.stats.hpFull;
 const itemName = (ctx: RestCtx, id?: string) => (id && ctx.registry.get<ItemData>("item", id)?.data) || undefined;
 
 /** Switches (Rage, stances) that end with this kind of rest; a long rest ends the short ones too. */

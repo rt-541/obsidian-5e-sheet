@@ -53,6 +53,8 @@ export interface ActorStats {
   abilities: Record<Abil, number>; mods: Record<Abil, number>; prof: number; level: number;
   ac: { value: number; sources: string[] }; speed: { value: number; sources: string[]; other: string };
   hp: { current: number; max: number; temp: number; maxReduced: boolean };
+  /** Max HP after every additive bonus, before halving or zeroing effects; what a long rest heals to. */
+  hpFull: number;
   saves: Record<Abil, { mod: number; prof: boolean }>;
   /** The Constitution save to keep concentrating: the Con save plus anything that applies only to concentration (War Caster, Bladesong). */
   concentrationSave: number;
@@ -102,6 +104,7 @@ function speedOf(base: number, fx: SourcedEffects[], o: ModOpts = {}) {
   if (m.half) v = Math.floor(v / 2); if (m.zero) v = 0;
   return { value: Math.max(0, v), sources: m.sources };
 }
+function hpFullOf(max0: number, fx: SourcedEffects[], o: ModOpts = {}) { return Math.max(0, max0 + sumModifier(fx, "hpMax", o).add); }
 function hpOf(max0: number, current: number, temp: number, fx: SourcedEffects[], o: ModOpts = {}) {
   const m = sumModifier(fx, "hpMax", o), full = Math.max(0, max0 + m.add), half = m.half, max = m.zero ? 0 : half ? Math.floor(full / 2) : full;
   return { current: Math.min(current, max), max, temp, maxReduced: half };
@@ -263,7 +266,7 @@ export function deriveCharacter(c: Character, ctx: EffectContext): ActorStats {
     kind: "character", name: c.name, label: c.classes.map(k => `${k.class} ${k.level}`).join(" / "),
     abilities: scores, mods: m, prof, level, ac, speed: { ...speedBase, other: modes.join(", ") + (hover && modes.some(x => x.startsWith("fly")) ? " (hover)" : "") },
     attacksPerAction, senses, conditionImmune: [...new Set(fx.flatMap(s => s.effects.conditionImmune ?? []))],
-    hp: hpOf(c.hp.max, c.hp.current, c.hp.temp, fx, opt()), saves, concentrationSave: saveMod("con", true), skills, checks,
+    hp: hpOf(c.hp.max, c.hp.current, c.hp.temp, fx, opt()), hpFull: hpFullOf(c.hp.max, fx, opt()), saves, concentrationSave: saveMod("con", true), skills, checks,
     initiative, why,
     passivePerception: passives.perception, passives, attacks,
     ...(spellcasting ? { spellcasting } : {}), slots, hitDice,
@@ -285,7 +288,7 @@ export function deriveCreature(b: CreatureData, st: { name: string; hp: { max?: 
     kind, name: st.name, label, attacksPerAction: 1, senses: {}, conditionImmune: [...new Set(fx.flatMap(s => s.effects.conditionImmune ?? []))], abilities: b.abilities, mods: m, prof: 0, level: 0, concentrationSave: (b.saves.con ?? m.con) + saveAdd,
     ac: { value: b.ac + acMod.add, sources: [b.name, ...acMod.sources] },
     speed: { ...speedOf(b.speed.walk, fx), other: (["fly", "swim", "climb"] as const).filter(k => b.speed[k]).map(k => `${k} ${b.speed[k]}`).join(", ") },
-    hp: hpOf(max, st.hp.current ?? max, st.hp.temp, fx),
+    hp: hpOf(max, st.hp.current ?? max, st.hp.temp, fx), hpFull: hpFullOf(max, fx),
     saves: Object.fromEntries(ABILS.map(a => [a, { mod: (b.saves[a] ?? m[a]) + saveAdd, prof: a in b.saves }])) as ActorStats["saves"],
     skills: Object.entries(b.skills).map(([id, v]) => ({ id, abil: SKILLS[id] ?? "wis", mod: v + checkAdd, prof: true, expertise: false })),
     checks: Object.fromEntries(ABILS.map(a => [a, m[a] + checkAdd])) as Record<Abil, number>,
