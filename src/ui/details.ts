@@ -6,6 +6,8 @@ import { diceAt } from "../core/spells";
 import type { SheetController } from "./controller";
 import { describeEffects, sourceBadge } from "./widgets";
 import { h, sgn } from "./h";
+import { ABIL_FULL, glossaryEntry } from "../content/glossary";
+import type { Abil } from "../core/types";
 
 const MOD_LABEL: Record<string, string> = { ac: "AC", speed: "speed", hpMax: "max HP", save: "saves", attack: "attack rolls", damage: "damage", spellDC: "spell DC",
   spellAttack: "spell attacks", check: "checks", initiative: "initiative", carry: "carrying capacity" };
@@ -162,6 +164,27 @@ function whyCard(key: string, ctl: SheetController): HTMLElement | null {
   return lines.length ? card("Where this number comes from", am ? st.attacks[+am[1]].name : "", lines, undefined) : null;
 }
 
+/** A plain-words card for a glossary term, with this character's own number and its breakdown line when the sheet has one. */
+function glossaryCard(key: string, ctl: SheetController): HTMLElement | null {
+  const e = glossaryEntry(key, !!ctl.rules()["rest-excursion"]); if (!e) return null;
+  const st = ctl.stats(), lines: string[] = [], why = (k: string) => { if (st?.why[k]) lines.push(st.why[k]); };
+  const [kind, id] = key.split(":");
+  if (st) {
+    if (kind === "ability") { const a = id as Abil; lines.push(`Your ${ABIL_FULL[a]}: ${st.abilities[a]} (modifier ${sgn(st.checks[a])})`); why(`check:${a}`); }
+    else if (kind === "save") { const a = id as Abil; lines.push(`Your save: ${sgn(st.saves[a].mod)}${st.saves[a].prof ? " (trained)" : ""}`); why(`save:${a}`); }
+    else if (kind === "skill") { const k = st.skills.find(x => x.id === id); if (k) { lines.push(`Your bonus: ${sgn(k.mod)}${k.expertise ? " (double training)" : k.prof ? " (trained)" : ""}`); why(`skill:${id}`); } }
+    else if (key === "proficiency-bonus") lines.push(`Your proficiency bonus: ${sgn(st.prof)}`);
+    else if (key === "passive-perception") { lines.push(`Your passive Perception: ${st.passivePerception}`); why("passive:perception"); }
+    else if (key === "initiative") { lines.push(`Your initiative: ${sgn(st.initiative)}`); why("initiative"); }
+    else if (key === "armor-class") { lines.push(`Your Armor Class: ${st.ac.value}`); why("ac"); }
+    else if (key === "speed") { lines.push(`Your speed: ${st.speed.value} ft.`); why("speed"); }
+    else if (key === "hit-points") { lines.push(`Your hit points: ${st.hp.current} of ${st.hp.max}`); why("hp"); }
+    else if (key === "temp-hp") lines.push(`Your temporary hit points: ${st.hp.temp}`);
+    else if (key === "hit-dice" && st.hitDice.length) lines.push(`Left: ${st.hitDice.map(d => `${d.die} ${d.max - d.used} of ${d.max}`).join(", ")}`);
+  }
+  return card(e.title, e.kind, [e.text, ...lines], undefined);
+}
+
 /** A detail card for `ref` (item:, spell:, condition:, trait:<creature>:<index>, effect:<source>), or null if it is not known. All text goes in as text nodes. */
 export function detailCard(ref: string, ctl: SheetController): HTMLElement | null {
   const i = ref.indexOf(":"); if (i < 0) return null;
@@ -171,6 +194,7 @@ export function detailCard(ref: string, ctl: SheetController): HTMLElement | nul
     case "spell": { const e = reg.get<SpellData>("spell", rest); return e ? spellCard(reg, e) : null; }
     case "condition": { const e = reg.get<ConditionData>("condition", rest) ?? reg.get<ConditionData>("injury", rest); return e ? conditionCard(e, ctl.value.conditions[rest] ?? 0) : null; }
     case "why": return whyCard(rest, ctl);
+    case "glossary": return glossaryCard(rest, ctl);
     case "effect": return effectCard(rest, ctl);
     case "feature": return featureCard(rest, ctl);
     case "combo": return comboCard(Number(rest), ctl);

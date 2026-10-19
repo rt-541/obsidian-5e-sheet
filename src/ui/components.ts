@@ -1,6 +1,7 @@
 import type { ConditionData, CreatureData, ItemData } from "../content/types";
 import type { ActorStats } from "../core/derive";
 import { ABILS, type Abil, type Effects } from "../core/types";
+import { hitDiceRecharge } from "../content/glossary";
 import { activeRests } from "../rules";
 import type { SheetController } from "./controller";
 import { h, sgn } from "./h";
@@ -15,8 +16,10 @@ import { concentrationFeature, pinnedSpellsFeature, spellsFeature } from "./spel
 export { describeEffects, pips };
 export type Render = (ctl: SheetController, st: ActorStats) => HTMLElement;
 /** A tile. `why` is the breakdown it opens: on the whole tile when nothing inside it is a button, else on the label (the number inside keeps its own hover card). */
-const stat = (label: string, value: Node | string, why?: string, interactive = false) => h("div", { cls: "fe-stat", ...(why && !interactive ? { data: { ref: why } } : {}) },
-  h("div", { cls: "fe-stat-v" }, value), h("div", { cls: "fe-stat-l", text: label, ...(why && interactive ? { data: { ref: why } } : {}) }));
+const stat = (label: string, value: Node | string, why?: string, interactive = false, gloss?: string) => h("div", { cls: "fe-stat", ...(why && !interactive ? { data: { ref: why } } : {}) },
+  h("div", { cls: "fe-stat-v" }, value), h("div", { cls: "fe-stat-l", text: label, ...(gloss ? { data: { ref: `glossary:${gloss}` } } : why && interactive ? { data: { ref: why } } : {}) }));
+/** The label of a number: hover or tap gives the plain-words card for the term. The number itself keeps its own breakdown. */
+const gl = (key: string): { data: Record<string, string> } => ({ data: { ref: `glossary:${key}` } });
 /** The data attribute for a number's breakdown, or nothing when the actor has none (a creature's stat block). */
 const whyOf = (st: ActorStats, key: string): string | undefined => (st.why[key] ? `why:${key}` : undefined);
 const whyData = (ref?: string, noclick = false): { data: Record<string, string> } | Record<string, never> => (ref ? { data: { ref, ...(noclick ? { noclick: "" } : {}) } } : {});
@@ -60,18 +63,18 @@ function conditionChips(ctl: SheetController, conds: Record<string, number>, who
 function checks(ctl: SheetController, st: ActorStats, who?: number) {
   return {
     abilities: h("div", { cls: "fe-abilities" }, ...ABILS.map(a => h("div", { cls: "fe-tile" },
-      h("div", { cls: "fe-tile-k", text: ABIL_NAME[a] }),
+      h("div", { cls: "fe-tile-k", text: ABIL_NAME[a], ...gl(`ability:${a}`) }),
       rollButton(ctl, sgn(st.checks[a]), `${ABIL_NAME[a]} check`, st.checks[a], { kind: "check", abil: a }, who, whyOf(st, `check:${a}`)),
       ctl.editing && who === undefined && ctl.character
         ? h("input", { cls: "fe-score", attrs: { type: "number", min: "1", max: "30", value: String(st.abilities[a]), "aria-label": `${ABIL_NAME[a]} score` },
             on: { change: (e: Event) => ctl.dispatch({ type: "ability", abil: a, value: +(e.target as HTMLInputElement).value }) } })
         : h("div", { cls: "fe-tile-s", text: String(st.abilities[a]) })))),
     saves: h("div", { cls: "fe-rows" }, ...ABILS.map(a => h("div", { cls: "fe-row" },
-      h("span", { cls: `fe-dot ${st.saves[a].prof ? "is-prof" : ""}` }), h("span", { cls: "fe-grow", text: ABIL_NAME[a], ...whyData(whyOf(st, `save:${a}`)) }),
+      h("span", { cls: `fe-dot ${st.saves[a].prof ? "is-prof" : ""}` }), h("span", { cls: "fe-grow", text: ABIL_NAME[a], ...gl(`save:${a}`) }),
       rollButton(ctl, sgn(st.saves[a].mod), `${ABIL_NAME[a]} save`, st.saves[a].mod, { kind: "save", abil: a }, who, whyOf(st, `save:${a}`))))),
     skills: h("div", { cls: "fe-rows" }, ...st.skills.map(k => h("div", { cls: "fe-row" },
       h("span", { cls: `fe-dot ${k.prof ? "is-prof" : ""} ${k.expertise ? "is-expert" : ""}` }),
-      h("span", { cls: "fe-grow", text: titleCase(k.id), ...whyData(whyOf(st, `skill:${k.id}`)) }), h("span", { cls: "fe-faint", text: ABIL_NAME[k.abil] }),
+      h("span", { cls: "fe-grow", text: titleCase(k.id), ...gl(`skill:${k.id}`) }), h("span", { cls: "fe-faint", text: ABIL_NAME[k.abil] }),
       rollButton(ctl, sgn(k.mod), titleCase(k.id), k.mod, { kind: "skill", abil: k.abil, skill: k.id }, who, whyOf(st, `skill:${k.id}`))))),
   };
 }
@@ -141,20 +144,24 @@ function pinnedItems(ctl: SheetController): { index: number; row: HTMLElement }[
 export const RENDER: Record<string, Render> = {
   identity: (ctl, st) => h("div", { cls: "fe-identity" }, h("span", { cls: "fe-name", text: st.name }), h("span", { cls: "fe-muted", text: st.label })),
   inspiration: ctl => btn("Inspiration", () => ctl.dispatch({ type: "inspiration", on: !ctl.character!.inspiration }), ctl.character?.inspiration ? "is-on" : ""),
-  prof: (ctl, st) => h("span", { cls: "fe-kv" }, h("span", { cls: "fe-muted", text: "Proficiency bonus " }), sgn(st.prof)),
+  prof: (ctl, st) => h("span", { cls: "fe-kv" }, h("span", { cls: "fe-muted", text: "Proficiency bonus ", ...gl("proficiency-bonus") }), sgn(st.prof)),
   xp: ctl => xpFeature(ctl),
   "level-up": ctl => levelUpFeature(ctl),
   features: (ctl, st) => featuresFeature(ctl, st),
-  ac: (ctl, st) => stat("AC", String(st.ac.value), whyOf(st, "ac")),
-  initiative: (ctl, st) => stat("Initiative", rollButton(ctl, sgn(st.initiative), "Initiative", st.initiative, { kind: "initiative", abil: "dex" }, undefined, whyOf(st, "initiative")), whyOf(st, "initiative"), true),
-  speed: (ctl, st) => stat("Speed", `${st.speed.value}${st.speed.sources.length ? "*" : ""}${st.speed.other ? ` (${st.speed.other})` : ""}`, whyOf(st, "speed")),
-  "passive-perception": (ctl, st) => stat("Passive Perception", String(st.passivePerception), whyOf(st, "passive:perception")),
+  ac: (ctl, st) => stat("AC", String(st.ac.value), whyOf(st, "ac"), false, "armor-class"),
+  initiative: (ctl, st) => stat("Initiative", rollButton(ctl, sgn(st.initiative), "Initiative", st.initiative, { kind: "initiative", abil: "dex" }, undefined, whyOf(st, "initiative")), whyOf(st, "initiative"), true, "initiative"),
+  speed: (ctl, st) => stat("Speed", `${st.speed.value}${st.speed.sources.length ? "*" : ""}${st.speed.other ? ` (${st.speed.other})` : ""}`, whyOf(st, "speed"), false, "speed"),
+  "passive-perception": (ctl, st) => stat("Passive Perception", String(st.passivePerception), whyOf(st, "passive:perception"), false, "passive-perception"),
   hp: (ctl, st) => hpBlock(ctl, st),
   "hp-controls": ctl => hpControls(ctl),
-  "hit-dice": (ctl, st) => card("Hit Dice", ...st.hitDice.map(d => h("div", { cls: "fe-kv" },
-    h("span", { text: `${d.die} ${d.max - d.used} / ${d.max}` }), btn("Spend 1", () => ctl.spendHitDie(d.die))))),
+  "hit-dice": (ctl, st) => {
+    const el = card("Hit Dice", ...st.hitDice.map(d => h("div", { cls: "fe-kv" },
+      h("span", { text: `${d.die} ${d.max - d.used} / ${d.max}` }), btn("Spend 1", () => ctl.spendHitDie(d.die)))),
+      h("div", { cls: "fe-faint fe-hd-recharge", text: hitDiceRecharge(st.hitDice.reduce((n, d) => n + d.max, 0), !!ctl.rules()["rest-excursion"]) }));
+    const title = el.querySelector<HTMLElement>(".fe-card-title"); if (title) title.dataset.ref = "glossary:hit-dice";
+    return el; },
   "death-saves": ctl => { const ds = ctl.character!.deathSaves;
-    return h("div", { cls: "fe-kv fe-ds" }, h("span", { text: "Death saves" }),
+    return h("div", { cls: "fe-kv fe-ds" }, h("span", { text: "Death saves", ...gl("death-saves") }),
       h("span", {}, "S ", pips(3, ds.successes, n => ctl.dispatch({ type: "deathSave", which: "successes", value: n }), "is-s"),
         " F ", pips(3, ds.failures, n => ctl.dispatch({ type: "deathSave", which: "failures", value: n }), "is-f"))); },
   conditions: ctl => conditionChips(ctl, ctl.value.conditions),
