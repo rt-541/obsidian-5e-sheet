@@ -14,10 +14,11 @@ const RESET_NAME = { short: "short rest", long: "long rest", dawn: "dawn", none:
 /** XP total (editable in Edit mode) and, in XP campaigns, a bar toward the next level. */
 export function xpFeature(ctl: SheetController): HTMLElement {
   const i = ctl.xpInfo();
-  const label = h("span", { cls: "fe-kv" }, h("span", { cls: "fe-muted", text: "XP " }), String(i.xp),
+  const editable = ctl.editing && !!ctl.character;
+  const label = h("span", { cls: "fe-kv" }, h("span", { cls: "fe-muted", text: "XP " }), editable ? null : String(i.xp),
     i.mode === "xp" && i.next !== undefined ? h("span", { cls: "fe-muted", text: ` / ${i.next}` }) : null);
-  const edit = ctl.editing && ctl.character
-    ? h("input", { cls: "fe-amt", attrs: { type: "number", min: "0", value: String(i.xp), "aria-label": "XP" },
+  const edit = editable
+    ? h("input", { cls: "fe-amt fe-xp-input", attrs: { type: "number", min: "0", value: String(i.xp), "aria-label": "XP" },
         on: { change: (e: Event) => ctl.dispatch({ type: "xp", value: +(e.target as HTMLInputElement).value }) } }) : null;
   if (i.mode !== "xp") return h("span", { cls: "fe-xp" }, label, edit);
   return h("span", { cls: `fe-xp ${i.ready ? "is-ready" : ""}`, ...(i.next !== undefined ? { title: `${i.next - i.xp} XP to level ${i.level + 1}` } : {}) }, label, edit,

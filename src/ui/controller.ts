@@ -91,7 +91,7 @@ export class SheetController {
   confirmRemove = false;
   /** The next redraw puts the keyboard focus on the element with this data-keep (desktop only). */
   focusNext?: string;
-  panel: Panel | null = null; levelUp: LevelUpState | null = null; confirmUndo = false; lastRoll?: RollResult; restOpts: RestOptions = { samePlace: true, safeHaven: false };
+  panel: Panel | null = null; levelUp: LevelUpState | null = null; confirmUndo = false; lastRoll?: RollResult; toastItem?: { kind: "roll"; roll: RollResult } | { kind: "notice"; text: string }; restOpts: RestOptions = { samePlace: true, safeHaven: false };
   private subs = new Set<() => void>();
   private collapsed?: Set<string>;
 
@@ -359,8 +359,11 @@ export class SheetController {
     return true;
   }
 
+  /** Show a short message in the sheet's own toast (the same corner as roll results). */
+  say(msg: string): void { this.toastItem = { kind: "notice", text: msg }; this.emit(); }
+
   private record(r: RollResult) {
-    this.lastRoll = r; this.host.log.unshift(r); if (this.host.log.length > LOG_MAX) this.host.log.length = LOG_MAX; this.emit(); return r;
+    this.lastRoll = r; this.toastItem = { kind: "roll", roll: r };this.host.log.unshift(r); if (this.host.log.length > LOG_MAX) this.host.log.length = LOG_MAX; this.emit(); return r;
   }
   /** d20 roll for the sheet's actor or companion `who`. Shift = adv, Ctrl/Cmd = dis, else the one-shot mode switch. */
   roll(title: string, mod: number, target: RollTarget, ev: Mods = {}, who?: number, force?: RollMode): RollResult {

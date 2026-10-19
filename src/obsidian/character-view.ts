@@ -68,12 +68,13 @@ export class CharacterView extends FileView {
     const body = stripFrontmatter(await this.app.vault.cachedRead(file));
     this.logPath = file.path;
     const log = (this.plugin.data.logs[file.path] ??= []);
+    let sheetCtl: SheetController | undefined;
     const ctl = new SheetController({
       registry: this.plugin.registry,
       campaign: this.campaignFor(file, parsed.value.campaign),
       ruleDefaults: this.plugin.data.settings.ruleDefaults,
       save: v => { if (this.file) this.plugin.store.queue(this.file.path, v); },
-      notify: m => this.plugin.notice(m),
+      notify: m => (sheetCtl ? sheetCtl.say(m) : this.plugin.notice(m)),
       openBuilder: () => this.plugin.openBuilder(),
       log, body,
       collapsedGroups: () => this.plugin.data.collapsed?.[file.path] ?? [],
@@ -85,6 +86,7 @@ export class CharacterView extends FileView {
       openNote: p => { void this.plugin.openNote(p); },
       renderMarkdown: (md, el) => { void MarkdownRenderer.render(this.app, md, el, file.path, this); },
     }, parsed);
+    sheetCtl = ctl;
     if (prev) { ctl.tab = prev.tab; ctl.mode = prev.mode; ctl.editing = prev.editing; }
     ctl.subscribe(() => this.plugin.saveLogsSoon());
     this.mounted?.destroy();

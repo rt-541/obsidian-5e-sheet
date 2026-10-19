@@ -248,6 +248,7 @@ export const RENDER: Record<string, Render> = {
     btn({ dis: "Disadvantage", normal: "Normal", adv: "Advantage" }[m], () => ctl.setMode(m), ctl.mode === m ? "is-on" : ""))),
   "roll-log": ctl => btn(`Roll log${ctl.host.log.length ? ` (${ctl.host.log.length})` : ""}`, () => ctl.open({ kind: "log" })),
   "play-edit": ctl => h("div", { cls: "fe-kv" }, h("div", { cls: "fe-seg" }, btn("Play", () => ctl.setEditing(false), ctl.editing ? "" : "is-on"), btn("Edit", () => ctl.setEditing(true), ctl.editing ? "is-on" : "")),
-    ctl.editing ? btn("Customize sheet", () => ctl.open({ kind: "customize" })) : null),
+    ctl.editing ? btn("Customize sheet", () => ctl.open({ kind: "customize" })) : null,
+    ctl.editing ? h("div", { cls: "fe-edit-bar", text: "Editing: changes save as you type" }) : null),
   notes: ctl => { const el = h("div", { cls: "fe-notes" }); if (ctl.host.renderMarkdown && ctl.host.body) ctl.host.renderMarkdown(ctl.host.body, el); else { el.textContent = ctl.host.body ?? ""; el.style.whiteSpace = "pre-wrap"; } return card("Notes", el); },
 };

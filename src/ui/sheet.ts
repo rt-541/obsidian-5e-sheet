@@ -104,11 +104,12 @@ export function mountSheet(root: HTMLElement, ctl: SheetController, layoutIn: La
       target.focus();
       if (keepKey && caret && target.dataset.keep === keepKey) { try { target.setSelectionRange(caret[0], caret[1], caret[2] ?? undefined); } catch { /* number inputs have no caret */ } }
     }
-    const r = ctl.lastRoll;
+    const it = ctl.toastItem, r = it?.kind === "roll" ? it.roll : undefined;
     const toast = h("div", { cls: `fe-toast ${r ? (r.crit ? "is-crit" : r.fumble ? "is-fumble" : "") : ""}`, data: { feature: "roll-result" } },
-      r ? h("div", { cls: "fe-muted", text: r.title }) : null, r && (r.dice.length || r.total !== 0) ? h("div", { cls: "fe-toast-total", text: String(r.total) }) : null, r ? h("div", { cls: "fe-mono", text: r.detail }) : null);
-    const fresh = !!r && r !== shownRoll;   // show only for a new roll, then hide after TOAST_MS
-    if (fresh) { shownRoll = r; window.clearTimeout(toastTimer); toastTimer = window.setTimeout(() => { toast.hidden = true; }, TOAST_MS); }
+      r ? h("div", { cls: "fe-muted", text: r.title }) : null, r && (r.dice.length || r.total !== 0) ? h("div", { cls: "fe-toast-total", text: String(r.total) }) : null, r ? h("div", { cls: "fe-mono", text: r.detail }) : null,
+      it?.kind === "notice" ? h("div", { text: it.text }) : null);
+    const fresh = !!it && it !== shownRoll;   // show only for a new item, then hide after TOAST_MS
+    if (fresh) { shownRoll = it;window.clearTimeout(toastTimer); toastTimer = window.setTimeout(() => { toast.hidden = true; }, TOAST_MS); }
     toast.hidden = !fresh;
     root.append(toast);
     if (sp && keepTop) sp.scrollTop = keepTop;
