@@ -25,6 +25,12 @@ describe("ability scores", () => {
   });
 });
 
+describe("desktop checks column", () => {
+  it("is as wide as its content (capped) and the other columns share the rest", () => {
+    expect(css).toContain(".fe-desktop .fe-pane.has-checks { grid-template-columns: fit-content(340px) repeat(var(--fe-rest, 2), minmax(0, 1fr)); }");
+  });
+});
+
 describe("leveling styles", () => {
   it("the wizard keeps 44px targets on mobile", () => {
     expect(css).toMatch(/\.fe-mobile \.fe-lu-nav button\.fe-btn, \.fe-mobile \.fe-choice \{ min-height: 44px; \}/);

@@ -188,6 +188,7 @@
 .fe-hpctl { grid-template-columns: minmax(60px, 70px) repeat(3, minmax(0, 1fr)); }
 .fe-sheet button.fe-btn, .fe-sheet button.fe-roll { max-width: 100%; white-space: normal; }
 .fe-abilities { grid-template-columns: repeat(3, minmax(0, 1fr)); }   /* STR DEX CON over INT WIS CHA; columns may shrink but never wrap to 5 + 1 */
+.fe-desktop .fe-pane.has-checks { grid-template-columns: fit-content(340px) repeat(var(--fe-rest, 2), minmax(0, 1fr)); }
 .fe-sheet table { display: block; max-width: 100%; overflow-x: auto; }
 
 /* Scroll hotfix 2026-10-18: the sheet and compendium panes scroll, and pop-up panels (Add from compendium,
