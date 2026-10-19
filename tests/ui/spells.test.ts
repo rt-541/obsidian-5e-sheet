@@ -29,7 +29,7 @@ describe("spells tab", () => {
       const s = setup(withSpell, mobile);
       expect(s.root.querySelectorAll('[data-feature="spells"]')).toHaveLength(1);
       expect(s.root.querySelectorAll('[data-feature="concentration"]')).toHaveLength(1);
-      expect([...s.root.querySelectorAll(".fe-tab")].map(t => t.textContent)).toContain("Spells");
+      expect([...s.root.querySelectorAll(".fe-tab")].map(t => t.textContent)).toContain(mobile ? "Spell" : "Spells");
     });
   }
   it("casting Burning Hands from the panel at level 2 spends a level-2 slot", () => {

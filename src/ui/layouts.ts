@@ -28,15 +28,15 @@ export const DESKTOP: LayoutSpec = {
   ],
 };
 export const MOBILE: LayoutSpec = {
-  pinned: ["identity", "hp", "ac", "initiative", "speed", "level-up", "roll-mode", "conditions", "concentration", "roll-log"],
+  pinned: ["identity", "hp", "ac", "initiative", "speed", "roll-mode", "conditions", "concentration"],
   tabs: [
-    { id: "combat", label: "Combat", columns: [["hp-controls", "death-saves", "attacks", "resources", "rations", "toggles", "pinned-spells", "pinned-combos", "spell-dc", "spell-slots", "coins", "traits", "hit-dice", "rests"]] },
-    { id: "combos", label: "Combos", columns: [["combos"]] },
-    { id: "checks", label: "Checks", columns: [["abilities", "saves", "skills", "passive-perception"]] },
-    { id: "spells", label: "Spells", columns: [["spells"]] },
+    { id: "combat", label: "Fight", columns: [["hp-controls", "death-saves", "attacks", "resources", "rations", "toggles", "pinned-spells", "pinned-combos", "spell-dc", "spell-slots", "coins", "traits", "hit-dice", "rests"]] },
+    { id: "combos", label: "Combo", columns: [["combos"]] },
+    { id: "checks", label: "Check", columns: [["abilities", "saves", "skills", "passive-perception"]] },
+    { id: "spells", label: "Spell", columns: [["spells"]] },
     { id: "gear", label: "Gear", columns: [["inventory"]] },
     { id: "pets", label: "Pets", columns: [["companions"]] },
-    { id: "more", label: "More", columns: [["inspiration", "prof", "xp", "features", "active-effects", "play-edit", "notes"]] },
+    { id: "more", label: "More", columns: [["level-up", "roll-log", "inspiration", "prof", "xp", "features", "active-effects", "play-edit", "notes"]] },
   ],
 };
 export const NPC_DESKTOP: LayoutSpec = {

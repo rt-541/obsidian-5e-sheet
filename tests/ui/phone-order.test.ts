@@ -21,4 +21,14 @@ describe("phone and tablet order", () => {
     expect(css).toMatch(/\.fe-mobile \.fe-tabs \{[^}]*display: grid; grid-template-columns: repeat\(var\(--fe-tabs\), minmax\(0, 1fr\)\);[^}]*overflow-x: visible/);
     const s = sheet("mobile", thalia); expect(s.q("nav.fe-tabs").style.getPropertyValue("--fe-tabs")).toBe(String(s.all(".fe-tab").length));
   });
+  it("phone tabs use short labels that fit seven equal columns", () => {
+    const s = sheet("mobile", thalia);
+    expect(s.all(".fe-tab").map(t => t.textContent)).toEqual(["Fight", "Combo", "Check", "Spell", "Gear", "Pets", "More"]);
+    expect(css).toMatch(/\.fe-mobile button\.fe-tab \{[^}]*font-size: var\(--font-ui-smaller, 12px\)/);
+  });
+  it("the phone pinned header stays small: Level up and Roll log sit at the top of More", () => {
+    expect(MOBILE.pinned).not.toContain("level-up"); expect(MOBILE.pinned).not.toContain("roll-log");
+    expect(MOBILE.pinned.length).toBeLessThanOrEqual(8);
+    expect(MOBILE.tabs.find(t => t.id === "more")!.columns[0].slice(0, 2)).toEqual(["level-up", "roll-log"]);
+  });
 });

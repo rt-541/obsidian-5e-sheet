@@ -79,7 +79,7 @@ The user also wants to choose, easily and at any moment, between the sheet rolli
 **Full UI review (2026-10-19, rendered with Obsidian 1.14.4's real CSS; review page https://scratch.rt-541.io/dnd-sheet/ui-review/review.html, gallery at the same path).** In scope, in this priority order:
 
 1. **P1, narrow rows on phone/tablet**: names break mid-word (inventory, spells, combo steps) because `overflow-wrap: anywhere` meets 44 px button groups that never shrink. Names get their own line on narrow layouts and wrap at word boundaries.
-2. **P1, phone/tablet Combat order**: HP and HP controls, Attacks, Attack options, Resources first; death saves beside HP; stance/toggle cards after. Phone header made compact (and sticky like tablet's).
+2. **P1, phone/tablet Combat order**: HP and HP controls, Attacks, Attack options, Resources first; death saves beside HP; stance/toggle cards after. Phone header made compact (and sticky like tablet's). Height budget: the pinned phone block stays under 25% of an 844 px viewport (about 210 px, like tablet); Level up and Roll log live at the top of More, not in the pinned block. Phone tab labels are short (Fight, Combo, Check, Spell, Gear, Pets, More) so seven equal columns fit at 390 px.
 3. **P1, raw tokens and ids shown to players**: unresolved scale placeholders (`{...-damage}`), formula names ("+ unarmored_movement", "+ total"), option-list ids ("fighter-fighting-style"). Every player-facing value is resolved or worded.
 4. **P1, builder cantrip step**: show only cantrips on that step; fix "0 of 0".
 5. **Inputs without a `type`** render as raw boxes under Obsidian's CSS: every text input gets `type="text"` (combo, companion, searches, builder, level-up, compendium).
