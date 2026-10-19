@@ -4,7 +4,7 @@ import { castRow, spellRows, type SpellRow } from "../core/spells";
 import type { ActorStats } from "../core/derive";
 import type { SheetController } from "./controller";
 import { clear, h, sgn } from "./h";
-import { pips, sourceBadge } from "./widgets";
+import { pips, playBadge } from "./widgets";
 import { titleCase } from "../core/words";
 import { blankSpellDraft, spellDataToDraft, type SpellDraft } from "../content/spell-note";
 import { parseSpellblock, SPELLBLOCK_TEMPLATE } from "../content/spellblock";
@@ -31,7 +31,7 @@ export function rolls(ctl: SheetController, r: SpellRow): (Node | null)[] {
 
 function nameCell(r: SpellRow, lead?: HTMLElement | null): HTMLElement {
   return h("div", { cls: "fe-grow" }, lead ?? null, h("span", { cls: `fe-spell-name ${r.known ? "" : "is-missing"}`, text: r.known ? r.name : `${r.id} (missing from compendium)`, ...(r.known ? { data: { ref: `spell:${r.id}` } } : {}) }),
-    r.concentration ? h("span", { cls: "fe-src", text: "C" }) : null);
+    r.concentration ? h("span", { cls: "fe-tag", text: "Concentration", data: { badge: "concentration" } }) : null);
 }
 
 /** Key stored in Character.mainSpells: the spell id for own spells, "<item id>/<spell id>" for item spells. */
@@ -254,7 +254,7 @@ export function addSpellPanel(ctl: SheetController, panel: object = fallbackPane
       const rows = matchSpells(inScope.filter(e => st.higher || e.data.level <= top), q);
       const hidden = st.higher ? 0 : inScope.length - rows.length;
       for (const e of rows.slice(0, MAX_ROWS)) list.append(h("div", { cls: "fe-inv", data: { pick: e.id } },
-        h("div", { cls: "fe-grow" }, h("span", { cls: "fe-spell-name", text: e.name, data: { ref: `spell:${e.id}`, noclick: "" } }), sourceBadge(sourceLabel(e)),
+        h("div", { cls: "fe-grow" }, h("span", { cls: "fe-spell-name", text: e.name, data: { ref: `spell:${e.id}`, noclick: "" } }), playBadge(sourceLabel(e)),
           h("div", { cls: "fe-badges" }, h("span", { cls: "fe-badge", text: e.data.level === 0 ? "Cantrip" : `Level ${e.data.level}`, data: { badge: "level" } }),
             h("span", { cls: "fe-badge", text: e.data.school, data: { badge: "school" } }),
             ...e.data.classes.map(k => h("span", { cls: `fe-badge ${mine.has(k) ? "is-mine" : ""}`.trim(), text: cap(k), data: { badge: "class" } })))),

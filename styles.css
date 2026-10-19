@@ -313,3 +313,6 @@
 .fe-res-row { flex-wrap: nowrap; }
 .fe-res-row > .fe-grow { min-width: 0; }
 .fe-res-ctl { display: inline-flex; align-items: center; justify-content: flex-end; gap: 6px; flex: none; flex-wrap: wrap; max-width: 70%; }
+.fe-sheet .fe-auto { font-size: var(--font-ui-smaller); padding: 0 6px; margin-left: 6px; color: var(--text-faint); }
+.fe-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 2px; }
+.fe-tag { font-size: var(--font-ui-smaller); padding: 0 6px; margin-left: 6px; border-radius: var(--radius-s); border: 1px solid var(--background-modifier-border); color: var(--text-muted); }

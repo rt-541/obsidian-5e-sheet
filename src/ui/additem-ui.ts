@@ -4,7 +4,7 @@ import type { ItemData } from "../content/types";
 import type { SheetController } from "./controller";
 import { CHARGE_RESETS, ITEM_KINDS, ITEM_TEMPLATE, RARITIES, type ChargeReset, type ItemKind } from "../content/itemblock";
 import { clear, h } from "./h";
-import { sourceBadge } from "./widgets";
+import { playBadge } from "./widgets";
 
 /** A labelled text box whose typing is kept in the controller's form without redrawing (so the caret stays put). */
 const field = (label: string, input: HTMLElement, cls = "") => h("label", { cls: `fe-cf-field ${cls}`.trim() }, h("span", { cls: "fe-muted", text: label }), input);
@@ -134,7 +134,7 @@ export function itemResults(ctl: SheetController): { hint: boolean; rows: Entry<
 function resultRow(ctl: SheetController, e: Entry<ItemData>): HTMLElement {
   const owned = ctl.character!.inventory.some(x => x.id === e.id);
   return h("div", { cls: "fe-inv" },
-    h("div", { cls: "fe-grow" }, h("span", { cls: "fe-inv-name", text: e.name, data: { ref: `item:${e.id}` } }), sourceBadge(sourceLabel(e)),
+    h("div", { cls: "fe-grow" }, h("span", { cls: "fe-inv-name", text: e.name, data: { ref: `item:${e.id}` } }), playBadge(sourceLabel(e)),
       h("div", { cls: "fe-faint", text: [e.data.rarity, e.data.attunement ? "attunement" : ""].filter(Boolean).join(" · ") })),
     h("button", { cls: "fe-btn", text: owned ? "+1" : "Add", data: { item: e.id }, on: { click: () => ctl.addItem(e.id) } }));
 }

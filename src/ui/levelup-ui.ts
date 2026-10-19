@@ -6,7 +6,7 @@ import { ABILS, type Abil } from "../core/types";
 import type { LevelUpState, LevelUpView, SheetController } from "./controller";
 import { plural } from "../core/words";
 import { clear, h } from "./h";
-import { btn, sourceBadge, titleCase } from "./widgets";
+import { btn, playBadge, titleCase } from "./widgets";
 
 const ABIL_NAME: Record<Abil, string> = { str: "STR", dex: "DEX", con: "CON", int: "INT", wis: "WIS", cha: "CHA" };
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
@@ -34,7 +34,7 @@ export function answered(s: Step, st: { choices: Record<string, unknown>; hp?: u
 const row = (cls: string, ...kids: (Node | null)[]) => h("div", { cls }, ...kids);
 export const choiceButton = (name: string, detail: string | undefined, on: boolean, disabled: string | undefined, click: () => void, data: Record<string, string>, source?: string) => {
   const b = h("button", { cls: `fe-btn fe-choice ${on ? "is-on" : ""}`.trim(), data, on: { click } },
-    h("span", { cls: "fe-name", text: name }), detail ? h("span", { cls: "fe-faint", text: ` ${detail}` }) : null, disabled ? h("span", { cls: "fe-faint", text: ` (${disabled.toLowerCase()})` }) : null, source ? sourceBadge(source) : null);
+    h("span", { cls: "fe-name", text: name }), detail ? h("span", { cls: "fe-faint", text: ` ${detail}` }) : null, disabled ? h("span", { cls: "fe-faint", text: ` (${disabled.toLowerCase()})` }) : null, source ? playBadge(source) : null);
   if (disabled) b.disabled = true;
   b.setAttribute("aria-pressed", String(on));
   return b;
@@ -98,7 +98,7 @@ export function featList(ctl: PageCtl, s: Pick<"asi">, st: PageState): HTMLEleme
     const q = view.featQuery.toLowerCase();
     const feats = ctl.pickers().list<FeatData>("feat").filter(e => e.name.toLowerCase().includes(q));
     for (const e of feats.slice(0, 60)) list.append(h("div", { cls: "fe-inv" },
-      h("div", { cls: "fe-grow" }, h("span", { cls: "fe-inv-name", text: e.name, data: { ref: `feat:${e.id}`, noclick: "" } }), sourceBadge(sourceLabel(e)), e.data.prerequisite ? h("div", { cls: "fe-faint", text: `Prerequisite: ${e.data.prerequisite}` }) : null),
+      h("div", { cls: "fe-grow" }, h("span", { cls: "fe-inv-name", text: e.name, data: { ref: `feat:${e.id}`, noclick: "" } }), playBadge(sourceLabel(e)), e.data.prerequisite ? h("div", { cls: "fe-faint", text: `Prerequisite: ${e.data.prerequisite}` }) : null),
       owned.has(e.id) ? h("span", { cls: "fe-faint", text: "taken" }) : btn(picked === e.id ? "Picked" : "Pick", () => ctl.pick(s.key, { feat: e.id }), picked === e.id ? "is-on" : "")));
     if (!feats.length) list.append(h("div", { cls: "fe-faint", text: "No feats match." }));
   };
@@ -174,7 +174,7 @@ export function spellsPage(ctl: PageCtl, s: Pick<"spells">, st: PageState): HTML
     clear(list);
     const query = st.view.spellQuery, rows = spellStepRows(s, query), shown = s.count === 0 ? rows : rows.slice(0, 80);
     for (const o of shown) list.append(h("div", { cls: "fe-inv", data: { spell: o.id } },
-      h("div", { cls: "fe-grow" }, h("span", { cls: "fe-spell-name", text: o.name, data: { ref: `spell:${o.id}`, noclick: "" } }), o.source ? sourceBadge(o.source) : null, h("div", { cls: "fe-faint", text: o.text ?? "" })),
+      h("div", { cls: "fe-grow" }, h("span", { cls: "fe-spell-name", text: o.name, data: { ref: `spell:${o.id}`, noclick: "" } }), o.source ? playBadge(o.source) : null, h("div", { cls: "fe-faint", text: o.text ?? "" })),
       o.disabled ? h("span", { cls: "fe-faint", text: o.disabled.toLowerCase() }) : btn(cur.includes(o.id) ? "Chosen" : "Add", () => toggle(o.id), cur.includes(o.id) ? "is-on" : "", )));
     if (rows.length > shown.length) list.append(h("div", { cls: "fe-faint", text: `${rows.length - shown.length} more: narrow the search.` }));
     if (!query && !rows.some(o => !o.disabled)) list.append(h("div", { cls: "fe-warn", text: s.count === 0 ? "Every cantrip on this list is already known." : "Every spell on this list is already known." }));

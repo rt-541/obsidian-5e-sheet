@@ -6,7 +6,7 @@ import type { CompanionKind } from "../core/character";
 import type { Panel, SheetController } from "./controller";
 import { creatureForm } from "./creature-form";
 import { clear, h } from "./h";
-import { sourceBadge } from "./widgets";
+import { playBadge } from "./widgets";
 import { titleCase } from "../core/words";
 
 export const KIND_LABELS: Record<CompanionKind, string> = { familiar: "Familiar", companion: "Animal companion", steed: "Steed", summon: "Summon", sidekick: "Sidekick" };
@@ -71,7 +71,7 @@ export function addCompanionPanel(ctl: SheetController, panel: Panel): HTMLEleme
       // Familiars, animal companions and steeds are beasts nearly every time: list those first (stable, so A to Z holds inside each group).
       if (BEAST_KINDS.includes(s.kind)) rows.sort((a, b) => Number(b.data.ctype.toLowerCase() === "beast") - Number(a.data.ctype.toLowerCase() === "beast"));
       for (const e of rows.slice(0, MAX_ROWS)) list.append(h("div", { cls: "fe-inv" },
-        h("div", { cls: "fe-grow" }, h("span", { cls: "fe-inv-name", text: e.name }), sourceBadge(sourceLabel(e)), h("div", { cls: "fe-faint", text: facts(e.data) })),
+        h("div", { cls: "fe-grow" }, h("span", { cls: "fe-inv-name", text: e.name }), playBadge(sourceLabel(e)), h("div", { cls: "fe-faint", text: facts(e.data) })),
         btn("Add", () => addCompanion(e.id, e.name), "", { creature: e.id })));
       if (rows.length > MAX_ROWS) list.append(h("div", { cls: "fe-faint", text: `${rows.length - MAX_ROWS} more: narrow the search.` }));
       if (!rows.length) {

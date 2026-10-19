@@ -12,6 +12,8 @@ export const card = (title: string, ...kids: (Node | null | false)[]) => h("div"
 export const btn = (text: string, onClick: (e: MouseEvent) => void, cls = "") => h("button", { cls: `fe-btn ${cls}`.trim(), text, on: { click: onClick } });
 /** A source badge (`WotC · PHB`, `Roll20`, `Homebrew`, `WotC (SRD)`): user sources are accented, WotC content is neutral. */
 export const sourceBadge = (label: string, extra = "") => h("span", { cls: `fe-src ${label.startsWith("WotC") ? "" : "is-hb"} ${extra}`.replace(/\s+/g, " ").trim(), text: label, data: { source: label } });
+/** A source badge for rows in play views and pickers: the built-in default (`WotC (SRD)`) needs no tag, anything else is shown. */
+export const playBadge = (label: string): HTMLElement | null => label === "WotC (SRD)" ? null : sourceBadge(label);
 import { titleCase } from "../core/words";
 export { titleCase };
 

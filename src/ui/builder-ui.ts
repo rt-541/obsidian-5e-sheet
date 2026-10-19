@@ -73,6 +73,9 @@ function classPage(ctl: BuilderController): HTMLElement {
     ...ctl.pickers().list<ClassData>("class").map(e => aboutRow(ctl, "class", e, classPitch(e), d.classId === e.id, () => ctl.setClass(e.id))));
 }
 
+/** `5d4*10` read as "roll 5d4 × 10 gp". */
+const goldWords = (dice: string) => `roll ${dice.replace(/\s*\*\s*/, " × ")} gp`;
+
 function equipmentPage(ctl: BuilderController): HTMLElement {
   const c = ctl.classData(), d = ctl.draft, e = d.equipment;
   if (!c) return body("equipment", hint("Pick a class first."));
@@ -80,7 +83,7 @@ function equipmentPage(ctl: BuilderController): HTMLElement {
   return body("equipment", hint("Starting equipment or gold."),
     ...(c.equipment ?? []).map((items, i) => choiceButton(`Option ${i + 1}`, gearList(items, ctl.pickers()), e?.kind === "option" && e.index === i, undefined, () => ctl.setEquipment({ kind: "option", index: i }), { equip: String(i) })),
     c.gold !== undefined ? h("div", { cls: "fe-kv" },
-      choiceButton("Starting gold", `${c.gold}${gold !== undefined ? `: ${gold} gp` : ""}`, e?.kind === "gold", undefined, () => ctl.rollStartingGold(), { equip: "gold" }),
+      choiceButton("Starting gold", `${goldWords(c.gold)}${gold !== undefined ? `: ${gold} gp` : ""}`, e?.kind === "gold", undefined, () => ctl.rollStartingGold(), { equip: "gold" }),
       h("input", { cls: "fe-amt", data: { field: "gold" }, attrs: { type: "number", min: "0", value: gold !== undefined ? String(gold) : "", placeholder: "gp", "aria-label": "Starting gold" },
         on: { change: (ev: Event) => { const n = +(ev.target as HTMLInputElement).value; ctl.setEquipment({ kind: "gold", gold: Number.isInteger(n) && n >= 0 ? n : -1 }); } } })) : null);
 }
@@ -106,7 +109,7 @@ function namePage(ctl: BuilderController, create: HTMLButtonElement): HTMLElemen
     on: { input: (e: Event) => { ctl.draft = { ...ctl.draft, name: (e.target as HTMLInputElement).value }; delete ctl.error; fill(); } } });
   fill();
   return body("name", hint("Name the character."), input,
-    h("input", { cls: "fe-search", data: { field: "campaign" }, attrs: { type: "text", placeholder: "Campaign link, e.g. [[Ekron Campaign]] (optional)", value: d.campaign ?? "", "aria-label": "Campaign" },
+    h("input", { cls: "fe-search", data: { field: "campaign" }, attrs: { type: "text", placeholder: "Campaign note name (optional)", value: d.campaign ?? "", "aria-label": "Campaign" },
       on: { change: (e: Event) => ctl.setCampaign((e.target as HTMLInputElement).value) } }),
     list, ctl.error ? h("div", { cls: "fe-warn", text: ctl.error }) : null);
 }

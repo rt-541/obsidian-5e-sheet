@@ -62,11 +62,11 @@ export function featuresFeature(ctl: SheetController, st: ActorStats): HTMLEleme
         idx >= 0 ? btn("Choose", () => { ctl.startResolve(); ctl.setLevelUp({ page: idx }); }, "", ) : h("span", { cls: "fe-faint", text: "Choose in Edit mode" }));
     })));
   }
-  if (p.dcs.length) cards.push(card("Class DCs", ...p.dcs.map(d => h("div", { cls: "fe-kv", data: { dc: d.id } },
+  if (p.dcs.length) cards.push(card("Saving throw DCs", ...p.dcs.map(d => h("div", { cls: "fe-kv", data: { dc: d.id } },
     h("span", { text: `${d.name}: DC ${d.dc} · attack +${d.attack} · ${ABIL_NAME[d.abil]}`.replace("+-", "-"), ...(st.why[`dc:${d.id}`] ? { data: { ref: `why:dc:${d.id}` } } : {}) }),
     d.alt && ctl.editing ? btn(`Use ${ABIL_NAME[d.abil === d.base ? d.alt : d.base]}`, () => ctl.dispatch({ type: "dcAlt", id: d.id, on: d.abil === d.base })) : null))));
   const scales = Object.entries(p.scales);
-  if (scales.length) cards.push(card("Scales", ...scales.map(([id, v]) => h("div", { cls: "fe-kv", data: { scale: id } }, h("span", { text: sentence(id) }), h("b", { text: String(v) })))));
+  if (scales.length) cards.push(card("Grows with level", ...scales.map(([id, v]) => h("div", { cls: "fe-kv", data: { scale: id } }, h("span", { text: sentence(id) }), h("b", { text: String(v) })))));
   const res = st.resources.filter(r => r.derived);
   if (res.length) cards.push(card("Class resources", ...res.map(r => h("div", { cls: "fe-kv", data: { resource: r.id } },
     h("span", {}, `${r.name} `, h("span", { cls: "fe-faint", text: `(${RESET_NAME[r.reset]}${r.refill ? `, short rest regains ${r.refill.amount}${r.refill.oncePer ? " once per long rest" : ""}` : ""})` })),
@@ -81,7 +81,7 @@ export function featuresFeature(ctl: SheetController, st: ActorStats): HTMLEleme
   for (const f of p.features) { const g = groups.get(f.source); if (g) g.push(f); else groups.set(f.source, [f]); }
   const featureRow = (f: FeatureRow) => h("div", { cls: "fe-kv", data: { key: f.key } },
     h("span", { cls: "fe-inv-name", text: f.name, data: { ref: `feature:${f.key}` } }),
-    f.overlay ? h("span", { cls: "fe-chip", text: "built-in", attrs: { title: `The plugin supplied these numbers (${f.overlay}). Your note does not have any for this feature.` }, data: { builtin: f.overlay } }) : null,
+    f.overlay ? h("span", { cls: "fe-auto", text: "Automatic", attrs: { title: `The plugin supplied these numbers (${f.overlay}). Your note does not have any for this feature.` }, data: { builtin: f.overlay } }) : null,
     h("span", { cls: "fe-muted", text: describeEffects(f.effects, wc) }));
   const group = ([source, list]: [string, FeatureRow[]]) => h("div", { cls: "fe-feature-group", data: { source } }, h("div", { cls: "fe-faint", text: source }), ...list.map(featureRow));
   cards.push(card("Features", ...(groups.size ? [...groups].map(group) : [h("div", { cls: "fe-faint", text: "No class features yet." })])));

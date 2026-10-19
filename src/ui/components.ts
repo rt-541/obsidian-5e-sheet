@@ -180,8 +180,8 @@ export const RENDER: Record<string, Render> = {
     return el; },
   "death-saves": ctl => { const ds = ctl.character!.deathSaves;
     return h("div", { cls: "fe-kv fe-ds" }, h("span", { text: "Death saves", ...gl("death-saves") }),
-      h("span", {}, "S ", pips(3, ds.successes, n => ctl.dispatch({ type: "deathSave", which: "successes", value: n }), "is-s"),
-        " F ", pips(3, ds.failures, n => ctl.dispatch({ type: "deathSave", which: "failures", value: n }), "is-f"))); },
+      h("span", {}, "Successes ", pips(3, ds.successes, n => ctl.dispatch({ type: "deathSave", which: "successes", value: n }), "is-s"),
+        " Failures ", pips(3, ds.failures, n => ctl.dispatch({ type: "deathSave", which: "failures", value: n }), "is-f"))); },
   conditions: ctl => conditionChips(ctl, ctl.value.conditions),
   concentration: ctl => concentrationFeature(ctl),
   toggles: (ctl, st) => togglesFeature(ctl, st),

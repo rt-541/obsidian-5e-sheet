@@ -45,7 +45,7 @@ describe.each([["desktop", false], ["mobile", true]] as const)("pickers on the %
     expect(row("Roll Twenty Blast").querySelector(".fe-src")!.textContent).toBe("Roll20");
     expect(row("Tome Flash").querySelector(".fe-src")!.textContent).toBe("WotC · PHB");
     expect(row("Home Bolt").querySelector(".fe-src")!.textContent).toBe("Homebrew");
-    expect(row("Cure Wounds").querySelector(".fe-src")!.textContent).toBe("WotC (SRD)");
+    expect(row("Cure Wounds").querySelector(".fe-src")).toBeNull();
   });
 
   it("add spell hides switched-off sources but a character that already has one keeps it", () => {
@@ -66,7 +66,7 @@ describe.each([["desktop", false], ["mobile", true]] as const)("pickers on the %
     search("roll rod");
     expect(root.querySelector('[data-panel] [data-item="roll-rod"]')).toBeNull();
     search("dagger");
-    expect(root.querySelector('[data-panel] [data-item="dagger"]')!.closest(".fe-inv")!.querySelector(".fe-src")!.textContent).toBe("WotC (SRD)");
+    expect(root.querySelector('[data-panel] [data-item="dagger"]')!.closest(".fe-inv")!.querySelector(".fe-src")).toBeNull();
   });
 
   it("the level-up wizard leaves out classes and subclasses from switched-off sources", () => {
@@ -80,7 +80,7 @@ describe.each([["desktop", false], ["mobile", true]] as const)("pickers on the %
     };
     const on = mk(), off = mk(camp({ Roll20: false }));
     expect(on.querySelector('[data-class="rollmancer"] .fe-src')!.textContent).toBe("Roll20");
-    expect(on.querySelector('[data-class="cleric"] .fe-src')!.textContent).toBe("WotC (SRD)");
+    expect(on.querySelector('[data-class="cleric"] .fe-src')).toBeNull();
     expect(off.querySelector('[data-class="rollmancer"]')).toBeNull();
     expect(off.querySelector('[data-class="cleric"]')).not.toBeNull();
   });
@@ -96,7 +96,7 @@ describe.each([["desktop", false], ["mobile", true]] as const)("pickers on the %
     };
     const plain = mk(), scoped = mk("Ekron Campaign");
     expect(plain.querySelector('[data-race="roll-elf"] .fe-src')!.textContent).toBe("Roll20");
-    expect(plain.querySelector('[data-race="human"] .fe-src')!.textContent).toBe("WotC (SRD)");
+    expect(plain.querySelector('[data-race="human"] .fe-src')).toBeNull();
     expect(scoped.querySelector('[data-race="roll-elf"]')).toBeNull();
     expect(scoped.querySelector('[data-race="human"]')).not.toBeNull();
   });

@@ -4,7 +4,7 @@ import { MODULES } from "../rules";
 import { isGood } from "../rules/rests";
 import type { Panel, SheetController } from "./controller";
 import { comboForm } from "./combos-ui";
-import { describeEffects, restModeControl, sourceBadge } from "./widgets";
+import { describeEffects, playBadge, restModeControl } from "./widgets";
 import { detailCard } from "./details";
 import { h } from "./h";
 import { levelUpPanel } from "./levelup-ui";
@@ -29,7 +29,7 @@ function conditionsPanel(ctl: SheetController, who?: number): HTMLElement {
     rules.hidden = true;
     return h("div", { cls: `fe-crow ${lvl ? "is-active" : ""}`, data: { cond: e.id } },
       h("div", { cls: "fe-grow", on: { click: () => { rules.hidden = !rules.hidden; } } },
-        h("span", { cls: "fe-name", text: e.name, data: { ref: `condition:${e.id}`, noclick: "" } }), sourceBadge(sourceLabel(e)),
+        h("span", { cls: "fe-name", text: e.name, data: { ref: `condition:${e.id}`, noclick: "" } }), playBadge(sourceLabel(e)),
         h("div", { cls: "fe-muted", text: describeEffects(d.levels ? (d.levelEffects?.[Math.max(1, lvl)] ?? {}) : d.effects) }), rules),
       d.levels
         ? h("div", { cls: "fe-lvl" }, h("button", { cls: "fe-btn", text: "-", on: { click: () => set(e.id, lvl - 1) } }), h("span", { text: `Level ${lvl}` }), h("button", { cls: "fe-btn", text: "+", on: { click: () => set(e.id, lvl + 1) } }))
@@ -64,7 +64,28 @@ function restPanel(ctl: SheetController, id: string): HTMLElement {
     h("div", { cls: "fe-kv" }, h("button", { cls: "fe-btn", text: "Cancel", on: { click: () => ctl.close() } }), h("button", { cls: "fe-btn mod-cta", text: "Apply", data: { act: "rest-apply" }, on: { click: () => ctl.rest(id) } })));
 }
 
-const sectionName = (id: string) => { const t = id.replace(/-/g, " "); return t.charAt(0).toUpperCase() + t.slice(1); };
+/** Plain-word names for the sheet sections in Customize, one for every id in CHARACTER_FEATURES except identity and play-edit. */
+export const SECTION_LABELS: Record<string, string> = {
+  inspiration: "Inspiration", prof: "Proficiency bonus", xp: "Experience points (XP)", "level-up": "Level up button",
+  ac: "Armor Class", initiative: "Initiative", speed: "Speed", "passive-perception": "Passive Perception",
+  hp: "Hit points", "hp-controls": "Damage and healing buttons", coins: "Coins", "hit-dice": "Hit dice", "death-saves": "Death saves",
+  conditions: "Conditions", concentration: "Concentration", toggles: "Switches (Rage, stances and the like)", "active-effects": "Active effects",
+  abilities: "Ability scores", saves: "Saving throws", skills: "Skills",
+  attacks: "Attacks", "pinned-spells": "Pinned spells", "pinned-combos": "Pinned combos", combos: "Combos",
+  "spell-dc": "Spell save DC", "spell-slots": "Spell slots", spells: "Spells", resources: "Class resources", rations: "Rations",
+  traits: "Features and traits (main page)", rests: "Rest buttons", features: "Features page", inventory: "Inventory", companions: "Companions",
+  "roll-mode": "Advantage and disadvantage", "roll-log": "Roll log", notes: "Notes",
+};
+/** The sections as the sheet is laid out. */
+export const SECTION_GROUPS: { title: string; ids: string[] }[] = [
+  { title: "Header", ids: ["inspiration", "prof", "xp", "level-up", "roll-mode", "roll-log"] },
+  { title: "Combat", ids: ["ac", "initiative", "speed", "passive-perception", "hp", "hp-controls", "hit-dice", "death-saves", "conditions", "active-effects", "attacks"] },
+  { title: "Resources and rests", ids: ["coins", "resources", "rations", "rests", "toggles", "traits", "features"] },
+  { title: "Checks", ids: ["abilities", "saves", "skills"] },
+  { title: "Spells", ids: ["concentration", "spell-dc", "spell-slots", "spells", "pinned-spells"] },
+  { title: "Combos", ids: ["combos", "pinned-combos"] },
+  { title: "Other", ids: ["inventory", "companions", "notes"] },
+];
 
 function customizePanel(ctl: SheetController, features: readonly string[]): HTMLElement {
   const visible = new Set(ctl.visible([...features])), rules = ctl.rules();
@@ -74,8 +95,11 @@ function customizePanel(ctl: SheetController, features: readonly string[]): HTML
     ...MODULES.filter(m => m.id !== "rest-standard" && m.id !== "rest-excursion").map(m => h("label", { cls: "fe-kv" }, h("span", { text: m.title }),
       h("button", { cls: `fe-switch ${rules[m.id] ? "is-on" : ""}`, data: { rule: m.id }, on: { click: () => ctl.setRule(m.id, !rules[m.id]) } }))),
     h("div", { cls: "fe-card-title", text: "Parts of the sheet" }),
-    ...features.filter(f => f !== "identity" && f !== "play-edit").map(f => h("label", { cls: "fe-kv" }, h("span", { text: sectionName(f) }),
-      h("button", { cls: `fe-switch ${visible.has(f) ? "is-on" : ""}`, data: { section: f }, on: { click: () => ctl.setHidden(f, visible.has(f)) } }))));
+    ...SECTION_GROUPS.flatMap(g => {
+      const ids = g.ids.filter(f => features.includes(f));
+      return ids.length ? [h("div", { cls: "fe-faint", text: g.title }), ...ids.map(f => h("label", { cls: "fe-kv" }, h("span", { text: SECTION_LABELS[f] ?? f }),
+        h("button", { cls: `fe-switch ${visible.has(f) ? "is-on" : ""}`, data: { section: f }, on: { click: () => ctl.setHidden(f, visible.has(f)) } })))] : [];
+    }));
 }
 
 function detailsPanel(ctl: SheetController, ref: string): HTMLElement {

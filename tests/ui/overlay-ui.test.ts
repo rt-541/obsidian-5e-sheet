@@ -33,7 +33,7 @@ for (const mobile of [false, true]) describe(`built-in mechanics on the sheet ($
   it("features the plugin filled in carry a built-in badge that says where the numbers came from", () => {
     const s = setup(barbarian, mobile);
     const badge = s.q('[data-builtin="class:barbarian:fast-movement"]');
-    expect(badge.textContent).toBe("built-in");
+    expect(badge.textContent).toBe("Automatic");
     expect(badge.getAttribute("title")).toMatch(/Your note does not have any/);
     expect(s.q('[data-key] [data-builtin="class:barbarian:rage"]')).toBeTruthy();
     // features with no built-in numbers have no badge
