@@ -359,6 +359,30 @@ export class SheetController {
     if (this.character?.concentration === spell) this.dispatch({ type: "endConcentration" });
     this.host.notify(`Concentration lost: ${name} ends.`);
   }
+  /** Roll a death save: a 20 brings you back up, a 1 is two failures, 10 or more a success, anything else a failure. */
+  rollDeathSave(ev: Mods = {}): void {
+    const c = this.character; if (!c) return;
+    const target: RollTarget = { kind: "death-save" }, title = "Death save";
+    if (this.ownDice()) {
+      const setup = this.d20Setup(target, ev);
+      this.askTotal({ title, say: `${this.d20Say(0, setup)}. Type the number on the die you keep.`, min: 1, max: 20, roll: this.d20Roller(title, 0, setup), apply: n => this.deathSaveWith(n) });
+      return;
+    }
+    const r = this.roll(title, 0, target, ev);
+    this.deathSaveWith(r.total === "fail" ? 2 : r.natural ?? Number(r.total));
+  }
+  private deathSaveWith(n: number): void {
+    const c = this.character; if (!c) return;
+    if (n >= 20) { this.dispatch({ type: "heal", amount: 1 }); this.host.notify("Natural 20: you are back up with 1 hit point."); return; }
+    const ds = c.deathSaves;
+    if (n >= 10) {
+      const v = Math.min(3, ds.successes + 1); this.dispatch({ type: "deathSave", which: "successes", value: v });
+      if (v === 3) this.host.notify("Three successes: you are stable.");
+      return;
+    }
+    const v = Math.min(3, ds.failures + (n === 1 ? 2 : 1)); this.dispatch({ type: "deathSave", which: "failures", value: v });
+    if (v === 3) this.host.notify("Three failed death saves: your character dies.");
+  }
   dismissConcentrationCheck() { this.concentrationCheck = null; this.emit(); }
 
   // ---- combos

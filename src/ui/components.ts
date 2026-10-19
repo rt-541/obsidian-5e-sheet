@@ -174,7 +174,8 @@ export const RENDER: Record<string, Render> = {
   "death-saves": ctl => { const ds = ctl.character!.deathSaves;
     return h("div", { cls: "fe-kv fe-ds" }, h("span", { text: "Death saves", ...gl("death-saves") }),
       h("span", {}, "Successes ", pips(3, ds.successes, n => ctl.dispatch({ type: "deathSave", which: "successes", value: n }), "is-s"),
-        " Failures ", pips(3, ds.failures, n => ctl.dispatch({ type: "deathSave", which: "failures", value: n }), "is-f"))); },
+        " Failures ", pips(3, ds.failures, n => ctl.dispatch({ type: "deathSave", which: "failures", value: n }), "is-f")),
+      ...(ctl.stats()?.hp.current === 0 ? [h("button", { cls: "fe-btn", text: "Roll death save", attrs: { "data-act": "death-save-roll" }, on: { click: (e: MouseEvent) => ctl.rollDeathSave(e) } })] : [])); },
   conditions: ctl => conditionChips(ctl, ctl.value.conditions),
   concentration: ctl => concentrationFeature(ctl),
   toggles: (ctl, st) => togglesFeature(ctl, st),
