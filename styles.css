@@ -88,7 +88,10 @@
 .fe-spell-name { font-weight: var(--font-semibold); } .fe-spell-name.is-missing { color: var(--text-error); }
 .fe-popover { position: fixed; z-index: 40; width: min(340px, 90vw); max-height: 70vh; overflow-y: auto; background: var(--background-primary); border: 1px solid var(--background-modifier-border); border-radius: var(--radius-m); box-shadow: var(--shadow-l); padding: 8px 10px; pointer-events: none; }
 .fe-detail { display: grid; gap: 3px; } .fe-detail-line { font-size: var(--font-ui-smaller); }
-.fe-sheet [data-ref] { cursor: help; text-decoration: underline dotted var(--text-faint); }
+.fe-sheet [data-ref] { cursor: help; }
+.fe-sheet .fe-card-title[data-ref], .fe-sheet .fe-stat-l[data-ref] { text-decoration: underline dotted var(--text-faint); }
+.fe-panel .fe-card-title { margin-top: 12px; } .fe-panel .fe-card-title:first-child { margin-top: 0; }
+.fe-cf-row + .fe-kv, .fe-additem-form > * + * { margin-top: 6px; }
 /* leveling: XP bar, level-up button, wizard pages (one step per screen, 44px targets), Features tab */
 .fe-xp { display: inline-flex; align-items: center; gap: 6px; } .fe-xp .fe-bar { width: 90px; } .fe-xp.is-ready .fe-bar-fill { background: var(--interactive-accent); }
 .fe-change { margin-top: 8px; } .fe-change ul { margin: 0; padding-left: 18px; display: grid; gap: 3px; }

@@ -49,7 +49,7 @@ function dawnParts(ctx: RestCtx, c: Character | null): string[] {
 /** Long rest (allHitDice=false) and Good Rest (allHitDice=true). Pass c=null for a preview. */
 function bigParts(ctx: RestCtx, c: Character | null, allHitDice: boolean): string[] {
   const out: string[] = endToggles(ctx, c, ["short", "long"]), ex = ctx.c.conditions.exhaustion ?? 0;
-  if (ex) out.push(`Exhaustion ${ex} -> ${ex - 1}`);
+  if (ex) out.push(`Exhaustion ${ex} → ${ex - 1}`);
   out.push(`HP to ${hpMaxAfterExhaustion(ctx)}`);
   if (ctx.stats.slots.length) out.push("All spell slots");
   const dawn = dawnOnLongRest(ctx);

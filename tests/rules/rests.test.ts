@@ -25,7 +25,7 @@ describe("standard rests", () => {
     const c = char({ conditions: { exhaustion: 4 }, hp: { max: 43, current: 10, temp: 4 }, hitDice: { d8: { used: 5 } }, deathSaves: { successes: 1, failures: 2 },
       inventory: [{ id: "dawn-wand", charges: { used: 5 } }] });
     const L = rest("long", { "rest-standard": true });
-    expect(L.preview(ctx(c))).toEqual(["Exhaustion 4 -> 3", "HP to 43", "All spell slots", "Regain 2 Hit Dice", "Dawn wand: charges restored"]);
+    expect(L.preview(ctx(c))).toEqual(["Exhaustion 4 → 3", "HP to 43", "All spell slots", "Regain 2 Hit Dice", "Dawn wand: charges restored"]);
     const v = L.apply(ctx(c)).value;
     expect(v.conditions.exhaustion).toBe(3); expect(v.hp).toEqual({ max: 43, current: 43, temp: 0 }); expect(v.hitDice.d8.used).toBe(3);
     expect(v.deathSaves).toEqual({ successes: 0, failures: 0 }); expect(v.spellSlots).toEqual({}); expect(v.inventory[0].charges).toEqual({ used: 0 });

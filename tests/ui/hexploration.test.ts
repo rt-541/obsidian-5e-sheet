@@ -53,10 +53,10 @@ for (const layout of LAYOUTS) {
     it("shows the count and days of food, with a stepper on the ordinary inventory entry", () => {
       const s = setup(layout, { ...ON, inventory: [{ id: "rations", qty: 3 }] });
       const card = s.q('[data-feature="rations"]');
-      expect(card.querySelector('[data-note="rations-count"]')!.textContent).toBe("Rations: 3 (3 days of food)");
+      expect(card.querySelector('[data-note="rations-count"]')!.textContent).toBe("3 rations (3 days)");
       s.click(card.querySelector('[data-act="qty-minus"]'));
       expect(s.char().inventory[0].qty).toBe(2);
-      expect(s.q('[data-feature="rations"] [data-note="rations-count"]').textContent).toBe("Rations: 2 (2 days of food)");
+      expect(s.q('[data-feature="rations"] [data-note="rations-count"]').textContent).toBe("2 rations (2 days)");
       expect(s.row("Rations (1 day)").querySelector('[data-act="qty"]')!.textContent).toBe("2");
       s.click(s.q('[data-feature="rations"] [data-act="qty-plus"]'));
       expect(s.char().inventory[0].qty).toBe(3);
@@ -66,13 +66,13 @@ for (const layout of LAYOUTS) {
       s.click(s.q('[data-feature="rations"] [data-act="qty-minus"]'));
       expect(s.char().inventory).toHaveLength(1);
       expect(s.q('[data-feature="rations"] [data-rations]').classList.contains("is-used-up")).toBe(true);
-      expect(s.q('[data-feature="rations"] [data-note="rations-count"]').textContent).toBe("Rations: 0 (0 days of food)");
+      expect(s.q('[data-feature="rations"] [data-note="rations-count"]').textContent).toBe("0 rations (0 days)");
     });
     it("+ Add rations adds the library rations when the pack has none", () => {
       const s = setup(layout, ON);
       s.click(s.q('[data-feature="rations"] [data-act="add-rations"]'));
       expect(s.char().inventory.map(e => [e.id, e.qty])).toEqual([["rations", 1]]);
-      expect(s.q('[data-feature="rations"] [data-note="rations-count"]').textContent).toBe("Rations: 1 (1 day of food)");
+      expect(s.q('[data-feature="rations"] [data-note="rations-count"]').textContent).toBe("1 ration (1 day)");
     });
     it("+ Add rations falls back to a custom Rations (1 day) entry weighing 2 lb when the library has none", () => {
       const s = setup(layout, ON);
@@ -84,7 +84,7 @@ for (const layout of LAYOUTS) {
     });
     it("a custom Trail rations entry is found and used", () => {
       const s = setup(layout, { ...ON, inventory: [{ name: "Trail rations", qty: 4 }] });
-      expect(s.q('[data-note="rations-count"]').textContent).toBe("Rations: 4 (4 days of food)");
+      expect(s.q('[data-note="rations-count"]').textContent).toBe("4 rations (4 days)");
     });
 
     it("Forage (4 hours) rolls Wisdom (Survival) with the Survival modifier", () => {

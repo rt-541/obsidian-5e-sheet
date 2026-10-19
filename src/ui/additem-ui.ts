@@ -90,7 +90,7 @@ export function customItemForm(ctl: SheetController): HTMLElement {
     h("div", { cls: "fe-cf-row" }, field("Name", name, "fe-cf-grow"), field("Quantity", qty), field("Weight (lb)", weight)),
     h("label", { cls: "fe-kv" }, h("span", { text: "Used up when used (consumable)" }), used),
     f.more ? moreFields(ctl) : null,
-    f.unread.length ? h("div", { cls: "fe-warn", data: { unread: "" } }, h("div", { text: "I could not read these lines:" }), ...f.unread.map(l => h("div", { text: l }))) : null,
+    f.unread.length ? h("div", { cls: "fe-muted", data: { unread: "" } }, ...f.unread.map(l => h("div", { text: `Skipped: ${l}` }))) : null,
     f.error ? h("div", { cls: "fe-warn", text: f.error, data: { note: "custom-item-error" } }) : null,
     h("div", { cls: "fe-cf-row" },
       btn("Add custom item", "add-custom", () => ctl.submitCustomItem(), "mod-cta"),

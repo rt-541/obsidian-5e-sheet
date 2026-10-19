@@ -22,7 +22,7 @@ const damageOf = (s: string | undefined) => (s ?? "").replace(/ [a-z]+(?: \+ .*)
 
 /**
  * Everything that changes between two versions of a character, in plain words, for the level-up summary
- * (before -> after the level) and for undo (current -> after the undo). Features that went away are listed as lost.
+ * (before → after the level) and for undo (current → after the undo). Features that went away are listed as lost.
  */
 export function explainChange(before: Character, after: Character, ctx: EffectContext): ChangeGroup[] {
   const b = deriveCharacter(before, ctx), a = deriveCharacter(after, ctx), out: ChangeGroup[] = [];
@@ -43,23 +43,23 @@ export function explainChange(before: Character, after: Character, ctx: EffectCo
       const act = f.action; if (!act) continue;
       for (const expr of [act.damage, act.heal]) if (expr && hasPlaceholder(expr) && expr.includes(`{${id}}`)) hit.push(`${act.name} now rolls ${fillDice(expr, a.progress.scales)}`);
     }
-    grew.push(was === undefined ? `${label}: ${now}${hit.length ? `. ${list([...new Set(hit)])}` : ""}` : `${label} ${was} -> ${now}${hit.length ? `: ${list([...new Set(hit)])}` : ""}`);
+    grew.push(was === undefined ? `${label}: ${now}${hit.length ? `. ${list([...new Set(hit)])}` : ""}` : `${label} ${was} → ${now}${hit.length ? `: ${list([...new Set(hit)])}` : ""}`);
   }
   const bres = new Map(b.resources.map(r => [r.id, r]));
   for (const r of a.resources) {
     if (!r.derived) continue;
     const old = bres.get(r.id), when = RESET[r.reset];
     if (!old) grew.push(r.unlimited ? `New: ${r.name} (${r.unlimited.toLowerCase()})` : `New: ${r.name}, ${r.max} (comes back after a ${when})`);
-    else if (!r.unlimited && old.max !== r.max) grew.push(`${r.name} ${old.max} -> ${r.max} (comes back after a ${when})`);
+    else if (!r.unlimited && old.max !== r.max) grew.push(`${r.name} ${old.max} → ${r.max} (comes back after a ${when})`);
   }
   for (const r of b.resources) if (r.derived && !a.resources.some(x => x.id === r.id)) grew.push(`${r.name} goes away`);
   add("What grows with your level", grew);
 
   // Hit points and hit dice
   const hp: string[] = [];
-  if (a.hp.max !== b.hp.max) hp.push(`Max HP ${b.hp.max} -> ${a.hp.max} (${sgn(a.hp.max - b.hp.max)})`);
+  if (a.hp.max !== b.hp.max) hp.push(`Max HP ${b.hp.max} → ${a.hp.max} (${sgn(a.hp.max - b.hp.max)})`);
   const bd = new Map(b.hitDice.map(d => [d.die, d.max]));
-  for (const d of a.hitDice) { const was = bd.get(d.die) ?? 0; if (was !== d.max) hp.push(`${d.die} hit dice ${was} -> ${d.max}`); }
+  for (const d of a.hitDice) { const was = bd.get(d.die) ?? 0; if (was !== d.max) hp.push(`${d.die} hit dice ${was} → ${d.max}`); }
   add("Hit points", hp);
 
   // Numbers that moved, and the proficiency bonus behind many of them
@@ -71,23 +71,23 @@ export function explainChange(before: Character, after: Character, ctx: EffectCo
     const sk = a.skills.filter(k => k.prof || k.expertise).length; if (sk) moved.push(`${sk} skill${sk === 1 ? "" : "s"}`);
     if (a.casters.length) moved.push("spell save DC and spell attack");
     if (a.progress.dcs.length) moved.push("class DCs");
-    nums.push(`Proficiency bonus ${sgn(b.prof)} -> ${sgn(a.prof)}${moved.length ? `. It is added to ${list(moved)}, so those went up too` : ""}`);
+    nums.push(`Proficiency bonus ${sgn(b.prof)} → ${sgn(a.prof)}${moved.length ? `. It is added to ${list(moved)}, so those went up too` : ""}`);
   }
-  const num = (label: string, was: number, now: number, signed = false) => { if (was !== now) nums.push(`${label} ${signed ? sgn(was) : was} -> ${signed ? sgn(now) : now}`); };
+  const num = (label: string, was: number, now: number, signed = false) => { if (was !== now) nums.push(`${label} ${signed ? sgn(was) : was} → ${signed ? sgn(now) : now}`); };
   num("Armor Class", b.ac.value, a.ac.value); num("Speed", b.speed.value, a.speed.value); num("Initiative", b.initiative, a.initiative, true);
   num("Passive Perception", b.passivePerception, a.passivePerception); num("Attacks per action", b.attacksPerAction, a.attacksPerAction);
-  if (b.speed.other !== a.speed.other) nums.push(`Other movement: ${b.speed.other || "none"} -> ${a.speed.other || "none"}`);
+  if (b.speed.other !== a.speed.other) nums.push(`Other movement: ${b.speed.other || "none"} → ${a.speed.other || "none"}`);
   for (const k of ABILS) {
-    if (before.abilities[k] !== after.abilities[k]) nums.push(`${ABIL_LONG[k]} ${before.abilities[k]} -> ${after.abilities[k]}${b.mods[k] !== a.mods[k] ? ` (modifier ${sgn(b.mods[k])} -> ${sgn(a.mods[k])}, which moves every roll that uses it)` : ""}`);
-    if (b.saves[k].mod !== a.saves[k].mod && a.prof === b.prof && before.abilities[k] === after.abilities[k]) nums.push(`${ABIL_LONG[k]} save ${sgn(b.saves[k].mod)} -> ${sgn(a.saves[k].mod)}`);
+    if (before.abilities[k] !== after.abilities[k]) nums.push(`${ABIL_LONG[k]} ${before.abilities[k]} → ${after.abilities[k]}${b.mods[k] !== a.mods[k] ? ` (modifier ${sgn(b.mods[k])} → ${sgn(a.mods[k])}, which moves every roll that uses it)` : ""}`);
+    if (b.saves[k].mod !== a.saves[k].mod && a.prof === b.prof && before.abilities[k] === after.abilities[k]) nums.push(`${ABIL_LONG[k]} save ${sgn(b.saves[k].mod)} → ${sgn(a.saves[k].mod)}`);
   }
-  const skillMoves = a.skills.filter(k => { const o = b.skills.find(x => x.id === k.id); return o && o.mod !== k.mod; }).map(k => `${words(k.id)} ${sgn(b.skills.find(x => x.id === k.id)!.mod)} -> ${sgn(k.mod)}`);
+  const skillMoves = a.skills.filter(k => { const o = b.skills.find(x => x.id === k.id); return o && o.mod !== k.mod; }).map(k => `${words(k.id)} ${sgn(b.skills.find(x => x.id === k.id)!.mod)} → ${sgn(k.mod)}`);
   if (skillMoves.length) nums.push(`Skills: ${skillMoves.join(", ")}`);
   for (const at of a.attacks) {
     const old = b.attacks.find(x => x.name === at.name);
     if (!old) { nums.push(`New attack: ${at.name}${at.toHit !== undefined ? ` ${sgn(at.toHit)}` : ""}${at.damage ? `, ${at.damage}` : ""}`); continue; }
-    if (at.toHit !== undefined && old.toHit !== at.toHit) nums.push(`${at.name} to hit ${sgn(old.toHit ?? 0)} -> ${sgn(at.toHit)}`);
-    if (old.damage !== at.damage && at.damage) nums.push(`${at.name} damage ${old.damage ?? "none"} -> ${at.damage}`);
+    if (at.toHit !== undefined && old.toHit !== at.toHit) nums.push(`${at.name} to hit ${sgn(old.toHit ?? 0)} → ${sgn(at.toHit)}`);
+    if (old.damage !== at.damage && at.damage) nums.push(`${at.name} damage ${old.damage ?? "none"} → ${at.damage}`);
   }
   for (const c of a.casters) {
     const o = b.casters.find(x => x.name === c.name);
@@ -104,7 +104,7 @@ export function explainChange(before: Character, after: Character, ctx: EffectCo
   const bs = new Map(b.slots.map(s => [s.level, s]));
   for (const s of a.slots) {
     const o = bs.get(s.level), name = s.level === "pact" ? `Pact slots (level ${s.pactLevel})` : `Level ${s.level} spell slots`;
-    if (!o) sp.push(`${name}: new, ${s.max}`); else if (o.max !== s.max || o.pactLevel !== s.pactLevel) sp.push(`${name} ${o.max} -> ${s.max}`);
+    if (!o) sp.push(`${name}: new, ${s.max}`); else if (o.max !== s.max || o.pactLevel !== s.pactLevel) sp.push(`${name} ${o.max} → ${s.max}`);
   }
   const name = (id: string) => ctx.registry.get<{ name: string }>("spell", id)?.name ?? words(id);
   const bsp = new Set(before.spells.map(x => x.id)), asp = new Set(after.spells.map(x => x.id));
@@ -126,7 +126,7 @@ export function explainChange(before: Character, after: Character, ctx: EffectCo
   diff("Expertise", [...b.progress.proficiencies.expertise, ...before.proficiencies.expertise].map(words), [...a.progress.proficiencies.expertise, ...after.proficiencies.expertise].map(words));
   diff("Weapon and armor training", b.progress.proficiencies.other, a.progress.proficiencies.other);
   diff("Languages", b.languages ?? [], a.languages ?? []);
-  for (const k of ["darkvision", "blindsight", "tremorsense", "truesight", "telepathy"] as const) if (b.senses[k] !== a.senses[k]) also.push(`${words(k)} ${b.senses[k] ?? 0} ft -> ${a.senses[k] ?? 0} ft`);
+  for (const k of ["darkvision", "blindsight", "tremorsense", "truesight", "telepathy"] as const) if (b.senses[k] !== a.senses[k]) also.push(`${words(k)} ${b.senses[k] ?? 0} ft → ${a.senses[k] ?? 0} ft`);
   const ag = after.inventory.filter(e => !before.inventory.some(x => x.id === e.id && x.name === e.name)).map(e => e.name ?? words(e.id ?? "item"));
   if (ag.length) also.push(`Items added to your gear: ${ag.join(", ")}`);
   add("Also", also);

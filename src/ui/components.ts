@@ -83,6 +83,7 @@ function checks(ctl: SheetController, st: ActorStats, who?: number) {
       rollButton(ctl, sgn(k.mod), titleCase(k.id), k.mod, { kind: "skill", abil: k.abil, skill: k.id }, who, whyOf(st, `skill:${k.id}`))))),
   };
 }
+const legend = (text: string) => h("div", { cls: "fe-faint", data: { legend: "" }, text });
 function attacksList(ctl: SheetController, st: ActorStats, who?: number) {
   if (!st.attacks.length) return h("div", { cls: "fe-faint", text: "No attacks" });
   return h("div", { cls: "fe-attacks" },
@@ -192,8 +193,8 @@ export const RENDER: Record<string, Render> = {
   "pinned-combos": (ctl, st) => pinnedCombosFeature(ctl, st),
   "active-effects": (ctl, st) => activeEffectsFeature(ctl, st),
   abilities: (ctl, st) => card("Abilities", checks(ctl, st).abilities),
-  saves: (ctl, st) => card("Saving throws", checks(ctl, st).saves),
-  skills: (ctl, st) => card("Skills", checks(ctl, st).skills),
+  saves: (ctl, st) => card("Saving throws", checks(ctl, st).saves, legend("Filled dot: trained (add your proficiency bonus).")),
+  skills: (ctl, st) => card("Skills", checks(ctl, st).skills, legend("Filled dot: trained (add your proficiency bonus).")),
   attacks: (ctl, st) => card("Attacks", attacksList(ctl, st)),
   "spell-dc": (ctl, st) => hideUnless(castsSpells(ctl, st), card("Spellcasting", h("div", { cls: "fe-kv" }, st.spellcasting
     ? h("span", {}, h("span", { text: `Spell save DC ${st.spellcasting.dc}`, ...whyData(whyOf(st, "spell-dc")) }), " · ", h("span", { text: `spell attack ${sgn(st.spellcasting.attack)}`, ...whyData(whyOf(st, "spell-attack")) }))

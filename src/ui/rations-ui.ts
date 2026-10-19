@@ -12,7 +12,7 @@ export function rationsFeature(ctl: SheetController): HTMLElement {
   const mark = <T extends HTMLElement>(b: T, act: string) => { b.dataset.act = act; return b; };
   const stock = e
     ? h("div", { cls: `fe-kv ${e.qty <= 0 ? "is-used-up" : ""}`.trim(), data: { rations: String(e.qty) } },
-      h("span", { text: `Rations: ${e.qty} (${days(e.qty)} of food)`, data: { note: "rations-count" } }), qtyStepper(ctl, i, e.name ?? "rations"))
+      h("span", { text: `${e.qty} ration${e.qty === 1 ? "" : "s"} (${days(e.qty)})`, data: { note: "rations-count" } }), qtyStepper(ctl, i, e.name ?? "rations"))
     : h("div", { cls: "fe-kv", data: { rations: "none" } }, h("span", { text: "Rations: none in your pack" }), mark(btn("+ Add rations", () => ctl.addRations(1)), "add-rations"));
   return card("Rations and foraging", stock,
     foraged ? h("div", { cls: "fe-faint", text: "You found food for tonight's meal.", data: { note: "foraged" } }) : null,

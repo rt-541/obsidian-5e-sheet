@@ -148,6 +148,7 @@ export function spellsFeature(ctl: SheetController, st: ActorStats): HTMLElement
       return menuState(ctl).open === key ? h("div", { cls: "fe-spell-wrap" }, row, itemMenu({ ...r, source: src })) : row;
     })));
   return h("div", { cls: "fe-card fe-spells" }, btn("+ Add spell", () => ctl.open({ kind: "add-spell" }), "mod-cta fe-spell-add", { act: "add-spell" }), head,
+    casts ? h("div", { cls: "fe-faint", data: { legend: "" }, text: "Filled dot: prepared today." }) : null,
     h("div", { cls: "fe-card-title", text: "Your spells" }),
     ...(own.length ? own : [h("div", { cls: "fe-faint", data: { empty: "" }, text: "No spells yet. Add your first spell with the button above." })]),
     h("div", { data: { fromItems: "" } }, h("div", { cls: "fe-card-title", text: "From items" }),

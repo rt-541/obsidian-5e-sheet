@@ -15,7 +15,7 @@ describe("Extra Attack from the overlay", () => {
     const c = pc("barbarian", 4, { str: 16, con: 14 });
     const r = applyLevel(c, { class: "barbarian" }, { hp: { method: "average" }, choices: {} }, R);
     if ("error" in r) throw new Error(r.error);
-    expect(flattenChange(explainChange(c, r.value, { registry: R })).join("\n")).toContain("Attacks per action 1 -> 2");
+    expect(flattenChange(explainChange(c, r.value, { registry: R })).join("\n")).toContain("Attacks per action 1 → 2");
   });
 });
 

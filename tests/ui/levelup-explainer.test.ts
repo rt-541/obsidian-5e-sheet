@@ -31,8 +31,8 @@ for (const layout of ["desktop", "tablet", "mobile"] as const) describe(`level-u
     expect(text).toContain("What changes");
     expect(text).toContain("New features");
     expect(text).toContain("Tranquility");
-    expect(text).toContain("Martial arts die 1d6 -> 1d8");
-    expect(text).toContain("Ki Points 10 -> 11");
+    expect(text).toContain("Martial arts die 1d6 → 1d8");
+    expect(text).toContain("Ki Points 10 → 11");
     expect([...sum.querySelectorAll(".fe-change-title")].map(e => e.textContent)).toEqual(expect.arrayContaining(["New features", "What grows with your level", "Hit points"]));
   });
 
@@ -46,6 +46,6 @@ for (const layout of ["desktop", "tablet", "mobile"] as const) describe(`level-u
     expect(diff).not.toBeNull();
     expect(diff.textContent).toContain("Features you lose");
     expect(diff.textContent).toContain("Tranquility");
-    expect(diff.textContent).toContain("Ki Points 11 -> 10");
+    expect(diff.textContent).toContain("Ki Points 11 → 10");
   });
 });
