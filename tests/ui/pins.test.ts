@@ -82,6 +82,30 @@ for (const mobile of [false, true]) {
       s.click(row.querySelector(".fe-pip"));
       expect(s.ctl.character!.inventory[rod].charges?.used).toBe(1);
     });
+    it("a used-up potion is never deleted: it stays in the inventory, greyed out, on both the inventory and the pinned row", () => {
+      const s = setup(mobile);
+      const inv = () => s.all(".fe-inv").find(e => e.textContent!.includes("Test Tonic"))!;
+      s.click(inv().querySelector('[data-act="pin-item"]'));
+      s.click(inv().querySelector('[data-act="use-item"]'));   // used from the inventory too
+      expect(s.ctl.character!.inventory[tonic].qty).toBe(1);
+      expect(inv().classList.contains("is-used-up")).toBe(false);
+      s.click(s.res().querySelector('[data-pinned-item="item:test-tonic"] [data-act="use-item"]'));
+      expect(s.ctl.character!.inventory).toHaveLength(note.inventory.length);
+      expect(s.ctl.character!.inventory[tonic]).toMatchObject({ id: "test-tonic", qty: 0 });
+      expect(inv().classList.contains("is-used-up")).toBe(true);
+      expect(inv().textContent).toContain("none left");
+      expect(s.res().querySelector('[data-pinned-item="item:test-tonic"]')!.classList.contains("is-used-up")).toBe(true);
+      expect(s.notices.at(-1)).toContain("stays in your inventory");
+      expect((s.saved.at(-1) as Character).inventory[tonic]).toMatchObject({ id: "test-tonic", qty: 0 });
+    });
+    it("an item with every charge spent is greyed out with no charges left, and recovers when a charge comes back", () => {
+      const s = setup(mobile, { inventory: [...note.inventory.slice(0, rod), { ...note.inventory[rod], charges: { used: 3 } }] });
+      const inv = () => s.all(".fe-inv").find(e => e.textContent!.includes("Spark Rod"))!;
+      expect(inv().classList.contains("is-used-up")).toBe(true);
+      expect(inv().textContent).toContain("no charges left");
+      s.ctl.dispatch({ type: "charges", index: rod, used: 2 });
+      expect(inv().classList.contains("is-used-up")).toBe(false);
+    });
     it("a pin whose feature or item is gone is skipped, not shown broken", () => {
       const s = setup(mobile, { mainPins: ["feature:no-such-feature", "item:no-such-item"] });
       expect(s.res().querySelector("[data-pinned-feature], [data-pinned-item]")).toBeNull();

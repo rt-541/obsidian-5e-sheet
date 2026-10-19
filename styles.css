@@ -228,3 +228,7 @@
 .fe-sb-actions { margin-top: 8px; }
 .fe-sb button.fe-btn { min-height: 36px; }
 .is-mobile .fe-sb button.fe-btn, .is-tablet .fe-sb button.fe-btn { min-height: 44px; }
+
+/* a used-up item stays listed, greyed out (its buttons still work: restock, recharge, unpin, remove) */
+.fe-inv.is-used-up, .fe-pinned-item.is-used-up { opacity: .55; }
+.fe-inv.is-used-up .fe-inv-name, .fe-pinned-item.is-used-up .fe-inv-name { color: var(--text-faint); }

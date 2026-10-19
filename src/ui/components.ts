@@ -99,21 +99,40 @@ function itemPinButton(ctl: SheetController, ref: string): HTMLElement {
  * Pinned potions and items for the Resources and charges card: quantity, charges (when attuned, if it needs it) and, for
  * consumables, a Use one button that takes one off the stack. An item that is gone from the inventory is skipped.
  */
+/**
+ * What the inventory and a pinned copy show for one entry. A used-up item (no potions left, or every charge spent) is never
+ * deleted: it stays in the list, greyed out with "none left" / "no charges left", and comes back when restocked or recharged.
+ */
+function itemState(ctl: SheetController, index: number) {
+  const e = ctl.character!.inventory[index], it = e.id ? ctl.host.registry.get<ItemData>("item", e.id) : undefined;
+  const name = it?.name ?? e.name ?? `${e.id} (missing from compendium)`;
+  const charges = it?.data.charges && (!it.data.attunement || e.attuned) ? it.data.charges : undefined;
+  const consumable = it?.data.kind === "consumable" || (!it && !!e.name && e.qty !== 1);
+  const outOfStock = consumable && e.qty <= 0, outOfCharges = !!charges && (e.charges?.used ?? 0) >= charges.max;
+  const usedUp = outOfStock || outOfCharges;
+  const upWord = outOfStock ? "none left" : outOfCharges ? "no charges left" : "";
+  const useBtn = () => {
+    if (!consumable) return null;
+    const b = btn(e.qty > 0 ? "Use one" : "None left", () => {
+      ctl.dispatch({ type: "itemQty", index, qty: e.qty - 1 });
+      ctl.host.notify(e.qty - 1 > 0 ? `Used ${name}: ${e.qty - 1} left.` : `Used ${name}: none left. It stays in your inventory, greyed out.`);
+    });
+    b.dataset.act = "use-item"; (b as HTMLButtonElement).disabled = e.qty <= 0; return b;
+  };
+  return { e, it, name, charges, consumable, usedUp, upWord, useBtn };
+}
+
 function pinnedItems(ctl: SheetController): { index: number; row: HTMLElement }[] {
-  const c = ctl.character!, r = ctl.host.registry;
+  const c = ctl.character!;
   return c.mainPins.filter(k => k.startsWith("item:") || k.startsWith("item-name:")).flatMap(ref => {
     const index = c.inventory.findIndex(e => itemRef(e) === ref); if (index < 0) return [];
-    const e = c.inventory[index], it = e.id ? r.get<ItemData>("item", e.id) : undefined, name = it?.name ?? e.name ?? e.id ?? "Item";
-    const charges = it?.data.charges && (!it.data.attunement || e.attuned) ? it.data.charges : undefined;
-    const consumable = it?.data.kind === "consumable" || (!it && e.qty > 1);
-    const use = () => { ctl.dispatch({ type: "itemQty", index, qty: e.qty - 1 }); ctl.host.notify(`Used ${name}: ${e.qty} left.`); };
-    const useBtn = consumable ? btn(e.qty > 0 ? "Use one" : "None left", use) : null; if (useBtn) useBtn.dataset.act = "use-item";
-    if (useBtn && e.qty <= 0) (useBtn as HTMLButtonElement).disabled = true;
-    return [{ index, row: h("div", { cls: "fe-kv fe-pinned-item", data: { pinnedItem: ref } },
-      h("span", { cls: "fe-grow" }, h("span", { cls: "fe-inv-name", text: name, ...(it && e.id ? { data: { ref: `item:${e.id}` } } : {}) }),
-        consumable || e.qty > 1 ? h("span", { cls: "fe-faint", text: ` x${e.qty}` }) : null),
-      charges ? pips(charges.max, e.charges?.used ?? 0, n => ctl.dispatch({ type: "charges", index, used: n })) : null,
-      useBtn) }];
+    const s = itemState(ctl, index), e = s.e;
+    return [{ index, row: h("div", { cls: `fe-kv fe-pinned-item ${s.usedUp ? "is-used-up" : ""}`.trim(), data: { pinnedItem: ref } },
+      h("span", { cls: "fe-grow" }, h("span", { cls: "fe-inv-name", text: s.name, ...(s.it && e.id ? { data: { ref: `item:${e.id}` } } : {}) }),
+        s.consumable || e.qty > 1 ? h("span", { cls: "fe-faint", text: ` x${e.qty}` }) : null,
+        s.upWord ? h("span", { cls: "fe-faint fe-used-up", text: ` · ${s.upWord}` }) : null),
+      s.charges ? pips(s.charges.max, e.charges?.used ?? 0, n => ctl.dispatch({ type: "charges", index, used: n })) : null,
+      s.useBtn()) }];
   });
 }
 
@@ -173,11 +192,11 @@ export const RENDER: Record<string, Render> = {
   rests: ctl => h("div", { cls: "fe-rests" }, ...activeRests(ctl.rules()).map(r => btn(r.label, () => ctl.open({ kind: "rest", id: r.id })))),
   inventory: (ctl, st) => { const c = ctl.character!, r = ctl.host.registry;
     return card("Inventory", ...c.inventory.map((e, i) => {
-      const it = e.id ? r.get<ItemData>("item", e.id) : undefined;
-      const name = it ? it.name : e.name ?? `${e.id} (missing from compendium)`;
-      return h("div", { cls: `fe-inv ${it || e.name ? "" : "is-missing"}` },
+      const s = itemState(ctl, i), it = s.it, name = s.name;
+      return h("div", { cls: `fe-inv ${it || e.name ? "" : "is-missing"} ${s.usedUp ? "is-used-up" : ""}`.replace(/\s+/g, " ").trim() },
         h("div", { cls: "fe-grow" }, h("span", { cls: "fe-inv-name", text: name, ...(it && e.id ? { data: { ref: `item:${e.id}` } } : {}) }), it?.source === "vault" ? h("span", { cls: "fe-src", text: "Homebrew" }) : null,
-          h("div", { cls: "fe-faint", text: [e.qty > 1 ? `x${e.qty}` : "", it?.data.rarity ?? "", it?.data.attunement ? (e.attuned ? "attuned" : "requires attunement") : ""].filter(Boolean).join(" · ") })),
+          h("div", { cls: "fe-faint", text: [e.qty > 1 || s.consumable ? `x${e.qty}` : "", s.upWord, it?.data.rarity ?? "", it?.data.attunement ? (e.attuned ? "attuned" : "requires attunement") : ""].filter(Boolean).join(" · ") })),
+        s.useBtn(),
         it && it.data.kind !== "gear" && it.data.kind !== "consumable" ? btn(e.equipped ? "Equipped" : "Equip", () => ctl.dispatch({ type: "equip", index: i, on: !e.equipped }), e.equipped ? "is-on" : "") : null,
         it?.data.attunement ? btn(e.attuned ? "Attuned" : "Attune", () => ctl.dispatch({ type: "attune", index: i, on: !e.attuned }), e.attuned ? "is-on" : "") : null,
         ctl.editing ? btn("Remove", () => ctl.dispatch({ type: "removeItem", index: i })) : null,
