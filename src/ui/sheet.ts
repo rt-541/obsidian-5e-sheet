@@ -78,7 +78,11 @@ export function mountSheet(root: HTMLElement, ctl: SheetController, layoutIn: La
       h("button", { cls: `fe-tab ${t === active ? "is-on" : ""}`, text: t.label, data: { tab: t.id }, on: { click: () => ctl.setTab(t.id) } }))));
     // every tab is rendered (inactive ones hidden) so each feature exists in the DOM once
     for (const t of tabs) {
-      const pane = h("div", { cls: "fe-pane", data: { pane: t.id } }, ...t.columns.map(col => h("div", { cls: "fe-col" }, ...col.map(slot))));
+      // a tab that opens with the abilities column sizes it to its content; the other columns share the rest (desktop CSS)
+      const checks = t.columns.length > 1 && t.columns[0][0] === "abilities";
+      const pane = h("div", { cls: `fe-pane ${checks ? "has-checks" : ""}`.trim(), data: { pane: t.id } },
+        ...t.columns.map((col, i) => h("div", { cls: `fe-col ${checks && i === 0 ? "fe-col-checks" : ""}`.trim() }, ...col.map(slot))));
+      if (checks) pane.style.setProperty("--fe-rest", String(t.columns.length - 1));
       pane.hidden = t !== active; root.append(pane);
     }
     if (ctl.panel) {

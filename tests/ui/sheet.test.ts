@@ -20,6 +20,17 @@ function setup(note: object, mobile: boolean | "tablet", extra?: (r: Registry) =
   const click = (sel: string, init: MouseEventInit = {}) => { const el = q(sel); if (!el) throw new Error("missing " + sel); el.dispatchEvent(new MouseEvent("click", { bubbles: true, ...init })); };
   return { r, ctl, root, saved, notices, q, click, host };
 }
+describe("checks column", () => {
+  it("the Main tab marks its abilities column so it is only as wide as it needs, and the other columns share the rest", () => {
+    const { root } = setup(thalia, false);
+    const main = root.querySelector<HTMLElement>('.fe-pane[data-pane="main"]')!;
+    expect(main.classList.contains("has-checks")).toBe(true);
+    expect(main.style.getPropertyValue("--fe-rest")).toBe("2");
+    expect(main.querySelector(".fe-col")!.classList.contains("fe-col-checks")).toBe(true);
+    expect(root.querySelector('.fe-pane[data-pane="spells"]')!.classList.contains("has-checks")).toBe(false);
+  });
+});
+
 describe("host element", () => {
   it("keeps the host's own classes (Obsidian's view-content is what scrolls) across re-renders", () => {
     const r = new Registry(); registerBuiltinTypes(r); loadSrd(r);
