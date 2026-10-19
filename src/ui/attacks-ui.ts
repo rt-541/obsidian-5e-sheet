@@ -1,7 +1,9 @@
-import type { ActorStats } from "../core/derive";
+import type { ItemData } from "../content/types";
+import type { ActorStats, AttackStat } from "../core/derive";
 import type { Abil } from "../core/types";
 import type { SheetController } from "./controller";
 import { h, sgn } from "./h";
+import { btn } from "./widgets";
 
 const ABIL_NAME: Record<Abil, string> = { str: "STR", dex: "DEX", con: "CON", int: "INT", wis: "WIS", cha: "CHA" };
 const refData = (ref?: string, noclick = false): { data: Record<string, string> } | Record<string, never> => (ref ? { data: { ref, ...(noclick ? { noclick: "" } : {}) } } : {});
@@ -16,7 +18,7 @@ export function attacksList(ctl: SheetController, st: ActorStats, who?: number):
   if (!st.attacks.length) return h("div", { cls: "fe-faint", text: "No attacks" });
   return h("div", { cls: "fe-attacks" },
     who === undefined && st.kind === "character" && st.attacksPerAction > 1 ? h("div", { cls: "fe-muted fe-attacks-per", text: `Attacks per action: ${st.attacksPerAction}` }) : null,
-    ...st.attacks.map((a, ai) => {
+    ...st.attacks.flatMap((a, ai) => {
       const noteRef = a.why ? `why:attack:${ai}` : a.note ? `attack-note:${who ?? "self"}:${ai}` : undefined;
       const hit = a.toHit !== undefined
         ? h("button", { cls: "fe-roll fe-atk", text: `${sgn(a.toHit)} Atk`, ...refData(a.why?.hit ? `why:attack:${ai}:hit` : undefined, true),
@@ -26,12 +28,32 @@ export function attacksList(ctl: SheetController, st: ActorStats, who?: number):
         ? h("button", { cls: "fe-roll fe-atk-dmg", text: compactDamage(a.damage), title: `${a.name} damage: ${a.damage}`, attrs: { "aria-label": `${a.name} damage: ${a.damage}` },
           ...refData(a.why?.damage ? `why:attack:${ai}:damage` : undefined, true), on: { click: () => ctl.damage(`${a.name} damage`, a.damage!) } })
         : null;
-      return h("div", { cls: "fe-attack", data: { attack: String(ai) } },
+      const row = h("div", { cls: "fe-attack", data: { attack: String(ai) } },
         h("span", { cls: "fe-grow", text: a.name, ...refData(noteRef) }),
         a.note ? h("span", { cls: "fe-faint fe-attack-note-mark", text: "notes", ...refData(noteRef) }) : null,
         h("span", { cls: "fe-attack-ctl" },
+          gripSwitch(ctl, a, who),
           hit, hit && dmg ? h("span", { cls: "fe-faint fe-attack-sep", text: "/" }) : null, dmg,
           a.critDamage ? h("button", { cls: "fe-roll fe-crit", text: "Crit", title: `Damage on a critical hit: ${a.critDamage}`, attrs: { "aria-label": `${a.name} critical hit damage` },
             on: { click: () => ctl.damage(`${a.name} critical damage`, a.critDamage!) } }) : null));
+      const asking = who === undefined && a.grip && a.item !== undefined && ctl.gripPrompt === a.item;
+      if (!asking) return [row];
+      const item = a.item!;
+      const put = btn("Put away shield", () => { ctl.setHands(item, 2, true); }); put.dataset.act = "put-away-shield";
+      const no = btn("Not now", () => ctl.askGrip(null)); no.dataset.act = "grip-cancel";
+      return [row, h("div", { cls: "fe-kv fe-grip-prompt", data: { note: "grip-shield" } }, h("span", { text: "Put away your shield to use two hands." }), h("span", { cls: "fe-seg" }, put, no))];
     }));
+}
+
+/** 1H | 2H for a versatile weapon on the character's own rows; 2H is greyed (not disabled, so a tap still asks) while a shield is on. */
+function gripSwitch(ctl: SheetController, a: AttackStat, who?: number): HTMLElement | null {
+  if (who !== undefined || !a.grip || a.item === undefined) return null;
+  const item = a.item, g = a.grip, blocked = g.shield;
+  const id = ctl.character?.inventory[item]?.id, oneHand = id ? ctl.host.registry.get<ItemData>("item", id)?.data.weapon?.dmg : undefined;
+  const opt = (hands: 1 | 2, label: string, title: string, greyed: boolean) => h("button", { cls: `fe-mode-opt${g.hands === hands ? " is-on" : ""}${greyed ? " is-blocked" : ""}`, text: label, title,
+    data: { hands: String(hands) }, attrs: { "aria-pressed": String(g.hands === hands), ...(greyed ? { "aria-disabled": "true" } : {}) },
+    on: { click: () => { if (greyed) ctl.askGrip(item); else ctl.setHands(item, hands); } } });
+  return h("div", { cls: "fe-seg fe-grip", attrs: { role: "group", "aria-label": `${a.name}: one or two hands` } },
+    opt(1, "1H", `One hand: ${oneHand ?? a.damage ?? ""}`, false),
+    opt(2, "2H", blocked ? "Put away your shield to use two hands" : `Two hands: ${g.twoHanded}`, blocked));
 }

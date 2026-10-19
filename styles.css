@@ -339,3 +339,5 @@
 .fe-sheet button.fe-slider-stop:focus-visible { outline: 2px solid var(--interactive-accent); outline-offset: 2px; }
 .fe-mobile button.fe-slider-stop, .fe-tablet button.fe-slider-stop { min-height: 44px; }
 .fe-mobile .fe-slider, .fe-tablet .fe-slider { height: 44px; }
+.fe-sheet button.fe-mode-opt.is-blocked { opacity: 0.5; }
+.fe-grip-prompt { flex: 1 1 100%; padding: 4px 0 6px; }
