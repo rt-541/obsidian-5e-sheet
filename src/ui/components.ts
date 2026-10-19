@@ -8,6 +8,7 @@ import { btn, card, describeEffects, pips, bar, usesPips } from "./widgets";
 import { featuresFeature, levelUpFeature, xpFeature } from "./features-ui";
 import { combosFeature, pinnedCombosFeature } from "./combos-ui";
 import { pinnedTraits, traitsFeature } from "./traits-ui";
+import { featureAttackRow, featureAttacks } from "./feature-attacks";
 import { activeEffectsFeature } from "./effects-ui";
 import { togglesFeature } from "./toggles-ui";
 import { concentrationFeature, pinnedSpellsFeature, spellsFeature } from "./spells-ui";
@@ -76,8 +77,10 @@ function checks(ctl: SheetController, st: ActorStats, who?: number) {
   };
 }
 function attacksList(ctl: SheetController, st: ActorStats, who?: number) {
-  if (!st.attacks.length) return h("div", { cls: "fe-faint", text: "No attacks" });
+  const featureRows = who === undefined && st.kind === "character" && ctl.character ? featureAttacks(st) : [];
+  if (!st.attacks.length && !featureRows.length) return h("div", { cls: "fe-faint", text: "No attacks" });
   return h("div", { cls: "fe-attacks" },
+    ...featureRows.map(f => featureAttackRow(ctl, st, f)),
     who === undefined && st.kind === "character" && st.attacksPerAction > 1 ? h("div", { cls: "fe-muted fe-attacks-per", text: `Attacks per action: ${st.attacksPerAction}` }) : null,
     ...st.attacks.map((a, ai) => h("div", { cls: "fe-attack" },
     h("span", { cls: "fe-grow", text: a.name, ...whyData(a.why ? `why:attack:${ai}` : undefined) }),

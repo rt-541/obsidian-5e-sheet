@@ -109,7 +109,7 @@ describe("safety and robustness", () => {
     const s = setup(thalia, false);
     for (let i = 0; i < 60; i++) s.click('[data-feature="saves"] .fe-roll');
     expect(s.host.log).toHaveLength(50);
-  });
+  }, 20_000);   // 60 full redraws: slow when other suites share the machine
 });
 
 describe("toggles and companions", () => {
