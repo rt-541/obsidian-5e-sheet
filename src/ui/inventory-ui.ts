@@ -99,7 +99,15 @@ export function inventoryFeature(ctl: SheetController, st: ActorStats): HTMLElem
       itemMenuButton(ctl, i, name),
       ctl.itemMenu === i ? itemMenu(ctl, i, s) : null);
   }),
-  h("div", { cls: "fe-kv" }, h("span", { text: "" }),
-    h("span", { cls: "fe-muted", text: `${st.carry.weight} / ${st.carry.capacity} lb · attuned ${st.attunedCount}/3`, ...(st.why.carry ? { data: { ref: "why:carry" } } : {}) })),
-  );
+  weightLine(st));
+}
+
+const lb = (n: number) => String(Math.round(n * 10) / 10);
+/** What you carry against what you can: a plain warning when it is too much. */
+function weightLine(st: ActorStats): HTMLElement {
+  const why = st.why.carry ? { data: { ref: "why:carry" } } : {}, heavy = st.carry.weight > st.carry.capacity;
+  return heavy
+    ? h("div", { cls: "fe-kv" }, h("span", { cls: "fe-warn fe-too-heavy", text: `Carrying ${lb(st.carry.weight)} of ${lb(st.carry.capacity)} lb: too heavy`, data: { note: "too-heavy", ...(st.why.carry ? { ref: "why:carry" } : {}) } }),
+      h("span", { cls: "fe-muted", text: `attuned ${st.attunedCount}/3` }))
+    : h("div", { cls: "fe-kv" }, h("span", { text: "" }), h("span", { cls: "fe-muted", text: `${st.carry.weight} / ${st.carry.capacity} lb · attuned ${st.attunedCount}/3`, ...why }));
 }
