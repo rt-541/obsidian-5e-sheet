@@ -100,6 +100,7 @@
 .fe-builder-modal { width: 640px; max-width: 94vw; }
 .fe-builder select, .fe-builder .fe-amt { min-width: 64px; }
 .fe-mobile.fe-builder select, .fe-mobile.fe-builder .fe-amt { min-height: 44px; }
+.fe-mobile .fe-lu-body input.fe-search, .fe-mobile.fe-builder input.fe-search, .fe-mobile .fe-builder input.fe-search { min-height: 44px; }
 /* compendium browser */
 .fe-compendium .fe-src-tabs, .fe-compendium .fe-type-tabs { margin-bottom: 4px; }
 .fe-comp-cols { display: grid; grid-template-columns: minmax(220px, 2fr) 3fr; gap: var(--fe-gap); align-items: start; }

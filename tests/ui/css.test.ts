@@ -31,6 +31,14 @@ describe("desktop checks column", () => {
   });
 });
 
+describe("phone search boxes in the level-up and builder modals", () => {
+  it("are at least 44px tall", () => {
+    const rule = css.split("\n").find(l => l.includes(".fe-mobile .fe-lu-body input.fe-search")) ?? "";
+    expect(rule).toContain(".fe-mobile.fe-builder input.fe-search");
+    expect(rule).toContain("min-height: 44px");
+  });
+});
+
 describe("damage button", () => {
   it("is red", () => {
     expect(css).toMatch(/\.fe-sheet button\.fe-dmg \{[^}]*background: var\(--color-red\)/);
