@@ -758,3 +758,7 @@ P1 and P2 plan files did not exist when this plan was written. The names below a
   - On-hit options, reroll and the hit window apply to attack rows and combo attack steps only. A spell or Use damage button is not known to be an attack hit.
   - Run-out messages are notified. Once-per-turn switch-offs are only listed in the roll detail.
   - The window is shown as a fading button.
+
+## Pending manual checks before merge
+
+- **Obsidian rendering of Task 7 controls (not closable from jsdom).** The Attack options switches (`.fe-opt-switch`) and the hit-window button are only checked structurally in tests. Deploy the build to the vault and look at them on desktop, tablet and phone widths, confirming that Obsidian's `button:not(.clickable-icon)` styling does not override the plugin rules (`.fe-sheet button.fe-opt-switch`, hit-window button), that targets are 44px on tablet and phone, and that on/off states are visibly distinct. Record the result here or attach a screenshot.
