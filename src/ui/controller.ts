@@ -1,6 +1,7 @@
 import type { Registry } from "../content/registry";
 import { slug } from "../content/registry";
 import type { Draft } from "../content/creature-note";
+import type { SpellDraft } from "../content/spell-note";
 import type { CampaignData, ItemData, LevelingMode, SpellData } from "../content/types";
 import { apply, applyNpc, customItemProblem, type Action, type Limits } from "../core/actions";
 import type { Character, Combo, Npc, Parsed } from "../core/character";
@@ -34,6 +35,12 @@ export interface SheetHost {
   saveCreature?(draft: Draft): Promise<string>;
   /** Save a custom item as a Homebrew note and register it; resolves to its item id. Never overwrites an existing note. */
   saveItem?(draft: ItemDraft): Promise<string>;
+  /** Save a custom spell as a Homebrew note and register it. Never overwrites an existing note. */
+  saveSpell?(draft: SpellDraft): Promise<{ id: string; name: string; path: string }>;
+  /** Rewrite the spell fields of a spell note the player made (its id, other properties and body are kept). */
+  updateSpell?(target: { id: string; path: string; sourceName: string; body?: string }, draft: SpellDraft): Promise<{ id: string; name: string; path: string }>;
+  /** Open a note in Obsidian. */
+  openNote?(path: string): void;
   /** Trait groups the player collapsed, kept per character in plugin data (not in the note). */
   collapsedGroups?(): string[];
   setCollapsedGroups?(ids: string[]): void;
@@ -41,7 +48,7 @@ export interface SheetHost {
 export type Panel =
   | { kind: "conditions"; who?: number } | { kind: "log" } | { kind: "rest"; id: string }
   | { kind: "compendium" } | { kind: "add-companion" } | { kind: "customize" }
-  | { kind: "cast"; spell: string } | { kind: "add-spell" } | { kind: "details"; ref: string } | { kind: "level-up" } | { kind: "combo-edit" };
+  | { kind: "cast"; spell: string } | { kind: "add-spell"; edit?: { mode: "edit" | "copy"; id: string } } | { kind: "details"; ref: string } | { kind: "level-up" } | { kind: "combo-edit" };
 /** The combo form: `index` is the combo being changed, or null for a new one. Typing changes the draft without redrawing. */
 export interface ComboDraft { index: number | null; combo: Combo; error?: string; confirmDelete?: boolean; }
 /** The level-up wizard: `level` adds a class level, `resolve` only answers choices a note still owes. */

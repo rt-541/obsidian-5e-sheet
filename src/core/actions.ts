@@ -23,7 +23,7 @@ export type Action =
   | { type: "addCompanion"; creature: string; name: string; kind: CompanionEntry["kind"] } | { type: "removeCompanion"; index: number }
   | { type: "ability"; abil: Abil; value: number }
   | { type: "cast"; spell: string; level?: number; item?: number } | { type: "endConcentration" }
-  | { type: "addSpell"; id: string } | { type: "removeSpell"; index: number } | { type: "prepare"; index: number; on: boolean }
+  | { type: "addSpell"; id: string } | { type: "removeSpell"; index: number } | { type: "prepare"; index: number; on: boolean } | { type: "alwaysPrepared"; index: number; on: boolean }
   | { type: "pinSpell"; key: string; on: boolean }
   | { type: "pin"; ref: string; on: boolean }
   | { type: "itemQty"; index: number; qty: number }
@@ -300,7 +300,8 @@ export function apply(c0: Character, a: Action, lim: Limits): Applied {
       c.coins[a.coin] = Math.floor(a.value); break;
     }
     case "itemConsumable": { const e = c.inventory[a.index]; if (e) e.consumable = a.on; break; }
-    case "prepare": { const s = c.spells[a.index]; if (s) s.prepared = a.on; break; }
+    case "prepare": { const s = c.spells[a.index]; if (s && !(s.always && !a.on)) s.prepared = a.on; break; }
+    case "alwaysPrepared": { const s = c.spells[a.index]; if (s) { if (a.on) { s.always = true; s.prepared = true; } else delete s.always; } break; }
     case "languages": c.languages = a.value.map(s => s.trim()).filter(Boolean); break;
     case "xp": c.xp = Math.max(0, Math.round(a.value)); break;
     case "dcAlt": {
