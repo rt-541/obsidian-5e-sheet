@@ -7,7 +7,9 @@ import { apply, applyNpc, customItemProblem, type Action, type Limits } from "..
 import type { Character, Combo, Npc, Parsed } from "../core/character";
 import { blankCombo, validateCombo } from "../core/combos";
 import { deriveCharacter, deriveCompanion, deriveNpc, type ActorStats } from "../core/derive";
-import { rollD20, rollDice } from "../core/dice";
+import { critDamageOf, rollD20, rollDice, rollKeepHigher } from "../core/dice";
+import { affordable, onHitOptions, toHitOptions, type AttackOptionRow } from "../core/attack-options";
+import { matchesTag } from "../core/roll-tags";
 import { critInfo, d20Rules, rollSources } from "../core/effects";
 import { explainChange, type ChangeGroup } from "../core/level-diff";
 import { evalFormula, fillDice } from "../core/formula";
@@ -70,6 +72,8 @@ export const blankCustomItem = (): CustomItemForm => ({ name: "", qty: "1", weig
 type Mods = { shiftKey?: boolean; ctrlKey?: boolean; metaKey?: boolean };
 
 export const LOG_MAX = 50;
+/** How long after an attack roll the damage button still counts as "it hit". */
+export const HIT_WINDOW_MS = 3000;
 
 export class SheetController {
   value: Character | Npc; errors: string[]; writable: boolean;
@@ -92,6 +96,9 @@ export class SheetController {
   /** The next redraw puts the keyboard focus on the element with this data-keep (desktop only). */
   focusNext?: string;
   panel: Panel | null = null; levelUp: LevelUpState | null = null; confirmUndo = false; lastRoll?: RollResult; toastItem?: { kind: "roll"; roll: RollResult } | { kind: "notice"; text: string }; restOpts: RestOptions = { samePlace: true, safeHaven: false };
+  /** Set for a few seconds after an own attack is rolled to hit; the damage button then counts as a hit. */
+  hitWindow: { ai: number; name: string; crit: boolean } | null = null;
+  private hitTimer: ReturnType<typeof setTimeout> | undefined;
   private subs = new Set<() => void>();
   private collapsed?: Set<string>;
 
@@ -105,7 +112,7 @@ export class SheetController {
   emit() { this.subs.forEach(f => f()); }
 
   /** Replace the value after an external file change (Obsidian Sync, manual edit). */
-  reload(parsed: Exclude<Parsed, { kind: "none" }>) { this.value = parsed.value; this.errors = parsed.errors; this.writable = parsed.writable; this.emit(); }
+  reload(parsed: Exclude<Parsed, { kind: "none" }>) { this.closeHitWindow(); this.value = parsed.value; this.errors = parsed.errors; this.writable = parsed.writable; this.emit(); }
 
   /** The registry the pickers (level-up wizard, add spell / item / companion) list from: sources this campaign switched off are left out. */
   pickers(): Registry { return this.host.registry.scoped(this.host.campaign?.sources); }
@@ -389,8 +396,90 @@ export class SheetController {
     // Reliable Talent, Halfling Lucky and the like: a minimum for the die, or a reroll of low dice.
     const skill = target.kind === "skill" ? st?.skills.find(k => k.id === target.skill) : undefined;
     const rules = st ? d20Rules(st.effects, target, !!skill && (skill.prof || skill.expertise)) : undefined;
-    return this.record(rollD20({ title, mod, mode, ...src, ...(crit ? { critRange: crit.range, critNote: crit.hints } : {}), ...(this.host.rng ? { rng: this.host.rng } : {}),
-      ...(rules?.min !== undefined ? { min: rules.min } : {}), ...(rules?.reroll !== undefined ? { reroll: rules.reroll } : {}), ...(rules?.notes.length ? { ruleNotes: rules.notes } : {}) }));
+    const rolled = rollD20({ title, mod, mode, ...src, ...(crit ? { critRange: crit.range, critNote: crit.hints } : {}), ...(this.host.rng ? { rng: this.host.rng } : {}),
+      ...(rules?.min !== undefined ? { min: rules.min } : {}), ...(rules?.reroll !== undefined ? { reroll: rules.reroll } : {}), ...(rules?.notes.length ? { ruleNotes: rules.notes } : {}) });
+    if (who === undefined && target.kind === "attack" && st && rolled.total !== "fail") this.addToHitOptions(rolled, st, target);
+    return this.record(rolled);
+  }
+
+  /** Add the dice of the attack options that are on and affordable to this to-hit roll, spend them, and say so in the detail. */
+  private addToHitOptions(r: RollResult, st: ActorStats, target: RollTarget) {
+    const used = affordable(toHitOptions(st.attackOptions, target));
+    if (!used.length) return;
+    let total = r.total as number;
+    for (const o of used) {
+      const x = rollDice(o.name, o.toHit!, this.host.rng); total += x.total as number;
+      r.detail += ` + ${o.name} ${o.toHit} (${x.total})`;
+    }
+    r.total = total;
+    r.detail += this.spend(used);
+  }
+
+  /** Spend one die of each used option's resource and switch off what runs dry or is once per turn. Returns the words to append to the roll's detail. */
+  private spend(used: AttackOptionRow[]): string {
+    if (!used.length) return "";
+    const out = this.dispatch({ type: "attackOptionsUsed", ids: used.map(o => o.id) });
+    if (!out.ok) return "";
+    if (out.note) this.host.notify(out.note);
+    const count = new Map<string, { n: number; o: AttackOptionRow }>();
+    for (const o of used) if (o.resource && !o.resource.unlimited) { const e = count.get(o.resource.id); if (e) e.n++; else count.set(o.resource.id, { n: 1, o }); }
+    let tail = "";
+    for (const { n, o } of count.values()) tail += `; ${Math.max(0, o.resource!.left - n)} of ${o.resource!.max} ${o.resource!.name} left`;
+    for (const o of used) if (o.oncePerTurn) tail += `; ${o.name} is off (once per turn)`;
+    return tail;
+  }
+
+  private closeHitWindow() { clearTimeout(this.hitTimer); this.hitTimer = undefined; this.hitWindow = null; }
+  /** Close the hit window when its attack row is no longer the same attack (the note changed under it). */
+  private checkHitWindow(st: ActorStats) {
+    const w = this.hitWindow; if (w && st.attacks[w.ai]?.name !== w.name) this.closeHitWindow();
+  }
+
+  /** Switch an attack option on or off. A problem is said in words. */
+  setAttackOption(id: string, on: boolean): boolean { return this.dispatch({ type: "attackOption", id, on }).ok; }
+
+  /** Roll attack row `ai` to hit (own attacks only); opens the hit window unless it failed. */
+  attackRoll(ai: number, ev: Mods = {}): RollResult | undefined {
+    const st = this.stats(); if (!st) return undefined;
+    this.checkHitWindow(st);
+    const a = st.attacks[ai];
+    if (!a || a.toHit === undefined) return undefined;
+    const r = this.roll(`${a.name} to hit`, a.toHit, a.target, ev);
+    this.closeHitWindow();
+    if (r.total !== "fail") {
+      this.hitWindow = { ai, name: a.name, crit: r.crit };
+      this.hitTimer = setTimeout(() => { this.hitTimer = undefined; this.hitWindow = null; this.emit(); }, HIT_WINDOW_MS);
+      this.emit();
+    }
+    return r;
+  }
+
+  /** Roll attack row `ai`'s damage; always counts as a hit (spends on-hit options). `crit` uses critDamage and doubles option dice. Closes the hit window. */
+  attackDamage(ai: number, crit = false): RollResult | undefined {
+    const st = this.stats(); if (!st) return undefined;
+    this.checkHitWindow(st);
+    const a = st.attacks[ai], expr = a && (crit ? a.critDamage : a.damage);
+    if (!a || !expr) return undefined;
+    const opts = affordable(onHitOptions(st.attackOptions, a.target));
+    const title = `${a.name} ${crit ? "critical damage" : "damage"}`, rng = this.host.rng;
+    let r: RollResult;
+    if (opts.some(o => o.reroll)) {
+      const terms = expr.split(" + "), first = rollKeepHigher(title, terms[0], rng);
+      const rest = terms.length > 1 ? rollDice(title, terms.slice(1).join(" + "), rng) : undefined;
+      r = rest ? { ...first, total: (first.total as number) + (rest.total as number), dice: [...first.dice, ...rest.dice], detail: `${first.detail}  ${rest.detail}` } : first;
+    } else r = rollDice(title, expr, rng);
+    let total = r.total as number;
+    for (const o of opts) {
+      if (!o.onHit) continue;
+      const dice = crit ? critDamageOf(o.onHit) ?? o.onHit : o.onHit, x = rollDice(o.name, dice, rng);
+      total += x.total as number; r.detail += ` + ${o.name} ${dice} (${x.total})`;
+    }
+    r.total = total;
+    const applied = st.attackOptions.filter(o => o.kind === "extra" && o.on && matchesTag(o.tag, a.target)).map(o => o.name);
+    if (applied.length) r.detail += `; applied: ${applied.join(", ")}`;
+    r.detail += this.spend(opts);
+    this.closeHitWindow();
+    return this.record(r);
   }
   damage(title: string, expr: string): RollResult { return this.record(rollDice(title, expr, this.host.rng)); }
 

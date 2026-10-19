@@ -1,7 +1,12 @@
 import type { Registry } from "../../src/content/registry";
 import type { Character } from "../../src/core/character";
 import type { Rng } from "../../src/core/types";
-import { makeChar, mechanicsRegistry } from "./mechanics";
+import { parseNote } from "../../src/core/character";
+import type { ResourceRow } from "../../src/core/derive";
+import { SheetController, type SheetHost } from "../../src/ui/controller";
+import type { LayoutName } from "../../src/ui/layouts";
+import { mountSheet } from "../../src/ui/sheet";
+import { makeChar, mechanicsRegistry, tester } from "./mechanics";
 
 /** mechanicsRegistry() plus invented feats and items that declare attack options, extra damage and a self-damage action. */
 export function optionsRegistry(): Registry {
@@ -28,3 +33,26 @@ export const optChar = (o: object = {}): Character => makeChar({ inventory: [{ i
 
 /** A rng that returns the given values in turn, then starts over. */
 export const seq = (...xs: number[]): Rng => { let i = 0; return () => xs[i++ % xs.length]; };
+
+/** A mounted sheet for an invented character with the longsword equipped (plus `note`), on the options registry. */
+export function sheetWith(layout: LayoutName, note: object = {}, rng?: Rng) {
+  const notices: string[] = [], saved: unknown[] = [];
+  const host: SheetHost = { registry: optionsRegistry(), ruleDefaults: {}, save: v => saved.push(structuredClone(v)), notify: m => notices.push(m), log: [], body: "", ...(rng ? { rng } : {}) };
+  const p = parseNote({ ...tester, inventory: [{ id: "longsword", equipped: true }], ...note });
+  if (p.kind === "none") throw new Error("not a sheet");
+  const ctl = new SheetController(host, p), root = document.createElement("div");
+  document.body.append(root); mountSheet(root, ctl, layout);
+  const q = (sel: string) => root.querySelector(sel) as HTMLElement;
+  const click = (el: Element | null | undefined) => { if (!el) throw new Error("missing element"); el.dispatchEvent(new MouseEvent("click", { bubbles: true })); };
+  /** The attack row whose text names `name`. */
+  const row = (name: string): HTMLElement => {
+    const el = [...root.querySelectorAll<HTMLElement>("[data-attack]")].find(e => (e.textContent ?? "").includes(name));
+    if (!el) throw new Error(`no attack row for ${name}`); return el;
+  };
+  /** The resource row with this id, as the sheet derives it now. */
+  const left = (id: string): ResourceRow => {
+    const r = ctl.stats()!.resources.find(x => x.id === id);
+    if (!r) throw new Error(`no resource ${id}`); return r;
+  };
+  return { ctl, root, host, notices, saved, q, click, row, left };
+}
