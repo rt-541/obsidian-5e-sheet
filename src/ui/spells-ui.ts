@@ -107,6 +107,11 @@ function ownRow(ctl: SheetController, r: SpellRow, index: number): HTMLElement {
   return menuState(ctl).open === key ? h("div", { cls: "fe-spell-wrap" }, row, ownMenu(ctl, r, index)) : row;
 }
 
+/** The highest spell level the character has a slot for (pact level included); 0 with no slots. */
+export function maxCastableLevel(st: ActorStats): number {
+  return Math.max(0, ...st.slots.filter(s => s.max > 0).map(s => s.level === "pact" ? s.pactLevel ?? 0 : Number(s.level)));
+}
+
 /** One row per spell slot level, "Level 1 slots: 3 of 4 left" with boxes, for the slots card and the Spells tab. */
 export function slotRows(ctl: SheetController, st: ActorStats): HTMLElement[] {
   return st.slots.map(s => h("div", { cls: "fe-kv fe-res-row", data: { slot: s.level } },
@@ -188,7 +193,7 @@ export function castPanel(ctl: SheetController, spell: string): HTMLElement {
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const MAX_ROWS = 80;
 /** What the add-spell panel remembers: one per opened panel, so a redraw keeps what was typed and reopening starts fresh. */
-interface AddState { mode: "pick" | "form" | "import"; query: string; showAll: boolean; focused: boolean; draft: SpellDraft; unread: string[]; importText: string; showTemplate: boolean }
+interface AddState { mode: "pick" | "form" | "import"; query: string; showAll: boolean; higher: boolean; focused: boolean; draft: SpellDraft; unread: string[]; importText: string; showTemplate: boolean }
 const addStates = new WeakMap<object, AddState>();
 const fallbackPanel = {};
 type EditSpec = { mode: "edit" | "copy"; id: string };
@@ -201,7 +206,7 @@ function matchSpells<T extends { name: string }>(all: readonly T[], q: string): 
 }
 
 function initialAddState(ctl: SheetController, edit: EditSpec | undefined): AddState {
-  const s: AddState = { mode: "pick", query: "", showAll: false, focused: false, draft: blankSpellDraft(), unread: [], importText: "", showTemplate: false };
+  const s: AddState = { mode: "pick", query: "", showAll: false, higher: false, focused: false, draft: blankSpellDraft(), unread: [], importText: "", showTemplate: false };
   const e = edit ? ctl.host.registry.get<SpellData>("spell", edit.id) : undefined;
   if (edit && e) {
     s.mode = "form";
@@ -231,10 +236,11 @@ export function addSpellPanel(ctl: SheetController, panel: object = fallbackPane
   function drawPick() {
     const all = ctl.pickers().list<SpellData>("spell");
     const list = h("div", { data: { results: "" } });
+    const top = maxCastableLevel(ctl.stats()!);
     const fill = () => {
       clear(list);
       const q = st.query.trim().toLowerCase();
-      const rows = matchSpells(all.filter(e => e.name.toLowerCase().includes(q) && (st.showAll || !mine.size || e.data.classes.some(k => mine.has(k)))), q);
+      const rows = matchSpells(all.filter(e => e.name.toLowerCase().includes(q) && (st.showAll || !mine.size || e.data.classes.some(k => mine.has(k))) && (st.higher || e.data.level <= top)), q);
       for (const e of rows.slice(0, MAX_ROWS)) list.append(h("div", { cls: "fe-inv", data: { pick: e.id } },
         h("div", { cls: "fe-grow" }, h("span", { cls: "fe-spell-name", text: e.name, data: { ref: `spell:${e.id}`, noclick: "" } }), sourceBadge(sourceLabel(e)),
           h("div", { cls: "fe-badges" }, h("span", { cls: "fe-badge", text: e.data.level === 0 ? "Cantrip" : `Level ${e.data.level}`, data: { badge: "level" } }),
@@ -251,10 +257,14 @@ export function addSpellPanel(ctl: SheetController, panel: object = fallbackPane
     const search = h("input", { cls: "fe-search", attrs: { placeholder: "Search spells", value: st.query, type: "search", "aria-label": "Search spells" },
       on: { input: (e: Event) => { st.query = (e.target as HTMLInputElement).value; fill(); }, focus: () => { st.focused = true; }, blur: () => { st.focused = false; } } });
     fill();
+    const hl = h("button", { cls: `fe-btn ${st.higher ? "is-on" : ""}`.trim(), text: st.higher ? "Hide higher levels" : "Show higher levels", data: { act: "higher-levels" }, attrs: { type: "button" },
+      on: { click: () => { st.higher = !st.higher; hl.classList.toggle("is-on", st.higher); hl.textContent = st.higher ? "Hide higher levels" : "Show higher levels"; fill(); } } });
+    const label = h("span", { text: "" }), setLabel = () => { label.textContent = st.showAll ? "Showing all spells" : `Showing your class spells (${[...mine].map(cap).join(", ")})`; };
+    setLabel();
     const sw = h("button", { cls: `fe-switch ${st.showAll ? "is-on" : ""}`, data: { act: "show-all" }, attrs: { role: "switch", "aria-checked": String(st.showAll), "aria-label": "Show all spells" },
-      on: { click: () => { st.showAll = !st.showAll; sw.classList.toggle("is-on", st.showAll); sw.setAttribute("aria-checked", String(st.showAll)); fill(); } } });
+      on: { click: () => { st.showAll = !st.showAll; sw.classList.toggle("is-on", st.showAll); sw.setAttribute("aria-checked", String(st.showAll)); setLabel(); fill(); } } });
     body.append(...([makeButtons(), search as HTMLElement,
-      mine.size ? h("label", { cls: "fe-kv fe-menu-row" }, h("span", { text: st.showAll ? "Showing all spells" : `Showing your class spells (${[...mine].map(cap).join(", ")})` }), sw) : null, list] as (HTMLElement | null)[]).filter((n): n is HTMLElement => !!n));
+      mine.size ? h("label", { cls: "fe-kv fe-menu-row" }, label, sw) : null, hl, list] as (HTMLElement | null)[]).filter((n): n is HTMLElement => !!n));
     // A redraw (after Add) keeps the cursor in the search box; the panel itself does not open the keyboard on a phone or tablet.
     const touch = typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)")?.matches;
     if (st.focused || !touch) window.setTimeout(() => { if (search.isConnected) { search.focus(); const n = search.value.length; search.setSelectionRange?.(n, n); } }, 0);

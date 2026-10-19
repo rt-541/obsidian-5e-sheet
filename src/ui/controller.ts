@@ -235,10 +235,11 @@ export class SheetController {
 
   /** Fill the item form from pasted text (a layout the 5e-item reader understands), listing what it could not read. */
   readItemText(text: string) {
-    const { draft: d, unread } = parseItemBlock(text), f = this.customItem, num = (n: number | undefined) => (n === undefined ? "" : String(n));
+    const { draft: d, unread } = parseItemBlock(text), f = blankCustomItem(), num = (n: number | undefined) => (n === undefined ? "" : String(n));
     Object.assign(f, { name: d.name, kind: d.kind, base: d.base ?? "", rarity: d.rarity ?? "", attunement: d.attunement, attunementNote: d.attunementNote ?? "", weight: num(d.weight),
       chargesMax: num(d.charges?.max), chargesReset: d.charges?.reset ?? "dawn", attackBonus: num(d.attackBonus), damageBonus: num(d.damageBonus), acBonus: num(d.acBonus),
-      heal: d.heal ?? "", description: d.description, value: d.value, consumable: d.kind === "consumable", more: true, importing: false, unread, error: undefined });
+      heal: d.heal ?? "", description: d.description, value: d.value, consumable: d.kind === "consumable", more: true, importing: false, unread });
+    this.customItem = f;   // a fresh form, so a quantity typed before the import is not inherited
     this.emit();
   }
   /** The form as an item draft; text that is not a number becomes NaN so the validator names it. */

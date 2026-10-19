@@ -15,7 +15,7 @@ for (const layout of LAYOUTS) {
       const form = s.q('.fe-panel [data-form="custom-item"]');
       expect(form.textContent).toContain("Name"); expect(form.textContent).toContain("Quantity"); expect(form.textContent).toContain("Weight (lb)");
       expect(form.textContent).toContain("Used up when used (consumable)");
-      expect(s.q(".fe-additem").firstElementChild).toBe(form);
+      expect(s.q(".fe-additem").lastElementChild).toBe(form);   // the search comes first, the custom form last
     });
     it("adds a named item with its count, weight and consumable switch, and keeps the panel open", () => {
       const s = setup(layout); s.ctl.open({ kind: "compendium" });

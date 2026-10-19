@@ -135,7 +135,7 @@ function resultRow(ctl: SheetController, e: Entry<ItemData>): HTMLElement {
   const owned = ctl.character!.inventory.some(x => x.id === e.id);
   return h("div", { cls: "fe-inv" },
     h("div", { cls: "fe-grow" }, h("span", { cls: "fe-inv-name", text: e.name, data: { ref: `item:${e.id}` } }), sourceBadge(sourceLabel(e)),
-      h("div", { cls: "fe-faint", text: [e.data.rarity, e.data.attunement ? "attunement" : "", e.path ?? ""].filter(Boolean).join(" · ") })),
+      h("div", { cls: "fe-faint", text: [e.data.rarity, e.data.attunement ? "attunement" : ""].filter(Boolean).join(" · ") })),
     h("button", { cls: "fe-btn", text: owned ? "+1" : "Add", data: { item: e.id }, on: { click: () => ctl.addItem(e.id) } }));
 }
 
@@ -160,9 +160,9 @@ export function addItemPanel(ctl: SheetController): HTMLElement {
   const search = h("input", { cls: "fe-search", attrs: { type: "search", placeholder: "Search items by name", value: ctl.itemSearch.query, "aria-label": "Search items" }, data: { keep: "item-search", autofocus: "" },
     on: { input: (e: Event) => { ctl.itemSearch.query = (e.target as HTMLInputElement).value; fillResults(ctl, box); } } });
   fillResults(ctl, box);
-  return h("div", { cls: "fe-additem" }, customItemForm(ctl),
-    h("div", { cls: "fe-card-title", text: "From the compendium" }), search,
+  return h("div", { cls: "fe-additem" }, search,
     h("div", { cls: "fe-filters", data: { group: "item-chips" } }, ...CHIPS.map(c =>
       h("button", { cls: `fe-btn ${ctl.itemSearch.chip === c.id ? "is-on" : ""}`.trim(), text: c.label, data: { chip: c.id }, on: { click: () => { ctl.itemSearch.chip = c.id; ctl.emit(); } } }))),
-    box);
+    box,
+    h("div", { cls: "fe-card-title", text: "Not in the list? Make your own" }), customItemForm(ctl));
 }
