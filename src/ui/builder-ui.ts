@@ -3,7 +3,7 @@ import { gearList, STANDARD_ARRAY, POINT_BUY_BUDGET, type ScoreMethod } from "..
 import { ABILS, type Abil } from "../core/types";
 import type { BuilderController, BuilderPage } from "./builder";
 import { clear, h } from "./h";
-import { asiPage, choiceButton, optionalPage, pickPage, spellsPage, subclassPage } from "./levelup-ui";
+import { asiPage, choiceButton, optionalPage, pickPage, spellsPage, stepCounter, subclassPage } from "./levelup-ui";
 import { btn } from "./widgets";
 import { sourceLabel } from "../content/registry";
 
@@ -74,10 +74,15 @@ function equipmentPage(ctl: BuilderController): HTMLElement {
         on: { change: (ev: Event) => { const n = +(ev.target as HTMLInputElement).value; ctl.setEquipment({ kind: "gold", gold: Number.isInteger(n) && n >= 0 ? n : -1 }); } } })) : null);
 }
 
-function namePage(ctl: BuilderController): HTMLElement {
-  const d = ctl.draft, problems = ctl.problems();
+/** Create lives in the footer next to Back, so it is where the thumb already is after going back to fix something. */
+function createButton(ctl: BuilderController): HTMLButtonElement {
   const create = btn(ctl.creating ? "Creating..." : "Create character", () => { void ctl.create(); }, "mod-cta");
-  create.dataset.act = "bd-create"; create.disabled = problems.length > 0 || ctl.creating;
+  create.dataset.act = "bd-create"; create.disabled = ctl.problems().length > 0 || ctl.creating;
+  return create;
+}
+
+function namePage(ctl: BuilderController, create: HTMLButtonElement): HTMLElement {
+  const d = ctl.draft;
   const list = h("div", {});
   const fill = () => {
     clear(list);
@@ -92,7 +97,7 @@ function namePage(ctl: BuilderController): HTMLElement {
   return body("name", hint("Name the character."), input,
     h("input", { cls: "fe-search", data: { field: "campaign" }, attrs: { placeholder: "Campaign link, e.g. [[Ekron Campaign]] (optional)", value: d.campaign ?? "", "aria-label": "Campaign" },
       on: { change: (e: Event) => ctl.setCampaign((e.target as HTMLInputElement).value) } }),
-    list, ctl.error ? h("div", { cls: "fe-warn", text: ctl.error }) : null, create);
+    list, ctl.error ? h("div", { cls: "fe-warn", text: ctl.error }) : null);
 }
 
 function stepPage(ctl: BuilderController, p: Extract<BuilderPage, { id: "step" }>): HTMLElement {
@@ -110,16 +115,17 @@ const TITLES: Record<string, string> = { race: "Race", background: "Background",
 
 /** The builder wizard: one page per screen, Back and Next at the bottom, Create on the last page. */
 export function builderView(ctl: BuilderController): HTMLElement {
+  const create = createButton(ctl);
   const pages = ctl.pages(), page = Math.max(0, Math.min(ctl.page, pages.length - 1)), cur = pages[page], last = page === pages.length - 1;
   const content = cur.id === "race" ? racePage(ctl) : cur.id === "background" ? backgroundPage(ctl) : cur.id === "scores" ? scoresPage(ctl) : cur.id === "class" ? classPage(ctl)
-    : cur.id === "equipment" ? equipmentPage(ctl) : cur.id === "name" ? namePage(ctl) : stepPage(ctl, cur);
+    : cur.id === "equipment" ? equipmentPage(ctl) : cur.id === "name" ? namePage(ctl, create) : stepPage(ctl, cur);
   const back = btn(page === 0 ? "Cancel" : "Back", () => { if (page === 0) ctl.host.close(); else ctl.go(page - 1); });
   back.dataset.act = "bd-back";
   const next = btn("Next", () => ctl.go(page + 1), "mod-cta"); next.dataset.act = "bd-next"; next.disabled = !ctl.ready(cur); next.hidden = last;
   const title = cur.id === "step" ? `${cur.step.source}: ${cur.step.label}` : TITLES[cur.id];
   return h("div", { cls: "fe-levelup", data: { page: String(page), builder: cur.id } },
-    h("div", { cls: "fe-kv" }, h("span", { cls: "fe-name", text: `New character: ${title}` }), h("span", { cls: "fe-faint", text: `Step ${page + 1} of ${pages.length}` })),
-    content, h("div", { cls: "fe-kv fe-lu-nav" }, back, next));
+    h("div", { cls: "fe-kv" }, h("span", { cls: "fe-name", text: `New character: ${title}` }), h("span", { cls: "fe-faint", text: stepCounter(page, pages.length, !!ctl.draft.classId) })),
+    content, h("div", { cls: "fe-kv fe-lu-nav" }, back, ...(last ? [create] : [next])));
 }
 
 /** Mount the builder into `root` (a modal's content element); redraws on every change. */

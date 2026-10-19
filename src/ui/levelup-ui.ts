@@ -195,6 +195,9 @@ function summaryPage(ctl: SheetController, st: LevelUpState): HTMLElement {
     st.error ? h("div", { cls: "fe-warn", text: st.error }) : null);
 }
 
+/** "Step 3 of 7" once the page count is settled, otherwise nothing (the total moves until the class is picked). */
+export function stepCounter(page: number, total: number, known: boolean): string { return known ? `Step ${page + 1} of ${total}` : ""; }
+
 /** The step-by-step level-up (or choice-resolving) wizard: one page per screen, Back and Next at the bottom. */
 export function levelUpPanel(ctl: SheetController): HTMLElement {
   const st = ctl.levelUp;
@@ -217,6 +220,6 @@ export function levelUpPanel(ctl: SheetController): HTMLElement {
   next.dataset.act = last ? "lu-apply" : "lu-next"; next.disabled = !ready;
   const title = resolve ? "Choices" : plan ? `${plan.className} ${plan.level}${plan.first ? "" : ` (character level ${plan.total})`}` : "Level up";
   return h("div", { cls: "fe-levelup", data: { page: String(page) } },
-    h("div", { cls: "fe-kv" }, h("span", { cls: "fe-name", text: title }), h("span", { cls: "fe-faint", text: `Step ${page + 1} of ${pages}` })),
+    h("div", { cls: "fe-kv" }, h("span", { cls: "fe-name", text: title }), h("span", { cls: "fe-faint", text: stepCounter(page, pages, resolve || !!st.classId) })),
     body, h("div", { cls: "fe-kv fe-lu-nav" }, back, next));
 }
