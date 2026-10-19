@@ -65,6 +65,8 @@ export class SheetController {
   customItem: CustomItemForm = blankCustomItem();
   /** The add panel's search text and kind chip. */
   itemSearch: ItemSearch = blankItemSearch();
+  /** Which inventory row has its "..." options open. */
+  itemMenu: number | null = null;
   /** The next redraw puts the keyboard focus on the element with this data-keep (desktop only). */
   focusNext?: string;
   panel: Panel | null = null; levelUp: LevelUpState | null = null; confirmUndo = false; lastRoll?: RollResult; restOpts: RestOptions = { samePlace: true, safeHaven: false };
@@ -136,6 +138,8 @@ export class SheetController {
     this.host.notify(had ? `Added ${name} (now ${had + 1})` : `Added ${name}.`);
     return true;
   }
+
+  toggleItemMenu(index: number) { this.itemMenu = this.itemMenu === index ? null : index; this.emit(); }
 
   /** Add the custom item typed into the form. A problem is shown under the form in plain words. */
   submitCustomItem(): boolean {

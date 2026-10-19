@@ -27,6 +27,8 @@ export type Action =
   | { type: "pinSpell"; key: string; on: boolean }
   | { type: "pin"; ref: string; on: boolean }
   | { type: "itemQty"; index: number; qty: number }
+  /** Whether using one of this inventory entry uses it up (a potion is by default, a custom item is not). */
+  | { type: "itemConsumable"; index: number; on: boolean }
   /** Used count of a resource derived from class operations (stored in character.uses). */
   | { type: "uses"; id: string; used: number }
   | { type: "xp"; value: number }
@@ -264,6 +266,7 @@ export function apply(c0: Character, a: Action, lim: Limits): Applied {
     case "pinSpell": c.mainSpells = c.mainSpells.filter(k => k !== a.key); if (a.on) c.mainSpells.push(a.key); break;
     case "pin": c.mainPins = c.mainPins.filter(k => k !== a.ref); if (a.on) c.mainPins.push(a.ref); break;
     case "itemQty": { const e = c.inventory[a.index]; if (e) e.qty = Math.max(0, Math.floor(a.qty)); break; }
+    case "itemConsumable": { const e = c.inventory[a.index]; if (e) e.consumable = a.on; break; }
     case "prepare": { const s = c.spells[a.index]; if (s) s.prepared = a.on; break; }
     case "languages": c.languages = a.value.map(s => s.trim()).filter(Boolean); break;
     case "xp": c.xp = Math.max(0, Math.round(a.value)); break;

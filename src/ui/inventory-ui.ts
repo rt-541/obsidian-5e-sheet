@@ -24,7 +24,7 @@ export function itemState(ctl: SheetController, index: number) {
   const e = ctl.character!.inventory[index], it = e.id ? ctl.host.registry.get<ItemData>("item", e.id) : undefined;
   const name = it?.name ?? e.name ?? `${e.id} (missing from compendium)`;
   const charges = it?.data.charges && (!it.data.attunement || e.attuned) ? it.data.charges : undefined;
-  const consumable = it?.data.kind === "consumable" || (!it && !!e.name && e.qty !== 1);
+  const consumable = e.consumable ?? (it?.data.kind === "consumable");
   const outOfStock = consumable && e.qty <= 0, outOfCharges = !!charges && (e.charges?.used ?? 0) >= charges.max;
   const usedUp = outOfStock || outOfCharges;
   const upWord = outOfStock ? "none left" : outOfCharges ? "no charges left" : "";
@@ -43,6 +43,24 @@ export function itemState(ctl: SheetController, index: number) {
 /** The big button at the top of the Inventory card. */
 function addItemButton(ctl: SheetController): HTMLElement {
   const b = btn("+ Add item", () => ctl.open({ kind: "compendium" }), "mod-cta fe-add-item"); b.dataset.act = "add-item"; return b;
+}
+
+/** The small "..." button at the end of a row. */
+function itemMenuButton(ctl: SheetController, index: number, name: string): HTMLElement {
+  const open = ctl.itemMenu === index, b = btn("...", () => ctl.toggleItemMenu(index), `fe-item-menu-btn ${open ? "is-on" : ""}`.trim());
+  b.dataset.act = "item-menu"; b.setAttribute("aria-label", `Options for ${name}`); b.setAttribute("aria-expanded", String(open)); return b;
+}
+
+/** The options under an open row: the consumable switch and the exact quantity. */
+function itemMenu(ctl: SheetController, index: number, s: ReturnType<typeof itemState>): HTMLElement {
+  const e = s.e;
+  const sw = h("button", { cls: `fe-switch ${s.consumable ? "is-on" : ""}`, data: { act: "item-consumable" }, attrs: { type: "button", role: "switch", "aria-checked": String(s.consumable), "aria-label": "Consumable (used up when used)" },
+    on: { click: () => ctl.dispatch({ type: "itemConsumable", index, on: !s.consumable }) } });
+  const qty = h("input", { cls: "fe-amt", attrs: { type: "number", inputmode: "numeric", min: "0", step: "1", value: String(e.qty), "aria-label": `Quantity of ${s.name}` }, data: { act: "item-qty-input" },
+    on: { change: (ev: Event) => { const n = Number((ev.target as HTMLInputElement).value); ctl.dispatch({ type: "itemQty", index, qty: Number.isFinite(n) ? Math.max(0, Math.floor(n)) : e.qty }); } } });
+  return h("div", { cls: "fe-item-menu", data: { menu: String(index) } },
+    h("label", { cls: "fe-kv" }, h("span", { text: "Consumable (used up when used)" }), sw),
+    h("label", { cls: "fe-kv" }, h("span", { text: "Quantity" }), qty));
 }
 
 /** A stack of ordinary things (potions, rope, daggers) can be counted up and down; one-of-a-kind gear (armor, attuned or charged items) cannot. */
@@ -74,7 +92,9 @@ export function inventoryFeature(ctl: SheetController, st: ActorStats): HTMLElem
       it && it.data.kind !== "gear" && it.data.kind !== "consumable" ? btn(e.equipped ? "Equipped" : "Equip", () => ctl.dispatch({ type: "equip", index: i, on: !e.equipped }), e.equipped ? "is-on" : "") : null,
       it?.data.attunement ? btn(e.attuned ? "Attuned" : "Attune", () => ctl.dispatch({ type: "attune", index: i, on: !e.attuned }), e.attuned ? "is-on" : "") : null,
       ctl.editing ? btn("Remove", () => ctl.dispatch({ type: "removeItem", index: i })) : null,
-      itemPinButton(ctl, itemRef(e)));
+      itemPinButton(ctl, itemRef(e)),
+      itemMenuButton(ctl, i, name),
+      ctl.itemMenu === i ? itemMenu(ctl, i, s) : null);
   }),
   h("div", { cls: "fe-kv" }, h("span", { text: Object.entries(c.coins).filter(([, v]) => v).map(([k, v]) => `${v} ${k}`).join(" ") || "No coins" }),
     h("span", { cls: "fe-muted", text: `${st.carry.weight} / ${st.carry.capacity} lb · attuned ${st.attunedCount}/3`, ...(st.why.carry ? { data: { ref: "why:carry" } } : {}) })),

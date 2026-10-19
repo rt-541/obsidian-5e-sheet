@@ -246,6 +246,10 @@
 .fe-sheet button.fe-add-item { width: 100%; font-weight: 600; margin-bottom: 6px; }
 .fe-additem-results { display: grid; gap: 0; }
 .fe-additem .fe-filters { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
+.fe-item-menu { flex: 1 1 100%; display: grid; gap: 4px; padding: 6px 8px; border-radius: var(--radius-s); background: var(--background-secondary); }
+.fe-item-menu .fe-amt { width: 80px; }
+.fe-mobile .fe-item-menu input, .fe-tablet .fe-item-menu input:not([type="checkbox"]) { min-height: 44px; }
+.fe-mobile button.fe-item-menu-btn, .fe-tablet button.fe-item-menu-btn { min-width: 44px; }
 /* inventory quantity stepper */
 .fe-qty { display: inline-flex; align-items: center; gap: 4px; }
 .fe-qty-n { min-width: 2ch; text-align: center; font-variant-numeric: tabular-nums; font-weight: var(--font-semibold); }

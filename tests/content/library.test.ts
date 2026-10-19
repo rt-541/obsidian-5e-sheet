@@ -131,4 +131,13 @@ describe("library adapter", () => {
     const e = lib<any>(r, "item", "linked"); await r.hydrate(e);
     expect(e.data.rules).toBe("Removes blinded and  <b>y</b>.");
   });
+
+  it("scrolls and ammunition are used up, like potions", async () => {
+    const { r, a } = await setup();
+    for (const [id, type] of [["inv-scroll", "Scroll"], ["inv-arrows", "Ammunition"], ["inv-draught", "Potion"], ["inv-trinket", "Adventuring Gear"]]) {
+      a.notes[`${LIB_ROOT}/Items/${id}.md`] = { fm: { type: "5e-item", id, name: id, item_type: type } };
+      await new VaultLoader(r, a, "compendium/5e").changed(`${LIB_ROOT}/Items/${id}.md`);
+    }
+    expect(["inv-scroll", "inv-arrows", "inv-draught", "inv-trinket"].map(id => lib<any>(r, "item", id).data.kind)).toEqual(["consumable", "consumable", "consumable", "gear"]);
+  });
 });
