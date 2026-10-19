@@ -2,6 +2,7 @@
 import { readFileSync } from "node:fs";
 import { thalia } from "../fixtures/notes";
 import { sheet } from "./review-helpers";
+import { setup } from "./spells-helpers";
 
 const css = readFileSync("styles.css", "utf8");
 
@@ -20,5 +21,13 @@ describe("narrow rows", () => {
     const s = sheet("mobile", { ...thalia, inventory: [{ id: "warhammer", equipped: true }] });
     s.click(s.q('[data-tab="gear"]'));
     expect(s.q('[data-feature="inventory"] .fe-inv').firstElementChild!.classList.contains("fe-grow")).toBe(true);
+  });
+  it("an own-spell row keeps its prepared dot inside the name cell, spaced from the name", () => {
+    const s = setup({ ...thalia, spells: [{ id: "test-spark", prepared: true }] }, "mobile");
+    s.click('[data-tab="spells"]');
+    const dot = s.q('[data-spell="test-spark"] [data-act="prepare"]');
+    expect(dot.parentElement!.classList.contains("fe-grow")).toBe(true);
+    expect(dot.parentElement).toBe(s.q('[data-spell="test-spark"]').querySelector(".fe-grow"));
+    expect(css).toMatch(/\.fe-grow > \.fe-dot \{[^}]*margin-right: 6px/);
   });
 });

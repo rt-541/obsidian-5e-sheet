@@ -191,6 +191,7 @@
 .fe-desktop .fe-pane { grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); }
 .fe-pane > *, .fe-col, .fe-col > *, .fe-card, .fe-pinned > * { min-width: 0; max-width: 100%; }
 .fe-inv-name, .fe-spell-name, .fe-card, .fe-note, .fe-rules, .fe-muted, .fe-faint, .fe-name, .fe-kv > span { overflow-wrap: break-word; }
+.fe-grow > .fe-dot { margin-right: 6px; vertical-align: middle; }
 /* Narrow rows: the name takes its own line and the controls drop under it, so words never break mid-word. */
 .fe-mobile .fe-inv > .fe-grow, .fe-tablet .fe-inv > .fe-grow, .fe-mobile .fe-attack > .fe-grow, .fe-tablet .fe-attack > .fe-grow, .fe-mobile .fe-trait > .fe-grow, .fe-tablet .fe-trait > .fe-grow { flex: 1 1 100%; }
 .fe-attack > .fe-grow { min-width: 7em; }
