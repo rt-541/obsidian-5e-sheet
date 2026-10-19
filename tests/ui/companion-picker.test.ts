@@ -14,21 +14,21 @@ import { STATBLOCK_TEMPLATE } from "../../src/content/statblock";
 import { thalia } from "../fixtures/notes";
 
 const LAYOUTS = ["desktop", "tablet", "mobile"] as const;
-const BLOCK = `Test Spider
-Medium beast, unaligned
-Armor Class 13 (natural armor)
-Hit Points 11 (2d8 + 2)
-Speed 30 ft., climb 30 ft.
+const BLOCK = `Test Crawler
+Small beast, unaligned
+Armor Class 14 (natural armor)
+Hit Points 13 (3d6 + 3)
+Speed 25 ft., climb 25 ft.
 STR DEX CON INT WIS CHA
-12 (+1) 16 (+3) 12 (+1) 2 (-4) 10 (+0) 4 (-3)
-Challenge 1/4 (50 XP)
+8 (-1) 15 (+2) 12 (+1) 3 (-4) 11 (+0) 5 (-3)
+Challenge 1/8 (25 XP)
 Wall Crawl. Walks on walls.
 Actions
-Bite. Melee Weapon Attack: +3 to hit, reach 5 ft., one creature. Hit: 4 (1d6 + 1) piercing damage.`;
+Nip. Melee Weapon Attack: +4 to hit, reach 5 ft., one creature. Hit: 5 (1d6 + 2) piercing damage.`;
 
 function setup(layout: (typeof LAYOUTS)[number], withSave = true) {
   const registry = new Registry(); registerBuiltinTypes(registry); loadSrd(registry);
-  for (const n of ["Test Spider", "Glass Beetle", "Spiderling Swarm", "Crab", "Giant Test Spider"])
+  for (const n of ["Test Crawler", "Test Spider", "Glass Beetle", "Spiderling Swarm", "Crab", "Giant Test Spider"])
     registry.add("vault", "creature", { name: n, size: "Small", ctype: "beast", ac: 11, hp: { average: 5, formula: "1d8" }, speed: { walk: 20 }, cr: "1/8", abilities: { str: 5, dex: 5, con: 5, int: 1, wis: 5, cha: 1 } }, { path: `h/${n}.md`, sourceName: "Homebrew" });
   const files = new Map<string, string>();
   const io: NoteIO = { exists: p => files.has(p), ensureFolder: async () => undefined, create: async (p, t) => { files.set(p, t); } };
@@ -153,14 +153,14 @@ describe.each(LAYOUTS)("companion picker (%s)", layout => {
     s.type(s.q('[aria-label="Stat block text"]'), BLOCK.replace("Challenge", "this line is nonsense\nChallenge"));
     s.click('[data-act="read-statblock"]');
     const form = s.q('[data-form="creature"]');
-    expect((form.querySelector('[aria-label="Creature name"]') as HTMLInputElement).value).toBe("Test Spider (2)".replace(" (2)", ""));
-    expect((form.querySelector('[aria-label="Armor Class"]') as HTMLInputElement).value).toBe("13");
-    expect((form.querySelector('[aria-label="Attack 1 damage dice"]') as HTMLInputElement).value).toBe("1d6+1");
+    expect((form.querySelector('[aria-label="Creature name"]') as HTMLInputElement).value).toBe("Test Crawler");
+    expect((form.querySelector('[aria-label="Armor Class"]') as HTMLInputElement).value).toBe("14");
+    expect((form.querySelector('[aria-label="Attack 1 damage dice"]') as HTMLInputElement).value).toBe("1d6+2");
     expect(s.q("[data-unread]").textContent).toContain("this line is nonsense");
     s.click('[data-act="save-creature"]'); await s.flush(); await s.flush();
-    // "Test Spider" is already in the registry: the new note is renamed, never overwritten
-    expect([...s.files.keys()]).toEqual(["compendium/5e/Homebrew/Creatures/Test Spider (2).md"]);
-    expect(s.ctl.character!.companions.at(-1)).toMatchObject({ creature: "test-spider-2", name: "Test Spider (2)" });
+    // "Test Crawler" is already in the registry: the new note is renamed, never overwritten
+    expect([...s.files.keys()]).toEqual(["compendium/5e/Homebrew/Creatures/Test Crawler (2).md"]);
+    expect(s.ctl.character!.companions.at(-1)).toMatchObject({ creature: "test-crawler-2", name: "Test Crawler (2)" });
   });
 
   it("Copy template copies the fenced template, or shows it to select by hand", async () => {
@@ -186,13 +186,13 @@ describe.each(LAYOUTS)("companion picker (%s)", layout => {
 describe("5e-statblock card", () => {
   it("renders the creature and adds it to the compendium, saying where it went", async () => {
     const el = document.createElement("div"); let got = "";
-    renderStatblock(el, "```5e-statblock\n" + BLOCK + "\n```", async d => { got = d.name; return { name: d.name, path: "compendium/5e/Homebrew/Creatures/Test Spider.md" }; });
-    expect(el.textContent).toContain("Armor Class 13 (natural armor)");
+    renderStatblock(el, "```5e-statblock\n" + BLOCK + "\n```", async d => { got = d.name; return { name: d.name, path: "compendium/5e/Homebrew/Creatures/Test Crawler.md" }; });
+    expect(el.textContent).toContain("Armor Class 14 (natural armor)");
     expect(el.textContent).toContain("Wall Crawl.");
-    expect(el.textContent).toContain("Bite. +3 to hit.");
+    expect(el.textContent).toContain("Nip. +4 to hit.");
     (el.querySelector('[data-act="add-to-compendium"]') as HTMLElement).click(); await new Promise(r => setTimeout(r, 0));
-    expect(got).toBe("Test Spider");
-    expect(el.querySelector(".fe-sb-status")!.textContent).toContain("Saved Test Spider to compendium/5e/Homebrew/Creatures/Test Spider.md");
+    expect(got).toBe("Test Crawler");
+    expect(el.querySelector(".fe-sb-status")!.textContent).toContain("Saved Test Crawler to compendium/5e/Homebrew/Creatures/Test Crawler.md");
   });
 
   it("lists problems in plain words and will not add an unfinished block", () => {

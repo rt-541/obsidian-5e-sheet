@@ -6,61 +6,61 @@ import { blankDraft, draftToNote, freeName, joinDamage, normalizeDice, splitDama
 import { parseStatblock, STATBLOCK_TEMPLATE } from "../../src/content/statblock";
 
 // Invented creatures only.
-const SPIDER = `Test Spider
-Medium beast, unaligned
-Armor Class 13 (natural armor)
-Hit Points 11 (2d8 + 2)
-Speed 30 ft., climb 30 ft.
+const CRAWLER = `Test Crawler
+Small beast, unaligned
+Armor Class 14 (natural armor)
+Hit Points 13 (3d6 + 3)
+Speed 25 ft., climb 25 ft.
 
 STR DEX CON INT WIS CHA
-12 (+1) 16 (+3) 12 (+1) 2 (-4) 10 (+0) 4 (-3)
+8 (-1) 15 (+2) 12 (+1) 3 (-4) 11 (+0) 5 (-3)
 
-Skills Stealth +5
-Senses blindsight 10 ft., darkvision 60 ft., passive Perception 10
+Skills Stealth +4
+Senses darkvision 30 ft., passive Perception 10
 Languages -
-Challenge 1/4 (50 XP)
+Challenge 1/8 (25 XP)
 
-Wall Crawl. The test spider walks on walls and ceilings as easily as on the floor.
+Wall Crawl. The test crawler walks on walls and ceilings as easily as on the floor.
 
-Silk Stride. The test spider moves through its own silk without slowing down.
+Silk Stride. The test crawler moves through its own silk without slowing down.
 
 Actions
-Bite. Melee Weapon Attack: +3 to hit, reach 5 ft., one creature. Hit: 4 (1d6 + 1) piercing damage, and the target must make a DC 11 Constitution saving throw or take 7 (2d6) poison damage.`;
+Nip. Melee Weapon Attack: +4 to hit, reach 5 ft., one creature. Hit: 5 (1d6 + 2) piercing damage, and the target must succeed on a DC 10 Constitution saving throw or take 3 (1d6) acid damage.`;
 
 describe("parseStatblock", () => {
   it("reads a plain-text block in the 2014 layout", () => {
-    const { draft: d, unread } = parseStatblock(SPIDER);
+    const { draft: d, unread } = parseStatblock(CRAWLER);
     expect(unread).toEqual([]);
-    expect(d).toMatchObject({ name: "Test Spider", size: "Medium", ctype: "beast", alignment: "unaligned", ac: 13, acNote: "natural armor", hpAvg: 11, hpFormula: "2d8+2", cr: "1/4", skills: { stealth: 5 } });
-    expect(d.speed).toEqual({ walk: 30, climb: 30 });
-    expect(d.abilities).toEqual({ str: 12, dex: 16, con: 12, int: 2, wis: 10, cha: 4 });
-    expect(d.senses).toBe("blindsight 10 ft., darkvision 60 ft., passive Perception 10");
+    expect(d).toMatchObject({ name: "Test Crawler", size: "Small", ctype: "beast", alignment: "unaligned", ac: 14, acNote: "natural armor", hpAvg: 13, hpFormula: "3d6+3", cr: "1/8", skills: { stealth: 4 } });
+    expect(d.speed).toEqual({ walk: 25, climb: 25 });
+    expect(d.abilities).toEqual({ str: 8, dex: 15, con: 12, int: 3, wis: 11, cha: 5 });
+    expect(d.senses).toBe("darkvision 30 ft., passive Perception 10");
     expect(d.languages).toBeUndefined();
     expect(d.traits.map(t => t.name)).toEqual(["Wall Crawl", "Silk Stride"]);
-    expect(d.attacks).toEqual([{ name: "Bite", toHit: 3, damage: "1d6+1 piercing", note: "Reach 5 ft., one creature. The target must make a DC 11 Constitution saving throw or take 7 (2d6) poison damage." }]);
+    expect(d.attacks).toEqual([{ name: "Nip", toHit: 4, damage: "1d6+2 piercing", note: "Reach 5 ft., one creature. The target must succeed on a DC 10 Constitution saving throw or take 3 (1d6) acid damage." }]);
   });
 
   it("reads the same block inside a 5e-statblock fence", () => {
-    const fenced = "Some note text\n\n```5e-statblock\n" + SPIDER + "\n```\n\nafter";
-    expect(parseStatblock(fenced)).toEqual(parseStatblock(SPIDER));
+    const fenced = "Some note text\n\n```5e-statblock\n" + CRAWLER + "\n```\n\nafter";
+    expect(parseStatblock(fenced)).toEqual(parseStatblock(CRAWLER));
   });
 
   it("reads the ability scores one per line, or interleaved with their labels", () => {
-    const oneEach = SPIDER.replace("STR DEX CON INT WIS CHA\n12 (+1) 16 (+3) 12 (+1) 2 (-4) 10 (+0) 4 (-3)", "STR\n12 (+1)\nDEX\n16 (+3)\nCON\n12 (+1)\nINT\n2 (-4)\nWIS\n10 (+0)\nCHA\n4 (-3)");
-    expect(parseStatblock(oneEach).draft.abilities).toEqual(parseStatblock(SPIDER).draft.abilities);
-    const inline = SPIDER.replace("STR DEX CON INT WIS CHA\n12 (+1) 16 (+3) 12 (+1) 2 (-4) 10 (+0) 4 (-3)", "STR 12 (+1) DEX 16 (+3) CON 12 (+1) INT 2 (-4) WIS 10 (+0) CHA 4 (-3)");
-    expect(parseStatblock(inline).draft.abilities).toEqual(parseStatblock(SPIDER).draft.abilities);
+    const oneEach = CRAWLER.replace("STR DEX CON INT WIS CHA\n8 (-1) 15 (+2) 12 (+1) 3 (-4) 11 (+0) 5 (-3)", "STR\n8 (-1)\nDEX\n15 (+2)\nCON\n12 (+1)\nINT\n3 (-4)\nWIS\n11 (+0)\nCHA\n5 (-3)");
+    expect(parseStatblock(oneEach).draft.abilities).toEqual(parseStatblock(CRAWLER).draft.abilities);
+    const inline = CRAWLER.replace("STR DEX CON INT WIS CHA\n8 (-1) 15 (+2) 12 (+1) 3 (-4) 11 (+0) 5 (-3)", "STR 8 (-1) DEX 15 (+2) CON 12 (+1) INT 3 (-4) WIS 11 (+0) CHA 5 (-3)");
+    expect(parseStatblock(inline).draft.abilities).toEqual(parseStatblock(CRAWLER).draft.abilities);
   });
 
   it("tolerates blank lines, unicode minus, bullets and markdown emphasis", () => {
-    const messy = SPIDER.replace(/\n/g, "\n\n").replace("(-4)", "(−4)").replace("(-3)", "(−3)").replace("Wall Crawl.", "***Wall Crawl.***").replace("Bite.", "**Bite.**")
+    const messy = CRAWLER.replace(/\n/g, "\n\n").replace("(-4)", "(−4)").replace("(-3)", "(−3)").replace("Wall Crawl.", "***Wall Crawl.***").replace("Nip.", "**Nip.**")
       .replace("Armor Class", "- **Armor Class**").replace("Hit Points", "• Hit Points").replace("Challenge", "> Challenge");
     const { draft: d, unread } = parseStatblock(messy);
     expect(unread).toEqual([]);
-    expect(d).toMatchObject({ ac: 13, hpAvg: 11, cr: "1/4" });
-    expect(d.abilities.int).toBe(2);
+    expect(d).toMatchObject({ ac: 14, hpAvg: 13, cr: "1/8" });
+    expect(d.abilities.int).toBe(3);
     expect(d.traits[0].name).toBe("Wall Crawl");
-    expect(d.attacks[0]).toMatchObject({ name: "Bite", toHit: 3, damage: "1d6+1 piercing" });
+    expect(d.attacks[0]).toMatchObject({ name: "Nip", toHit: 4, damage: "1d6+2 piercing" });
   });
 
   it("takes several damage types, flat damage and negative to-hit", () => {
@@ -113,13 +113,13 @@ Tail Swipe. The wyrm makes one tail attack.`);
   });
 
   it("joins a trait that wraps over lines but starts a new one after a sentence end", () => {
-    const { draft: d } = parseStatblock(SPIDER.replace("as easily as on the floor.", "as easily as\non the floor.\nPack Tactics. Advantage when an ally is near."));
+    const { draft: d } = parseStatblock(CRAWLER.replace("as easily as on the floor.", "as easily as\non the floor.\nPack Tactics. Advantage when an ally is near."));
     expect(d.traits[0].text).toMatch(/as easily as on the floor\.$/);
     expect(d.traits.map(t => t.name)).toEqual(["Wall Crawl", "Pack Tactics", "Silk Stride"]);
   });
 
   it("lists lines it could not read, in the player's own words", () => {
-    const r = parseStatblock(SPIDER.replace("Skills Stealth +5", "Skills Stealth +5\nthis line is nonsense that means nothing"));
+    const r = parseStatblock(CRAWLER.replace("Skills Stealth +4", "Skills Stealth +4\nthis line is nonsense that means nothing"));
     expect(r.unread).toEqual(["this line is nonsense that means nothing"]);
     const bare = parseStatblock("Nothing Useful\nwhat is this");
     expect(bare.unread).toContain("Ability scores (STR DEX CON INT WIS CHA)");
@@ -138,20 +138,20 @@ describe("creature notes", () => {
   const reg = () => { const r = new Registry(); registerBuiltinTypes(r); return r; };
 
   it("a parsed stat block becomes a note that round-trips through creatureType.validate", () => {
-    const { draft } = parseStatblock(SPIDER);
+    const { draft } = parseStatblock(CRAWLER);
     expect(validateDraft(draft)).toEqual([]);
     const { id, fm, body } = draftToNote(draft);
-    expect(id).toBe("test-spider");
+    expect(id).toBe("test-crawler");
     const res = creatureType.validate(fm);
     expect(res.errors).toEqual([]);
-    expect(res.value).toMatchObject({ name: "Test Spider", ac: 13, hp: { average: 11, formula: "2d8+2" }, speed: { walk: 30, climb: 30 }, cr: "1/4", ctype: "beast" });
-    expect(res.value!.attacks[0]).toMatchObject({ name: "Bite", toHit: 3, damage: "1d6+1 piercing" });
+    expect(res.value).toMatchObject({ name: "Test Crawler", ac: 14, hp: { average: 13, formula: "3d6+3" }, speed: { walk: 25, climb: 25 }, cr: "1/8", ctype: "beast" });
+    expect(res.value!.attacks[0]).toMatchObject({ name: "Nip", toHit: 4, damage: "1d6+2 piercing" });
     expect(body).toContain("***Wall Crawl.***");
     expect(body).toContain("## Actions");
     // and the registry accepts it like a vault note
     const r = reg();
-    expect(r.add("vault", "creature", fm, { path: "compendium/5e/Homebrew/Creatures/Test Spider.md", body, sourceName: "Homebrew" })).toBeNull();
-    expect(r.get("creature", "test-spider")).toBeDefined();
+    expect(r.add("vault", "creature", fm, { path: "compendium/5e/Homebrew/Creatures/Test Crawler.md", body, sourceName: "Homebrew" })).toBeNull();
+    expect(r.get("creature", "test-crawler")).toBeDefined();
   });
 
   it("keeps resistances, immunities and condition immunities that are plain types", () => {
@@ -169,7 +169,7 @@ describe("creature notes", () => {
   });
 
   it("dice helpers", () => {
-    expect(normalizeDice("2d8 + 2")).toBe("2d8+2");
+    expect(normalizeDice("3d6 + 3")).toBe("3d6+3");
     expect(joinDamage("1d6 + 1", "piercing")).toBe("1d6+1 piercing");
     expect(joinDamage("1d10+2 piercing + 1d6 fire", "")).toBe("1d10+2 piercing + 1d6 fire");
     expect(splitDamage("1d6+1 piercing")).toEqual({ dice: "1d6+1", type: "piercing" });
