@@ -127,7 +127,7 @@ export class SheetController {
   pickers(): Registry { return this.host.registry.scoped(this.host.campaign?.sources); }
   ctx() { return { registry: this.host.registry, ...(this.host.campaign ? { campaign: this.host.campaign } : {}) }; }
   rules() { return resolveRules(MODULES, [this.host.ruleDefaults, this.host.campaign?.rules, this.value.rules]); }
-  /** Whether the player rolls their own dice (a setting only; P3 gives it effect). */
+  /** Whether the player rolls their own dice instead of the sheet rolling for them. */
   ownDice(): boolean { return !!this.rules()[OWN_DICE]; }
   visible(features: string[]) {
     const keep = new Set(["identity", "play-edit"]);
@@ -414,6 +414,14 @@ export class SheetController {
       ...(s.rules?.reroll !== undefined ? { reroll: s.rules.reroll } : {}), ...(s.rules?.min !== undefined ? { min: s.rules.min } : {}),
       ...(s.crit && s.crit.range < 20 ? { critRange: s.crit.range } : {}) });
   }
+  /** Own-dice play: the to-hit option dice that are on and affordable for this attack, spent now, as the words to add to the d20. */
+  private ownToHitExtras(s: ReturnType<SheetController["d20Setup"]>, target: RollTarget): Extra[] {
+    if (target.kind !== "attack" || !s.st || s.src.fail.length) return [];
+    const used = affordable(toHitOptions(s.st.attackOptions, target));
+    const extras = used.map((o, i) => ({ dice: o.toHit!, name: o.name, ...(spendWords(used, i) ? { spent: spendWords(used, i)! } : {}) }));
+    this.spend(used);
+    return extras;
+  }
   /** Own-dice play: record one entry that says what to roll (nothing is rolled) and open the box for it. */
   private ownSay(title: string, words: string, sources = { adv: [] as string[], dis: [] as string[], fail: [] as string[] }): RollResult {
     const entry = this.record({ title, total: 0, dice: [], detail: words, crit: false, fumble: false, sources, own: {} });
@@ -423,12 +431,7 @@ export class SheetController {
   roll(title: string, mod: number, target: RollTarget, ev: Mods = {}, who?: number, force?: RollMode): RollResult {
     const s = this.d20Setup(target, ev, who, force), { st, src, mode, crit, rules } = s;
     if (this.ownDice()) {
-      let extras: Extra[] = [];
-      if (who === undefined && target.kind === "attack" && st && !src.fail.length) {
-        const used = affordable(toHitOptions(st.attackOptions, target));
-        extras = used.map((o, i) => ({ dice: o.toHit!, name: o.name, ...(spendWords(used, i) ? { spent: spendWords(used, i)! } : {}) }));
-        this.spend(used);
-      }
+      const extras = who === undefined ? this.ownToHitExtras(s, target) : [];
       return this.ownSay(title, this.d20Say(mod, s, extras), src);
     }
     const rolled = rollD20({ title, mod, mode, ...src, ...(crit ? { critRange: crit.range, critNote: crit.hints } : {}), ...(this.host.rng ? { rng: this.host.rng } : {}),
@@ -702,7 +705,10 @@ export class SheetController {
       if (own && (a.attack !== undefined || a.damage || a.heal)) {
         // one entry with every part of the action in words
         const words = [...parts];
-        if (a.attack !== undefined) words.splice(saveAt >= 0 ? saveAt : words.length, 0, this.d20Say(Math.floor(evalFormula(a.attack, vars)), this.d20Setup({ kind: "attack" }, {})));
+        if (a.attack !== undefined) {
+          const target: RollTarget = { kind: "attack" }, setup = this.d20Setup(target, {});
+          words.splice(saveAt >= 0 ? saveAt : words.length, 0, this.d20Say(Math.floor(evalFormula(a.attack, vars)), setup, this.ownToHitExtras(setup, target)));
+        }
         if (a.damage) words.push(`you roll ${spaced(fillDice(a.damage, scales))}`);
         if (a.heal) words.push(`Roll ${spaced(fillDice(a.heal, scales))} healing`);
         this.ownSay(a.name, words.join("; ")); return;

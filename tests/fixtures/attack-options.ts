@@ -21,6 +21,8 @@ export function optionsRegistry(): Registry {
   feat("test-savage", [feature("Test Savage", { attackOption: { reroll: true, oncePerTurn: true, on: "attack:weapon" } })]);
   feat("test-lost", [feature("Test Lost", { attackOption: { toHit: "1d4", resource: "Missing Dice" } })]);
   feat("test-ember", [feature("Test Ember", { effects: { extraDamage: [{ dice: "1d6", type: "fire", on: "attack:weapon" }] } })]);
+  feat("test-flurry", [res("Flurry Dice", 2), { op: "dc", id: "flurry-dc", name: "Flurry", abil: "con" },
+    feature("Test Flurry", { action: { name: "Flurry Strike", cost: { resource: "Flurry Dice" }, attack: "5", save: { abil: "dex", dc: "Flurry" }, damage: "2d6+1", heal: "1d4" } })]);
   feat("test-blood-price", [feature("Test Blood Price", { action: { name: "Blood Price", cost: { selfDamage: "1d6" }, damage: "2d6" } })]);
   bad(r.add("vault", "item", { id: "test-hunting-blade", name: "Test Hunting Blade", kind: "weapon", attunement: false, weight: 3,
     weapon: { dmg: "1d6", type: "slashing", ab: "str", range: "melee", category: "martial" }, attackOption: { onHit: "1d6", oncePerTurn: true } }, { path: "test-hunting-blade.md" }));

@@ -40,6 +40,39 @@ for (const layout of ["desktop", "tablet", "mobile"] as const) describe(`own dic
     s.ctl.open({ kind: "log" }); expect(s.q(".fe-log b").textContent).toBe("");
   });
 
+  it("using an action says every part in one entry, spends its cost and the to-hit options, and rolls nothing", () => {
+    const s = sheetWith(layout, { feats: ["test-flurry", "test-focus"], optionsOn: ["test-focus"], rules: { "own-dice": true } });
+    const rngSpy = vi.fn(() => 0.5); s.host.rng = rngSpy;
+    const f = s.ctl.stats()!.progress.features.find(x => x.action?.name === "Flurry Strike")!;
+    s.ctl.useAction(f);
+    expect(rngSpy).not.toHaveBeenCalled();
+    expect(s.left("flurry-dice").used).toBe(1);
+    expect(s.left("focus-dice").used).toBe(1);
+    expect(s.host.log.length).toBe(1);
+    const text = s.host.log[0].detail;
+    const parts = text.split("; ");
+    expect(parts[0]).toMatch(/^Flurry Dice -1$/);
+    expect(parts[1]).toMatch(/^Roll 1d20 \+ 5, plus 1d4 for Test Focus/);
+    expect(parts[2]).toMatch(/^They roll a DEX save against DC \d+$/);
+    expect(parts[3]).toBe("you roll 2d6 + 1");
+    expect(parts[4]).toBe("Roll 1d4 healing");
+    expect(parts.length).toBe(5);
+    expect(s.q(".fe-own-roll").textContent).toContain(text);
+  });
+
+  it("Hit says the plain damage and spends the on-hit options like sheet mode", () => {
+    const s = sheetWith(layout, { feats: ["test-focus", "test-analysis"], optionsOn: ["test-focus", "test-analysis"], rules: { "own-dice": true } });
+    const rngSpy = vi.fn(() => 0.5); s.host.rng = rngSpy;
+    s.click(s.row("Longsword").querySelector('[data-act="to-hit"]'));
+    expect(s.left("insight-dice").used).toBe(0);
+    s.click(s.q('[data-act="own-hit"]'));
+    const t = s.q(".fe-own-roll").textContent!;
+    expect(t).toContain("Roll 1d8 + 3 slashing"); expect(t).not.toContain("2d8");
+    expect(t).toContain("+ 1d4 for Test Analysis"); expect(t).not.toContain("2d4");
+    expect(s.left("insight-dice").used).toBe(1);
+    expect(rngSpy).not.toHaveBeenCalled();
+  });
+
   it("the settings switch turns it on, stores it on the character and closes an open box", () => {
     const t = sheetWith(layout);
     t.click(t.q('[data-setting="own-dice"] [data-opt="on"]'));
