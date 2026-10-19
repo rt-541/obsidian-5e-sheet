@@ -17,6 +17,14 @@ describe("styles.css", () => {
   });
 });
 
+describe("ability scores", () => {
+  it("sit in two rows of three (STR DEX CON over INT WIS CHA), never an auto-fit row", () => {
+    const rules = [...css.matchAll(/\.fe-abilities \{([^}]*)\}/g)].map(m => m[1]).filter(b => b.includes("grid-template-columns"));
+    expect(rules.at(-1)).toContain("repeat(3, minmax(0, 1fr))");
+    expect(rules.some(b => b.includes("auto-fit"))).toBe(false);
+  });
+});
+
 describe("leveling styles", () => {
   it("the wizard keeps 44px targets on mobile", () => {
     expect(css).toMatch(/\.fe-mobile \.fe-lu-nav button\.fe-btn, \.fe-mobile \.fe-choice \{ min-height: 44px; \}/);
