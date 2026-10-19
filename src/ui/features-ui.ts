@@ -4,7 +4,7 @@ import type { FeatureRow } from "../core/progression";
 import type { Abil } from "../core/types";
 import type { SheetController } from "./controller";
 import { h } from "./h";
-import { btn, card, describeEffects, usesPips } from "./widgets";
+import { actionWords, btn, card, describeEffects, usesPips, wordsCtx } from "./widgets";
 import { changeList } from "./levelup-ui";
 
 const ABIL_NAME: Record<Abil, string> = { str: "STR", dex: "DEX", con: "CON", int: "INT", wis: "WIS", cha: "CHA" };
@@ -43,9 +43,7 @@ export function levelUpFeature(ctl: SheetController): HTMLElement {
 
 function actionRow(ctl: SheetController, st: ActorStats, f: FeatureRow): HTMLElement {
   const a = f.action!;
-  const cost = a.cost && "resource" in a.cost ? `costs ${a.cost.amount ?? 1} ${a.cost.resource}` : a.cost && "selfDamage" in a.cost ? `costs ${a.cost.selfDamage} damage to you` : "";
-  const dc = a.save ? st.progress.dcs.find(x => x.name.toLowerCase() === a.save!.dc.toLowerCase() || x.id === a.save!.dc.toLowerCase().replace(/[^a-z0-9]+/g, "-")) : undefined;
-  const bits = [cost, a.attack !== undefined ? "attack" : "", a.damage ?? "", a.heal ? `heals ${a.heal}` : "", a.save ? `${ABIL_NAME[a.save.abil]} save${dc ? ` DC ${dc.dc}` : ""}` : ""].filter(Boolean);
+  const bits = actionWords(a, st);
   return h("div", { cls: "fe-inv", data: { action: f.key } },
     h("div", { cls: "fe-grow" }, h("span", { cls: "fe-inv-name", text: a.name, data: { ref: `feature:${f.key}` } }), h("div", { cls: "fe-faint", text: [f.source, ...bits].join(" · ") })),
     btn("Use", () => ctl.useAction(f), "", ));
@@ -53,7 +51,7 @@ function actionRow(ctl: SheetController, st: ActorStats, f: FeatureRow): HTMLEle
 
 /** Features by source, class DCs, scales, derived resources, actions and the choices a note still owes. */
 export function featuresFeature(ctl: SheetController, st: ActorStats): HTMLElement {
-  const p = st.progress, c = ctl.character;
+  const p = st.progress, c = ctl.character, wc = wordsCtx(c, st);
   const cards: (HTMLElement | null)[] = [];
   if (p.pending.length && c) {
     const steps = planResolve(c, ctl.host.registry);
@@ -84,7 +82,7 @@ export function featuresFeature(ctl: SheetController, st: ActorStats): HTMLEleme
   const featureRow = (f: FeatureRow) => h("div", { cls: "fe-kv", data: { key: f.key } },
     h("span", { cls: "fe-inv-name", text: f.name, data: { ref: `feature:${f.key}` } }),
     f.overlay ? h("span", { cls: "fe-chip", text: "built-in", attrs: { title: `The plugin supplied these numbers (${f.overlay}). Your note does not have any for this feature.` }, data: { builtin: f.overlay } }) : null,
-    h("span", { cls: "fe-muted", text: describeEffects(f.effects) }));
+    h("span", { cls: "fe-muted", text: describeEffects(f.effects, wc) }));
   const group = ([source, list]: [string, FeatureRow[]]) => h("div", { cls: "fe-feature-group", data: { source } }, h("div", { cls: "fe-faint", text: source }), ...list.map(featureRow));
   cards.push(card("Features", ...(groups.size ? [...groups].map(group) : [h("div", { cls: "fe-faint", text: "No class features yet." })])));
   if (p.problems.length || p.unknown.length) cards.push(card("Problems",

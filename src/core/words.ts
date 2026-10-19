@@ -57,3 +57,19 @@ export function optionListLabel(list: string, count: number, classId?: string): 
   }
   return `Choose ${plural(count, name)}`;
 }
+
+const ABIL_FULL: Record<string, string> = { str: "Strength", dex: "Dexterity", con: "Constitution", int: "Intelligence", wis: "Wisdom", cha: "Charisma" };
+
+/** A formula as a player would say it: "total" reads "your level", "plan_count" reads "your plan count", anything with operators "an amount that grows with your level". */
+export function formulaWords(f: string): string {
+  const s = f.trim();
+  if (/^[a-z_][a-z0-9_]*$/i.test(s)) {
+    const k = s.toLowerCase();
+    if (k === "total" || k === "level") return "your level";
+    if (k === "prof") return "your proficiency bonus";
+    if (ABIL_FULL[k]) return `your ${ABIL_FULL[k]} modifier`;
+    return `your ${k.replace(/_+/g, " ").trim()}`;
+  }
+  if (/^[\d.]+$/.test(s)) return s;
+  return "an amount that grows with your level";
+}

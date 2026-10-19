@@ -1,5 +1,10 @@
+import type { Character } from "../core/character";
+import type { ActorStats } from "../core/derive";
+import { evalFormula, fillDice } from "../core/formula";
+import { formulaVars, type FeatureRow } from "../core/progression";
 import { tagParts } from "../core/roll-tags";
 import type { Effects, Modifier } from "../core/types";
+import { formulaWords } from "../core/words";
 import { h, sgn } from "./h";
 
 export const card = (title: string, ...kids: (Node | null | false)[]) => h("div", { cls: "fe-card" }, title ? h("div", { cls: "fe-card-title", text: title }) : null, ...kids);
@@ -35,19 +40,31 @@ export function tagWords(tag: string): string {
     return k === "attack" ? "attacks" : k === "save" ? "saves" : k === "check" ? "ability checks" : p;
   }).join(" and ");
 }
-const modWords = (m: Modifier): string => {
+/** What formulas and dice read against: the character's numbers when known, else plain words. */
+export interface WordsCtx { vars?: Record<string, number>; scales?: Record<string, string | number>; }
+export function wordsCtx(c: Character | undefined, st: ActorStats): WordsCtx {
+  if (!c) return {};
+  const scales = st.progress.scales;
+  return { vars: formulaVars(c, scales), scales };
+}
+/** "+3" for a formula the numbers resolve, else "+ your level" style words. */
+function formulaSigned(f: string, ctx?: WordsCtx): string {
+  if (ctx?.vars) { try { const n = evalFormula(f, ctx.vars); if (Number.isFinite(n)) return sgn(Math.floor(n)); } catch { /* fall through to words */ } }
+  return `+ ${formulaWords(f)}`;
+}
+const modWords = (m: Modifier, ctx?: WordsCtx): string => {
   const t = TARGET_WORDS[m.target] ?? m.target, on = m.on ? ` for ${tagWords(m.on)}` : "";
   if (m.value === "half") return `${t} halved${on}`;
   if (m.value === "zero") return `${t} drops to 0${on}`;
   if (m.value === "double") return `${t} doubled${on}`;
-  return `${t} ${typeof m.value === "number" ? sgn(m.value) : `+ ${m.value}`}${on}`;
+  return `${t} ${typeof m.value === "number" ? sgn(m.value) : formulaSigned(m.value, ctx)}${on}`;
 };
 
 const ABIL_WORD: Record<string, string> = { str: "Strength", dex: "Dexterity", con: "Constitution", int: "Intelligence", wis: "Wisdom", cha: "Charisma" };
-const plusOrFormula = (v: number | string) => (typeof v === "number" ? sgn(v) : `+ ${v}`);
+const plusOrFormula = (v: number | string, ctx?: WordsCtx) => (typeof v === "number" ? sgn(v) : ctx?.vars ? formulaSigned(v, ctx) : `+ ${v}`);
 
 /** Armor class formulas, attacks per action, senses, extra speeds and ability bonuses in plain words. */
-function defenseWords(e: Effects): string[] {
+function defenseWords(e: Effects, ctx?: WordsCtx): string[] {
   const out: string[] = [];
   if (e.acFormula) {
     const f = e.acFormula, when = f.withArmor ? "" : f.noShield ? " when you wear no armor and no shield" : " when you wear no armor";
@@ -65,35 +82,35 @@ function defenseWords(e: Effects): string[] {
   if (sp) for (const k of ["fly", "swim", "climb", "burrow"] as const) if (sp[k] !== undefined) {
     out.push(`${titleCase(k)} speed ${sp[k] === "walk" ? "equal to your walking speed" : `${sp[k]} ft.`}${k === "fly" && sp.hover ? " (hover)" : ""}`);
   }
-  for (const [a, v] of Object.entries(e.abilityBonus ?? {})) out.push(`${ABIL_WORD[a]} ${plusOrFormula(v)}`);
+  for (const [a, v] of Object.entries(e.abilityBonus ?? {})) out.push(`${ABIL_WORD[a]} ${plusOrFormula(v, ctx)}`);
   return out;
 }
 
 /** Dice with a {scale} placeholder in words: `{martial-arts-die}` reads "your Martial Arts die". */
-const diceWords = (d: string | number) => String(d).replace(/\{([a-z0-9-]+)\}/g, (_m, id: string) => `your ${titleCase(id).toLowerCase()}`);
+const diceWords = (d: string | number, ctx?: WordsCtx) => (ctx?.scales ? fillDice(String(d), ctx.scales) : String(d)).replace(/\{([a-z0-9-]+)\}/g, (_m, id: string) => `your ${titleCase(id).toLowerCase()}`);
 const WEAPON_WORDS: Record<string, string> = { all: "all weapons", monk: "monk weapons", unarmed: "unarmed strikes", offhand: "off-hand attacks", pact: "your pact weapon", magic: "magic weapons" };
 const abilsWords = (a: string[]) => a.map(x => ABIL_WORD[x]).join(" or ");
 
 /** Weapon rules, natural weapons, extra damage, crit dice, spell damage, half proficiency and d20 rules in plain words. */
-function combatWords(e: Effects): string[] {
+function combatWords(e: Effects, ctx?: WordsCtx): string[] {
   const out: string[] = [];
   for (const r of e.weaponRule ?? []) {
-    const bits = [...(r.abils ? [`use ${abilsWords(r.abils)} if it is better`] : []), ...(r.die ? [`damage die is at least ${diceWords(r.die)}`] : []),
+    const bits = [...(r.abils ? [`use ${abilsWords(r.abils)} if it is better`] : []), ...(r.die ? [`damage die is at least ${diceWords(r.die, ctx)}`] : []),
       ...(r.magical ? ["count as magical"] : []), ...(r.addMod ? ["add your ability modifier to damage"] : []), ...(r.note ? [r.note] : [])];
     out.push(`${r.match.map(m => WEAPON_WORDS[m] ?? titleCase(m)).join(" and ")}: ${bits.join(", ")}`);
   }
   for (const w of e.weapons ?? []) {
     const ab = w.ab === "finesse" ? "Strength or Dexterity" : Array.isArray(w.ab) ? abilsWords(w.ab) : ABIL_WORD[w.ab];
-    out.push(`Attack: ${w.name} ${diceWords(w.dmg)} ${w.type} (${w.range ?? "melee"}, ${ab})`);
+    out.push(`Attack: ${w.name} ${diceWords(w.dmg, ctx)} ${w.type} (${w.range ?? "melee"}, ${ab})`);
   }
   for (const x of e.extraDamage ?? []) {
-    out.push(`Extra ${diceWords(x.dice)} ${x.type === "weapon" ? "damage" : `${x.type} damage`}${x.on ? ` on ${tagWords(x.on)}` : " on weapon attacks"}${x.per === "turn" ? ", once per turn" : ""}${x.note ? ` (${x.note})` : ""}`);
+    out.push(`Extra ${diceWords(x.dice, ctx)} ${x.type === "weapon" ? "damage" : `${x.type} damage`}${x.on ? ` on ${tagWords(x.on)}` : " on weapon attacks"}${x.per === "turn" ? ", once per turn" : ""}${x.note ? ` (${x.note})` : ""}`);
   }
   for (const c of e.critDice ?? []) out.push(`Critical hits roll ${c.extra} extra weapon damage ${c.extra === 1 ? "die" : "dice"}${c.on ? ` on ${tagWords(c.on)}` : ""}`);
   for (const d of e.spellDamage ?? []) {
     const what = [d.spell ? titleCase(d.spell) : "", d.level !== undefined ? (d.level === 0 ? "cantrips" : `level ${d.level} spells`) : "", d.school ? `${titleCase(d.school)} spells` : "",
       d.damageType ? `${d.damageType.join(" or ")} spells` : "", d.class ? `${titleCase(d.class)} spells` : ""].filter(Boolean).join(", ") || "spells";
-    out.push(`Extra ${diceWords(d.add)} damage on ${what}${d.perBeam ? " (for each beam)" : ""}`);
+    out.push(`Extra ${diceWords(d.add, ctx)} damage on ${what}${d.perBeam ? " (for each beam)" : ""}`);
   }
   if (e.halfProf) out.push(`Half your proficiency bonus${e.halfProf.roundUp ? " (rounded up)" : ""} on ${e.halfProf.on.map(tagWords).join(" and ")} you are not proficient in`);
   for (const r of e.d20Rule ?? []) {
@@ -103,25 +120,25 @@ function combatWords(e: Effects): string[] {
   return out;
 }
 
-export function describeEffects(e: Effects): string {
-  const text = effectParts(e).join(" · ");
+export function describeEffects(e: Effects, ctx?: WordsCtx): string {
+  const text = effectParts(e, ctx).join(" · ");
   return e.while?.length ? `${text} (only while ${e.while.map(gateWords).join(" and ")})` : text;
 }
 
 /** An effects block as separate plain facts ("+1 AC", "Disadvantage on attacks"), without the `while` condition. */
-export function effectParts(e: Effects): string[] {
+export function effectParts(e: Effects, ctx?: WordsCtx): string[] {
   const out: string[] = [];
   if (e.adv?.length) out.push("Advantage on " + e.adv.map(tagWords).join(", "));
   if (e.dis?.length) out.push("Disadvantage on " + e.dis.map(tagWords).join(", "));
   if (e.autofail?.length) out.push("Automatically fail " + e.autofail.map(tagWords).join(", "));
-  for (const m of e.modifiers ?? []) out.push(modWords(m));
+  for (const m of e.modifiers ?? []) out.push(modWords(m, ctx));
   if (e.resist?.length) out.push("Resist " + e.resist.join(", "));
   if (e.acAbility) out.push(`AC uses ${e.acAbility.toUpperCase()}`);
-  for (const b of e.saveBonus ?? []) out.push(`${b.abils.map(a => a.toUpperCase()).join("/")} saves ${typeof b.value === "number" ? sgn(b.value) : `+ ${b.value}`}`);
+  for (const b of e.saveBonus ?? []) out.push(`${b.abils.map(a => a.toUpperCase()).join("/")} saves ${plusOrFormula(b.value, ctx)}`);
   if (e.critRange !== undefined) out.push(`Crit on ${e.critRange}-20${e.critOn ? ` for ${tagWords(e.critOn)}` : ""}${e.critVs ? ` vs ${e.critVs}` : ""}`);
   if (e.maxScore) out.push(`${e.maxScore.abil.toUpperCase()} max ${e.maxScore.max}`);
   if (e.conditionImmune?.length) out.push("Can't be " + e.conditionImmune.map(titleCase).join(" or ").toLowerCase());
-  out.push(...defenseWords(e), ...combatWords(e));
+  out.push(...defenseWords(e, ctx), ...combatWords(e, ctx));
   if (e.note) out.push(e.note);
   return out;
 }
@@ -135,12 +152,24 @@ const shorten = (s: string) => {
 };
 
 /** A short tag for an effect's collapsed row: "+1 AC", "Disadvantage on attacks", plus "(and 2 more)" when there is more. */
-export function effectTag(e: Effects): string {
-  const parts = effectParts(e);
+export function effectTag(e: Effects, ctx?: WordsCtx): string {
+  const parts = effectParts(e, ctx);
   const num = (e.modifiers ?? []).find(m => typeof m.value === "number" && !m.on);
   const first = shorten(num ? `${sgn(num.value as number)} ${TARGET_WORDS[num.target] ?? num.target}` : parts[0] ?? "");
   const more = parts.length - 1;
   return first ? `${first}${more > 0 ? ` (and ${more} more)` : ""}` : "";
+}
+
+const SAVE_ABIL: Record<string, string> = { str: "STR", dex: "DEX", con: "CON", int: "INT", wis: "WIS", cha: "CHA" };
+/** The facts an action prints (Actions card, feature card): cost, attack, damage and healing with scale dice filled in, and the save DC. */
+export function actionWords(a: NonNullable<FeatureRow["action"]>, st: ActorStats): string[] {
+  const ctx: WordsCtx = { scales: st.progress.scales };
+  const cost = a.cost && "resource" in a.cost
+    ? `costs ${a.cost.amount === undefined ? 1 : typeof a.cost.amount === "number" ? a.cost.amount : formulaWords(String(a.cost.amount))} ${a.cost.resource}`
+    : a.cost && "selfDamage" in a.cost ? `costs ${diceWords(a.cost.selfDamage, ctx)} damage to you` : "";
+  const dc = a.save ? st.progress.dcs.find(x => x.name.toLowerCase() === a.save!.dc.toLowerCase() || x.id === a.save!.dc.toLowerCase().replace(/[^a-z0-9]+/g, "-")) : undefined;
+  return [cost, a.attack !== undefined ? "attack" : "", a.damage ? diceWords(a.damage, ctx) : "", a.heal ? `heals ${diceWords(a.heal, ctx)}` : "",
+    a.save ? `${SAVE_ABIL[a.save.abil]} save${dc ? ` DC ${dc.dc}` : ""}` : ""].filter(Boolean);
 }
 
 /** Uses of a derived resource: pips, or the word for an unlimited one. */

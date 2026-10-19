@@ -1,7 +1,7 @@
 import type { ActorStats } from "../core/derive";
 import type { SheetController } from "./controller";
 import { h } from "./h";
-import { card, effectParts, effectTag, gateWords } from "./widgets";
+import { card, effectParts, effectTag, gateWords, wordsCtx } from "./widgets";
 
 const CARD_ID = "effects";
 const rowId = (source: string) => `open:effect:${source}`;
@@ -12,11 +12,11 @@ const rowId = (source: string) => `open:effect:${source}`;
  * (the same plugin data as the traits card; rows are closed and the card is open until the player changes them).
  */
 export function activeEffectsFeature(ctl: SheetController, st: ActorStats): HTMLElement {
-  const folded = ctl.isCollapsed(CARD_ID), n = st.effects.length;
+  const folded = ctl.isCollapsed(CARD_ID), n = st.effects.length, wc = wordsCtx(ctl.character, st);
   const head = h("button", { cls: "fe-card-title fe-effects-head", attrs: { "aria-expanded": String(!folded) }, data: { act: "effects-card" }, on: { click: () => ctl.toggleCollapsed(CARD_ID) } },
     h("span", { cls: "fe-trait-caret", text: folded ? ">" : "v" }), h("span", { text: `Active effects${n ? ` (${n})` : ""}` }));
   const rows = folded ? [] : n ? st.effects.map(e => {
-    const open = ctl.isCollapsed(rowId(e.source)), tag = effectTag(e.effects), facts = effectParts(e.effects);
+    const open = ctl.isCollapsed(rowId(e.source)), tag = effectTag(e.effects, wc), facts = effectParts(e.effects, wc);
     return h("div", { cls: `fe-effect ${open ? "is-open" : ""}`.trim(), data: { effect: e.source } },
       h("button", { cls: "fe-effect-head", attrs: { "aria-expanded": String(open) }, data: { act: "effect-row" }, on: { click: () => ctl.toggleCollapsed(rowId(e.source)) } },
         h("span", { cls: "fe-trait-caret", text: open ? "v" : ">" }),

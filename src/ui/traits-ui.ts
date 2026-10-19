@@ -6,7 +6,7 @@ import type { ActorStats } from "../core/derive";
 import type { FeatureRow } from "../core/progression";
 import type { SheetController } from "./controller";
 import { h } from "./h";
-import { btn, card, describeEffects, usesPips } from "./widgets";
+import { btn, card, describeEffects, usesPips, wordsCtx, type WordsCtx } from "./widgets";
 
 /** One row of the traits card: a feature (or a whole feat) with the source it came from. */
 export interface TraitRow { ref: string; name: string; level: number; summary: string; rows: FeatureRow[]; }
@@ -14,7 +14,7 @@ export interface TraitGroup { id: string; heading: string; rows: TraitRow[]; }
 
 const SENTENCE_MAX = 160;
 /** The first sentence of a feature's text, else a description of its effects. */
-export function summaryOf(f: FeatureRow): string {
+export function summaryOf(f: FeatureRow, ctx?: WordsCtx): string {
   const t = (f.text ?? "").trim();
   if (t) {
     const line = t.split(/\n/)[0].trim();
@@ -22,13 +22,13 @@ export function summaryOf(f: FeatureRow): string {
     const s = (m ? m[0] : line).trim();
     return s.length > SENTENCE_MAX ? `${s.slice(0, SENTENCE_MAX - 3).trimEnd()}...` : s;
   }
-  return describeEffects(f.effects);
+  return describeEffects(f.effects, ctx);
 }
 
 /** Group the derived features by where they came from: race, each class, each subclass, background, feats. */
-export function traitGroups(c: Character, features: FeatureRow[], reg: Registry): TraitGroup[] {
+export function traitGroups(c: Character, features: FeatureRow[], reg: Registry, ctx?: WordsCtx): TraitGroup[] {
   const name = <T extends { name: string }>(type: string, id: string | undefined) => (id ? reg.get<T>(type, id)?.name ?? id : undefined);
-  const one = (f: FeatureRow): TraitRow => ({ ref: `feature:${f.key}`, name: f.name, level: f.level, summary: summaryOf(f), rows: [f] });
+  const one = (f: FeatureRow): TraitRow => ({ ref: `feature:${f.key}`, name: f.name, level: f.level, summary: summaryOf(f, ctx), rows: [f] });
   const byPrefix = (prefix: string) => features.filter(f => f.key.startsWith(prefix));
   const groups: TraitGroup[] = [];
 
@@ -53,7 +53,7 @@ export function traitGroups(c: Character, features: FeatureRow[], reg: Registry)
   for (const id of c.feats) {
     const rows = byPrefix(`feat:${id}:`);
     if (!rows.length) continue;
-    feats.push({ ref: `feat:${id}`, name: name("feat", id)!, level: 0, summary: summaryOf(rows[0]), rows });
+    feats.push({ ref: `feat:${id}`, name: name("feat", id)!, level: 0, summary: summaryOf(rows[0], ctx), rows });
   }
   if (feats.length) groups.push({ id: "feats", heading: "Feats", rows: feats });
   return groups;
@@ -100,7 +100,7 @@ function traitRow(ctl: SheetController, st: ActorStats, t: TraitRow, withLevel: 
 export function pinnedTraits(ctl: SheetController, st: ActorStats): { rows: HTMLElement[]; covered: Set<string> } {
   const c = ctl.character, covered = new Set<string>();
   if (!c?.mainPins.length) return { rows: [], covered };
-  const all = traitGroups(c, st.progress.features, ctl.host.registry).flatMap(g => g.rows);
+  const all = traitGroups(c, st.progress.features, ctl.host.registry, wordsCtx(c, st)).flatMap(g => g.rows);
   const rows = c.mainPins.map(ref => all.find(t => t.ref === ref)).filter((t): t is TraitRow => !!t).map(t => {
     const parts = traitParts(st, t);
     for (const r of parts.uses) covered.add(r.id);
@@ -115,7 +115,7 @@ export function pinnedTraits(ctl: SheetController, st: ActorStats): { rows: HTML
 /** The Features & Traits card for the main page: collapsible sections by source, one line per feature. */
 export function traitsFeature(ctl: SheetController, st: ActorStats): HTMLElement {
   const c = ctl.character;
-  const groups = c ? traitGroups(c, st.progress.features, ctl.host.registry) : [];
+  const groups = c ? traitGroups(c, st.progress.features, ctl.host.registry, wordsCtx(c, st)) : [];
   if (!groups.length) return card("Features & traits", h("div", { cls: "fe-faint", text: "No features yet." }));
   return card("Features & traits", ...groups.map(g => {
     const open = !ctl.isCollapsed(g.id);

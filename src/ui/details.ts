@@ -4,7 +4,7 @@ import type { Effects } from "../core/types";
 import { comboViews } from "../core/combos";
 import { diceAt } from "../core/spells";
 import type { SheetController } from "./controller";
-import { describeEffects, sourceBadge } from "./widgets";
+import { actionWords, describeEffects, effectParts, sourceBadge, wordsCtx, type WordsCtx } from "./widgets";
 import { h, sgn } from "./h";
 import { identityCard } from "./identity-cards";
 import { ABIL_FULL, glossaryEntry } from "../content/glossary";
@@ -16,9 +16,9 @@ const ABIL = { str: "Str", dex: "Dex", con: "Con", int: "Int", wis: "Wis", cha: 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 /** One line per fact: numeric modifiers read "+1 AC", everything else comes from describeEffects. */
-function effectLines(e: Effects): string[] {
-  const mods = (e.modifiers ?? []).map(m => typeof m.value === "number" ? `${sgn(m.value)} ${MOD_LABEL[m.target] ?? m.target}` : `${m.target} ${m.value}`);
-  const rest = describeEffects({ ...e, modifiers: [] });
+function effectLines(e: Effects, ctx?: WordsCtx): string[] {
+  const mods = (e.modifiers ?? []).map(m => typeof m.value === "number" ? `${sgn(m.value)} ${MOD_LABEL[m.target] ?? m.target}` : effectParts({ modifiers: [m] }, ctx)[0] ?? "");
+  const rest = describeEffects({ ...e, modifiers: [] }, ctx);
   return [...mods, ...(rest ? [rest] : [])];
 }
 
@@ -95,8 +95,8 @@ function creatureCard(e: Entry<CreatureData>, body?: string): HTMLElement {
 
 function featureCard(key: string, ctl: SheetController): HTMLElement | null {
   const f = ctl.stats()?.progress.features.find(x => x.key === key); if (!f) return null;
-  const a = f.action, lines = effectLines(f.effects);
-  if (a) lines.push(`Action: ${a.name}${a.cost && "resource" in a.cost ? `, costs ${a.cost.amount ?? 1} ${a.cost.resource}` : a.cost && "selfDamage" in a.cost ? `, costs ${a.cost.selfDamage} damage to you` : ""}${a.damage ? `, ${a.damage}` : ""}${a.heal ? `, heals ${a.heal}` : ""}${a.save ? `, ${ABIL[a.save.abil]} save against ${a.save.dc}` : ""}${a.text ? `. ${a.text}` : ""}`);
+  const st = ctl.stats()!, wc = wordsCtx(ctl.character, st), a = f.action, lines = effectLines(f.effects, wc);
+  if (a) lines.push(`Action: ${[a.name, ...actionWords(a, st)].join(", ")}${a.text ? `. ${a.text}` : ""}`);
   return card(f.name, `${f.source}${f.sourceKind === "option" ? " (option)" : ""}`, lines, f.text);
 }
 
@@ -128,7 +128,7 @@ function classCard(e: Entry<ClassData>): HTMLElement {
 
 function effectCard(source: string, ctl: SheetController): HTMLElement | null {
   const hit = ctl.stats()?.effects.find(x => x.source === source); if (!hit) return null;
-  return card(source, "Active effect", effectLines(hit.effects), undefined);
+  return card(source, "Active effect", effectLines(hit.effects, wordsCtx(ctl.character, ctl.stats()!)), undefined);
 }
 
 /** The card for one compendium entry (any source), for the compendium browser and the sheet. A reference-only library note gets a plain card: the caller supplies its body text. */
