@@ -102,7 +102,8 @@ export function mountSheet(root: HTMLElement, ctl: SheetController, layoutIn: La
       if (was && was.kind === ctl.panel.kind) panel.querySelector<HTMLElement>(".fe-panel-body")!.scrollTop = was.top;
     }
     const focusKey = ctl.focusNext; ctl.focusNext = undefined;
-    const target = !touch && focusKey ? root.querySelector<HTMLInputElement>(`[data-keep="${focusKey}"]`)
+    // on touch screens focus only moves when something in the sheet already had it (a hardware keyboard), so no keyboard pops up
+    const target = focusKey && (!touch || keepKey) ? root.querySelector<HTMLInputElement>(`[data-keep="${focusKey}"]`)
       : keepKey ? root.querySelector<HTMLInputElement>(`[data-keep="${keepKey}"]`)
       : !touch && ctl.panel && (!was || was.kind !== ctl.panel.kind) ? root.querySelector<HTMLInputElement>(".fe-panel [data-autofocus]") : null;
     if (target) {

@@ -10,9 +10,9 @@ const STOPS: { mode: RollMode; label: string }[] = [
 export function rollModeSlider(ctl: SheetController): HTMLElement {
   const pos = STOPS.findIndex(s => s.mode === ctl.mode);
   const stops = STOPS.map(s => h("button", {
-    cls: "fe-slider-stop", data: { mode: s.mode },
-    attrs: { type: "button", role: "radio", "aria-checked": String(ctl.mode === s.mode), "aria-label": s.label },
-    on: { click: () => ctl.setMode(s.mode) },
+    cls: "fe-slider-stop", data: { mode: s.mode, keep: `roll-mode-${s.mode}` },
+    attrs: { type: "button", role: "radio", "aria-checked": String(ctl.mode === s.mode), "aria-label": s.label, tabindex: ctl.mode === s.mode ? "0" : "-1" },
+    on: { click: () => { ctl.focusNext = `roll-mode-${s.mode}`; ctl.setMode(s.mode); } },
   }));
   const group = h("div", { cls: "fe-roll-mode", attrs: { role: "radiogroup", "aria-label": "Roll mode" } },
     h("span", { cls: "fe-roll-mode-end", text: "Disadvantage", data: { ref: "glossary:disadvantage" } }),
@@ -23,7 +23,7 @@ export function rollModeSlider(ctl: SheetController): HTMLElement {
     if (!d) return;
     e.preventDefault();
     const next = Math.max(0, Math.min(2, pos + d));
-    if (next !== pos) ctl.setMode(STOPS[next].mode);
+    if (next !== pos) { ctl.focusNext = `roll-mode-${STOPS[next].mode}`; ctl.setMode(STOPS[next].mode); }
   });
   return group;
 }

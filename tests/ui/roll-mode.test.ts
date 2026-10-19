@@ -33,6 +33,26 @@ describe.each(LAYOUTS)("roll mode slider (%s)", layout => {
     g.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true })); expect(s.ctl.mode).toBe("dis");
     s.q(".fe-roll-mode").dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true })); expect(s.ctl.mode).toBe("normal");
   });
+  it("keeps focus on the new stop across redraws, so arrows work repeatedly", () => {
+    const s = setup(layout);
+    (s.q('[data-mode="normal"]') as HTMLElement).focus();
+    const press = (key: string) => (document.activeElement as HTMLElement).dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true }));
+    press("ArrowLeft"); expect(s.ctl.mode).toBe("dis"); expect((document.activeElement as HTMLElement).dataset.mode).toBe("dis");
+    press("ArrowRight"); expect(s.ctl.mode).toBe("normal"); expect((document.activeElement as HTMLElement).dataset.mode).toBe("normal");
+    press("ArrowRight"); press("ArrowRight"); expect(s.ctl.mode).toBe("adv"); expect((document.activeElement as HTMLElement).dataset.mode).toBe("adv");
+  });
+  it("ends clamp and other keys do nothing", () => {
+    const s = setup(layout);
+    (s.q('[data-mode="normal"]') as HTMLElement).focus();
+    const press = (key: string) => (document.activeElement as HTMLElement).dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true }));
+    press("a"); press("Tab"); expect(s.ctl.mode).toBe("normal");
+    press("ArrowLeft"); press("ArrowLeft"); expect(s.ctl.mode).toBe("dis");
+    press("ArrowRight"); press("ArrowRight"); press("ArrowRight"); expect(s.ctl.mode).toBe("adv");
+  });
+  it("only the checked stop is tabbable", () => {
+    const s = setup(layout);
+    expect(s.all('[data-feature="roll-mode"] .fe-slider-stop').map(b => b.getAttribute("tabindex"))).toEqual(["-1", "0", "-1"]);
+  });
   // Review Focus 4
   it("a mode set beside Attacks applies to the next roll on another tab", () => {
     const s = setup(layout);

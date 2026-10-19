@@ -331,5 +331,6 @@
 .fe-slider-knob { position: absolute; top: 3px; bottom: 3px; width: calc(33.333% - 6px); left: calc(33.333% + 3px); border-radius: 999px; background: var(--interactive-accent); transition: left .12s ease; pointer-events: none; }
 .fe-slider[data-pos="0"] .fe-slider-knob { left: 3px; }
 .fe-slider[data-pos="2"] .fe-slider-knob { left: calc(66.666% + 3px); }
+.fe-sheet button.fe-slider-stop:focus-visible { outline: 2px solid var(--interactive-accent); outline-offset: 2px; }
 .fe-mobile button.fe-slider-stop, .fe-tablet button.fe-slider-stop { min-height: 44px; }
 .fe-mobile .fe-slider, .fe-tablet .fe-slider { height: 44px; }
