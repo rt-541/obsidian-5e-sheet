@@ -85,6 +85,8 @@ export class SheetController {
   itemSearch: ItemSearch = blankItemSearch();
   /** Which inventory row has its "..." options open. */
   itemMenu: number | null = null;
+  /** Which companion card has its "..." options open. */
+  companionMenu: number | null = null;
   /** The open menu is asking "Remove <name>? Yes / No". */
   confirmRemove = false;
   /** The next redraw puts the keyboard focus on the element with this data-keep (desktop only). */
@@ -211,6 +213,14 @@ export class SheetController {
   }
 
   toggleItemMenu(index: number) { this.itemMenu = this.itemMenu === index ? null : index; this.confirmRemove = false; this.emit(); }
+  toggleCompanionMenu(index: number) { this.companionMenu = this.companionMenu === index ? null : index; this.confirmRemove = false; this.emit(); }
+  /** Remove the companion (after the Yes tap). */
+  removeCompanionAt(index: number): boolean {
+    const comp = this.character?.companions[index]; if (!comp) return false;
+    this.companionMenu = null; this.confirmRemove = false;
+    if (!this.dispatch({ type: "removeCompanion", index }).ok) return false;
+    this.host.notify(`Removed ${comp.name}.`); return true;
+  }
   askRemove(on: boolean) { this.confirmRemove = on; this.emit(); }
   /** Remove the entry (after the Yes tap); its pin goes with it. */
   removeItemAt(index: number): boolean {

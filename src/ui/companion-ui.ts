@@ -16,6 +16,9 @@ interface State { mode: "pick" | "form" | "import"; query: string; cname: string
 /** One state per opened panel: reopening the panel starts fresh, while a redraw of the same panel keeps what was typed. */
 const states = new WeakMap<Panel, State>();
 
+/** Kinds that are almost always animals: the picker lists beasts first for these. */
+const BEAST_KINDS: CompanionKind[] = ["familiar", "companion", "steed"];
+
 /** Creatures that match the search: names starting with it first, then names that merely contain it, each group A to Z. */
 export function matchCreatures<T extends { name: string }>(all: readonly T[], query: string): T[] {
   const q = query.trim().toLowerCase();
@@ -43,12 +46,12 @@ export function addCompanionPanel(ctl: SheetController, panel: Panel): HTMLEleme
   const go = (mode: State["mode"]) => { s.mode = mode; draw(); };
 
   // Always shown: what the companion is called and what role it plays.
-  const nameBox = h("input", { cls: "fe-search", attrs: { type: "text", placeholder: "Leave empty to use the creature's name", value: s.cname, "aria-label": "Companion's name (optional)" },
+  const nameBox = h("input", { cls: "fe-search", attrs: { type: "text", placeholder: "Leave empty to use the creature's name", value: s.cname, "aria-label": "Nickname (optional)" },
     on: { input: (e: Event) => { s.cname = (e.target as HTMLInputElement).value; } } });
-  const kindSel = h("select", { cls: "fe-cf-input", attrs: { "aria-label": "Kind of companion" }, on: { change: (e: Event) => { s.kind = (e.target as HTMLSelectElement).value as CompanionKind; } } },
+  const kindSel = h("select", { cls: "fe-cf-input", attrs: { "aria-label": "Kind of companion" }, on: { change: (e: Event) => { s.kind = (e.target as HTMLSelectElement).value as CompanionKind; if (s.mode === "pick") draw(); } } },
     ...(Object.keys(KIND_LABELS) as CompanionKind[]).map(k => h("option", { text: KIND_LABELS[k], attrs: { value: k, ...(k === s.kind ? { selected: "" } : {}) } })));
-  root.append(h("div", { cls: "fe-cf-row" },
-    h("label", { cls: "fe-cf-field fe-cf-grow" }, h("span", { cls: "fe-cf-label", text: "Companion's name (optional)" }), nameBox),
+  const nameField = h("label", { cls: "fe-cf-field fe-cf-grow" }, h("span", { cls: "fe-cf-label", text: "Nickname (optional)" }), nameBox);
+  root.append(h("div", { cls: "fe-cf-row" }, nameField,
     h("label", { cls: "fe-cf-field" }, h("span", { cls: "fe-cf-label", text: "Kind" }), kindSel)), body);
 
   const addCompanion = (id: string, fallbackName: string) => {
@@ -65,21 +68,22 @@ export function addCompanionPanel(ctl: SheetController, panel: Panel): HTMLEleme
     const fill = () => {
       clear(list);
       const rows = matchCreatures(all, s.query);
+      // Familiars, animal companions and steeds are beasts nearly every time: list those first (stable, so A to Z holds inside each group).
+      if (BEAST_KINDS.includes(s.kind)) rows.sort((a, b) => Number(b.data.ctype.toLowerCase() === "beast") - Number(a.data.ctype.toLowerCase() === "beast"));
       for (const e of rows.slice(0, MAX_ROWS)) list.append(h("div", { cls: "fe-inv" },
         h("div", { cls: "fe-grow" }, h("span", { cls: "fe-inv-name", text: e.name }), sourceBadge(sourceLabel(e)), h("div", { cls: "fe-faint", text: facts(e.data) })),
         btn("Add", () => addCompanion(e.id, e.name), "", { creature: e.id })));
       if (rows.length > MAX_ROWS) list.append(h("div", { cls: "fe-faint", text: `${rows.length - MAX_ROWS} more: narrow the search.` }));
       if (!rows.length) {
         list.append(h("div", { cls: "fe-faint", data: { empty: "" }, text: s.query.trim() ? `No creature called '${s.query.trim()}'.` : "There are no creatures in the compendium yet." }));
-        const b = makeButtons(); if (b) list.append(b);
       }
       note.textContent = rows.length ? `${rows.length} creature${rows.length === 1 ? "" : "s"}` : "";
     };
     const search = h("input", { cls: "fe-search", attrs: { placeholder: "Search creatures", value: s.query, "aria-label": "Search creatures", type: "search" },
       on: { input: (e: Event) => { s.query = (e.target as HTMLInputElement).value; fill(); } } });
     fill();
-    body.append(search, note, list);
-    if (all.length) { const b = makeButtons(); if (b) body.append(h("div", { cls: "fe-card-title", text: "Not in the list?" }), b); }
+    const make = makeButtons();
+    body.append(...(make ? [make] : []), search, note, list);
     // Focus the search on desktop only: on a phone or tablet it would pop the keyboard over the list.
     const touch = typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)")?.matches;
     if (!touch) window.setTimeout(() => search.focus(), 0);

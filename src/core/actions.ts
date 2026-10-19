@@ -21,6 +21,8 @@ export type Action =
   /** An item that is not in the compendium: a name, how many, an optional weight per piece in pounds, and whether using one up it. */
   | { type: "addCustomItem"; name: string; qty: number; weight?: number; consumable?: boolean }
   | { type: "addCompanion"; creature: string; name: string; kind: CompanionEntry["kind"] } | { type: "removeCompanion"; index: number }
+  /** Give a companion a new name; a blank name is an error and saves nothing. */
+  | { type: "renameCompanion"; index: number; name: string }
   | { type: "ability"; abil: Abil; value: number }
   | { type: "cast"; spell: string; level?: number; item?: number } | { type: "endConcentration" }
   | { type: "addSpell"; id: string } | { type: "removeSpell"; index: number } | { type: "prepare"; index: number; on: boolean } | { type: "alwaysPrepared"; index: number; on: boolean }
@@ -287,6 +289,12 @@ export function apply(c0: Character, a: Action, lim: Limits): Applied {
     }
     case "addCompanion": c.companions.push({ creature: a.creature, name: a.name, kind: a.kind, hp: { temp: 0 }, conditions: {} }); break;
     case "removeCompanion": c.companions.splice(a.index, 1); break;
+    case "renameCompanion": {
+      const name = a.name.trim(), comp = c.companions[a.index];
+      if (!name) return { value: c0, error: "A companion needs a name." };
+      if (!comp) return { value: c0, error: "No such companion" };
+      comp.name = name; break;
+    }
     case "cast": return cast(c0, c, a, lim);
     case "toggle": return toggle(c0, c, a, lim);
     case "endConcentration": delete c.concentration; break;

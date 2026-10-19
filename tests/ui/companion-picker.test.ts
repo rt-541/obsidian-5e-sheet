@@ -69,7 +69,7 @@ describe.each(LAYOUTS)("companion picker (%s)", layout => {
     expect(s.search()).toBe(input);   // the box was not rebuilt, so focus is not lost
     const row = s.all(".fe-companion-panel .fe-inv").find(r => r.textContent!.startsWith("Test Spider"))!;
     expect(row.querySelector(".fe-faint")!.textContent).toBe("Small beast · CR 1/8 · AC 11 · HP 5");
-    s.type(s.q('[aria-label="Companion\'s name (optional)"]'), "Webby");
+    s.type(s.q('[aria-label="Nickname (optional)"]'), "Webby");
     s.pick(s.q('[aria-label="Kind of companion"]'), "steed");
     s.click('[data-creature="test-spider"]');
     expect(s.ctl.character!.companions.at(-1)).toMatchObject({ creature: "test-spider", name: "Webby", kind: "steed" });
@@ -115,7 +115,7 @@ describe.each(LAYOUTS)("companion picker (%s)", layout => {
     s.click('[data-act="add-trait"]');
     s.type(form.querySelector('[aria-label="Trait 1 name"]') as HTMLElement, "Hover");
     s.type(form.querySelector('[aria-label="Trait 1 text"]') as HTMLElement, "Stays in the air.");
-    s.type(s.q('[aria-label="Companion\'s name (optional)"]'), "Zip");
+    s.type(s.q('[aria-label="Nickname (optional)"]'), "Zip");
     s.click('[data-act="save-creature"]'); await s.flush(); await s.flush();
     const [path, text] = [...s.files.entries()][0];
     expect(path).toBe("compendium/5e/Homebrew/Creatures/Dragonfly.md");

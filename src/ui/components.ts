@@ -136,6 +136,26 @@ function identityParts(ctl: SheetController): HTMLElement {
 /** Keeps the element present (layouts count it) but hidden unless `show`. */
 function hideUnless(show: boolean, el: HTMLElement): HTMLElement { if (!show) el.hidden = true; return el; }
 
+
+/** The small "..." button on a companion card. */
+function companionMenuButton(ctl: SheetController, index: number, name: string): HTMLElement {
+  const open = ctl.companionMenu === index, b = btn("...", () => ctl.toggleCompanionMenu(index), `fe-item-menu-btn ${open ? "is-on" : ""}`.trim());
+  b.dataset.act = "companion-menu"; b.setAttribute("aria-label", `Options for ${name}`); b.setAttribute("aria-expanded", String(open)); return b;
+}
+
+/** The options under an open companion card: a new name, and Remove with a Yes / No check. */
+function companionMenu(ctl: SheetController, index: number, name: string): HTMLElement {
+  const box = h("input", { cls: "fe-search", attrs: { type: "text", value: name, "aria-label": `Name of ${name}` }, data: { act: "companion-rename" },
+    on: { change: (ev: Event) => { ctl.dispatch({ type: "renameCompanion", index, name: (ev.target as HTMLInputElement).value }); } } });
+  return h("div", { cls: "fe-item-menu", data: { companionMenu: String(index) } },
+    h("label", { cls: "fe-kv" }, h("span", { text: "Name" }), box),
+    ctl.confirmRemove
+      ? h("div", { cls: "fe-kv fe-confirm", data: { note: "remove-confirm" } }, h("span", { text: `Remove ${name}?` }),
+        h("span", { cls: "fe-lvl" }, ((y) => { y.dataset.act = "remove-yes"; return y; })(btn("Yes", () => ctl.removeCompanionAt(index), "fe-dmg")),
+          ((n) => { n.dataset.act = "remove-no"; return n; })(btn("No", () => ctl.askRemove(false)))))
+      : ((r) => { r.dataset.act = "companion-remove"; return r; })(btn("Remove", () => ctl.askRemove(true))));
+}
+
 export const RENDER: Record<string, Render> = {
   identity: (ctl, st) => h("div", { cls: "fe-identity" }, h("span", { cls: "fe-name", text: st.name }),
     ctl.character && st.kind === "character" ? identityParts(ctl) : h("span", { cls: "fe-muted", text: st.label })),
@@ -206,18 +226,18 @@ export const RENDER: Record<string, Render> = {
   companions: ctl => { const c = ctl.character!, sts = ctl.companionStats(), r = ctl.host.registry;
     return card("Companions", ...c.companions.map((comp, i) => {
       const st = sts[i];
-      if (!st) return h("div", { cls: "fe-comp is-missing" }, h("span", { text: `${comp.name}: ${comp.creature} (missing from compendium)` }),
-        ctl.editing ? btn("Remove", () => ctl.dispatch({ type: "removeCompanion", index: i })) : null);
+      if (!st) return h("div", { cls: "fe-comp is-missing", data: { companion: String(i) } }, h("span", { text: `${comp.name}: ${comp.creature} (missing from compendium)` }),
+        companionMenuButton(ctl, i, comp.name), ctl.companionMenu === i ? companionMenu(ctl, i, comp.name) : null);
       const ch = checks(ctl, st, i);
       const traits = r.get<CreatureData>("creature", comp.creature)?.data.traits ?? [];
       return h("div", { cls: "fe-comp", data: { companion: String(i) } },
-        h("div", { cls: "fe-kv" }, h("span", { cls: "fe-name", text: st.name }), h("span", { cls: "fe-muted", text: st.label })),
+        h("div", { cls: "fe-kv" }, h("span", { cls: "fe-name", text: st.name }), h("span", { cls: "fe-muted", text: st.label }), companionMenuButton(ctl, i, st.name)),
+        ctl.companionMenu === i ? companionMenu(ctl, i, st.name) : null,
         h("div", { cls: "fe-stats" }, stat("AC", String(st.ac.value)), stat("Initiative", rollButton(ctl, sgn(st.initiative), `${st.name} initiative`, st.initiative, { kind: "initiative", abil: "dex" }, i)),
           stat("Speed", `${st.speed.value}${st.speed.other ? ` (${st.speed.other})` : ""}`)),
         hpBlock(ctl, st), hpControls(ctl, i), conditionChips(ctl, comp.conditions, i), ch.abilities,
         st.skills.length ? ch.skills : null, attacksList(ctl, st, i),
-        ...traits.map((t, ti) => h("div", { cls: "fe-note" }, h("b", { text: t.name + ". ", data: { ref: `trait:${comp.creature}:${ti}` } }), t.text)),
-        ctl.editing ? btn("Remove", () => ctl.dispatch({ type: "removeCompanion", index: i })) : null);
+        ...traits.map((t, ti) => h("div", { cls: "fe-note" }, h("b", { text: t.name + ". ", data: { ref: `trait:${comp.creature}:${ti}` } }), t.text)));
     }), btn("Add companion", () => ctl.open({ kind: "add-companion" }))); },
   traits: (ctl, st) => { if (ctl.character) return traitsFeature(ctl, st);
     const n = ctl.value.type === "5e-npc" ? ctl.value : undefined;
