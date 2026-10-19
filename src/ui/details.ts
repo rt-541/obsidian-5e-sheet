@@ -6,6 +6,7 @@ import { diceAt } from "../core/spells";
 import type { SheetController } from "./controller";
 import { describeEffects, sourceBadge } from "./widgets";
 import { h, sgn } from "./h";
+import { identityCard } from "./identity-cards";
 import { ABIL_FULL, glossaryEntry } from "../content/glossary";
 import type { Abil } from "../core/types";
 
@@ -195,6 +196,7 @@ export function detailCard(ref: string, ctl: SheetController): HTMLElement | nul
     case "condition": { const e = reg.get<ConditionData>("condition", rest) ?? reg.get<ConditionData>("injury", rest); return e ? conditionCard(e, ctl.value.conditions[rest] ?? 0) : null; }
     case "why": return whyCard(rest, ctl);
     case "glossary": return glossaryCard(rest, ctl);
+    case "identity": return identityCard(rest, ctl);
     case "effect": return effectCard(rest, ctl);
     case "feature": return featureCard(rest, ctl);
     case "combo": return comboCard(Number(rest), ctl);

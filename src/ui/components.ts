@@ -141,8 +141,31 @@ function pinnedItems(ctl: SheetController): { index: number; row: HTMLElement }[
   });
 }
 
+/**
+ * "cleric 5 (Life Domain) / rogue 2 · Hill Dwarf · Acolyte": each class, subclass, race, subrace and background is its own hover/tap target
+ * for a card of what it gives you. Class text stays the class id and level, as the plain label always was.
+ */
+function identityParts(ctl: SheetController): HTMLElement {
+  const c = ctl.character!, r = ctl.host.registry;
+  // a pick that is missing from the compendium stays plain text: there is no card to open
+  const part = (text: string, ref: string) => { const [type, id] = ref.split(":"); return h("span", { cls: "fe-id-part", text, ...(r.get(type, id ?? (type === "race" ? c.race! : type === "subrace" ? c.subrace! : c.background!)) ? { data: { ref: `identity:${ref}` } } : {}) }); };
+  const out: (Node | string)[] = [];
+  c.classes.forEach((k, i) => {
+    if (i) out.push(" / ");
+    out.push(part(`${k.class} ${k.level}`, `class:${k.class}`));
+    if (k.subclass) out.push(" (", part(r.get<{ name: string }>("subclass", k.subclass)?.name ?? k.subclass, `subclass:${k.subclass}`), ")");
+  });
+  const origin: Node[] = [];
+  if (c.race) origin.push(part(r.get<{ name: string }>("race", c.race)?.name ?? c.race, "race"));
+  if (c.subrace) origin.push(part(r.get<{ name: string }>("subrace", c.subrace)?.name ?? c.subrace, "subrace"));
+  if (c.background) origin.push(part(r.get<{ name: string }>("background", c.background)?.name ?? c.background, "background"));
+  origin.forEach(o => out.push(" · ", o));
+  return h("span", { cls: "fe-muted fe-identity-label" }, ...out);
+}
+
 export const RENDER: Record<string, Render> = {
-  identity: (ctl, st) => h("div", { cls: "fe-identity" }, h("span", { cls: "fe-name", text: st.name }), h("span", { cls: "fe-muted", text: st.label })),
+  identity: (ctl, st) => h("div", { cls: "fe-identity" }, h("span", { cls: "fe-name", text: st.name }),
+    ctl.character && st.kind === "character" ? identityParts(ctl) : h("span", { cls: "fe-muted", text: st.label })),
   inspiration: ctl => btn("Inspiration", () => ctl.dispatch({ type: "inspiration", on: !ctl.character!.inspiration }), ctl.character?.inspiration ? "is-on" : ""),
   prof: (ctl, st) => h("span", { cls: "fe-kv" }, h("span", { cls: "fe-muted", text: "Proficiency bonus ", ...gl("proficiency-bonus") }), sgn(st.prof)),
   xp: ctl => xpFeature(ctl),
