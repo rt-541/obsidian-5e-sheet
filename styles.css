@@ -82,7 +82,7 @@
 .fe-sheet.fe-mobile button.fe-pip { width: 26px; height: 26px; }
 .fe-sheet.fe-mobile button.fe-dot { width: 24px; height: 24px; }
 .fe-mobile .fe-toast { left: 12px; right: 12px; top: auto; bottom: 12px; }
-.fe-edit-bar { flex-basis: 100%; font-size: var(--font-ui-smaller); color: var(--text-muted); }
+.fe-edit-bar { font-size: var(--font-ui-smaller); color: var(--text-muted); }
 .fe-mobile .fe-row { min-height: 44px; border-bottom: 1px solid var(--background-modifier-border); }
 .fe-spell-group { margin-bottom: 6px; } .fe-conc { display: flex; align-items: center; gap: 6px; }
 .fe-spell-name { font-weight: var(--font-semibold); } .fe-spell-name.is-missing { color: var(--text-error); }

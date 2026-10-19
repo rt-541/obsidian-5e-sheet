@@ -363,7 +363,7 @@ export class SheetController {
   say(msg: string): void { this.toastItem = { kind: "notice", text: msg }; this.emit(); }
 
   private record(r: RollResult) {
-    this.lastRoll = r; this.toastItem = { kind: "roll", roll: r };this.host.log.unshift(r); if (this.host.log.length > LOG_MAX) this.host.log.length = LOG_MAX; this.emit(); return r;
+    this.lastRoll = r; this.toastItem = { kind: "roll", roll: r }; this.host.log.unshift(r); if (this.host.log.length > LOG_MAX) this.host.log.length = LOG_MAX; this.emit(); return r;
   }
   /** d20 roll for the sheet's actor or companion `who`. Shift = adv, Ctrl/Cmd = dis, else the one-shot mode switch. */
   roll(title: string, mod: number, target: RollTarget, ev: Mods = {}, who?: number, force?: RollMode): RollResult {

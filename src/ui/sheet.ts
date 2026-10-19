@@ -5,14 +5,14 @@ import { CHARACTER_FEATURES, NPC_FEATURES, layoutFor, type LayoutName } from "./
 import { detailCard } from "./details";
 import { renderPanel } from "./panels";
 
-const TOAST_MS = 2600, HOVER_MS = 250;
+const TOAST_MS = 2600, TOAST_LONG_MS = 5000, HOVER_MS = 250;
 const LAYOUT_CLASSES = ["fe-desktop", "fe-tablet", "fe-mobile"];
 
 /** Mount a sheet into `root`; re-renders on every controller change. */
 export function mountSheet(root: HTMLElement, ctl: SheetController, layoutIn: LayoutName | boolean): { destroy(): void; render(): void } {
   const layoutName: LayoutName = layoutIn === true ? "mobile" : layoutIn === false ? "desktop" : layoutIn;
   const touch = layoutName !== "desktop";   // phones and tablets: a tap opens the card, there is no hover
-  let toastTimer: number | undefined, shownRoll: unknown, hoverTimer: number | undefined, popover: HTMLElement | undefined;
+  let toastTimer: number | undefined, shownItem: unknown, toastLive = false, toastEl: HTMLElement | undefined, hoverTimer: number | undefined, popover: HTMLElement | undefined;
   const hidePopover = () => { window.clearTimeout(hoverTimer); hoverTimer = undefined; popover?.remove(); popover = undefined; };
   /**
    * The card lives on the window's <body>, not inside the sheet: Obsidian's pane containers create their own
@@ -108,9 +108,13 @@ export function mountSheet(root: HTMLElement, ctl: SheetController, layoutIn: La
     const toast = h("div", { cls: `fe-toast ${r ? (r.crit ? "is-crit" : r.fumble ? "is-fumble" : "") : ""}`, data: { feature: "roll-result" } },
       r ? h("div", { cls: "fe-muted", text: r.title }) : null, r && (r.dice.length || r.total !== 0) ? h("div", { cls: "fe-toast-total", text: String(r.total) }) : null, r ? h("div", { cls: "fe-mono", text: r.detail }) : null,
       it?.kind === "notice" ? h("div", { text: it.text }) : null);
-    const fresh = !!it && it !== shownRoll;   // show only for a new item, then hide after TOAST_MS
-    if (fresh) { shownRoll = it;window.clearTimeout(toastTimer); toastTimer = window.setTimeout(() => { toast.hidden = true; }, TOAST_MS); }
-    toast.hidden = !fresh;
+    const fresh = !!it && it !== shownItem;   // a new item starts the timer; later renders keep it visible until the timer ends
+    if (fresh) {
+      shownItem = it; toastLive = true; window.clearTimeout(toastTimer);
+      const ms = it?.kind === "notice" && it.text.length > 40 ? TOAST_LONG_MS : TOAST_MS;
+      toastTimer = window.setTimeout(() => { toastLive = false; if (toastEl) toastEl.hidden = true; }, ms);
+    }
+    toast.hidden = !(toastLive && !!it); toastEl = toast;
     root.append(toast);
     if (sp && keepTop) sp.scrollTop = keepTop;
   };

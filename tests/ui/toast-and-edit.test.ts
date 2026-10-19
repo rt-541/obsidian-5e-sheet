@@ -11,6 +11,10 @@ for (const layout of LAYOUTS) describe(`feedback (${layout})`, () => {
     expect(s.q(".fe-toast").hidden).toBe(false); expect(s.q(".fe-toast").textContent).toContain("Added Rope.");
     expect(s.notices).toEqual([]);
   });
+  it("a message stays visible across a later render", () => {
+    const s = sheet(layout, thalia); s.ctl.say("Added Rope."); s.ctl.emit();
+    expect(s.q(".fe-toast").hidden).toBe(false); expect(s.q(".fe-toast").textContent).toContain("Added Rope.");
+  });
   it("Edit mode shows XP once and says it is editing", () => {
     const s = sheet(layout, thalia); s.ctl.setEditing(true);
     expect(s.q('[data-feature="xp"]').textContent!.match(/6500/g) ?? []).toHaveLength(0);
