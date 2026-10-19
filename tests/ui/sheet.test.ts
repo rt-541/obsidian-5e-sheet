@@ -125,7 +125,7 @@ describe("toggles and companions", () => {
   it("campaign rules apply unless the character overrides them", () => {
     const s = setup(thalia, false); s.host.campaign = { name: "C", rules: { "rest-excursion": true }, sections: { hide: ["xp"], show: [] }, calendar: { holyDay: "Sunday" } }; s.ctl.emit();
     expect(s.q('[data-feature="xp"]')).toBeNull();
-    expect(s.q('[data-feature="rests"]').textContent).toBe("Night's rest");
+    expect(s.q('[data-feature="rests"] .fe-rests').textContent).toBe("Night's rest");
   });
   it("add a wolf companion, damage it, roll its bite", () => {
     const s = setup(thalia, true);

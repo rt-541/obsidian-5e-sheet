@@ -88,7 +88,7 @@ const long: RestDef = {
   preview: ctx => bigParts(ctx, null, false),
   apply: ctx => { const c = structuredClone(ctx.c); return { value: c, summary: bigParts(ctx, c, false) }; },
 };
-const isGood = (ctx: RestCtx, o: RestOptions = {}) => {
+export const isGood = (ctx: RestCtx, o: RestOptions = {}) => {
   const nights = (o.samePlace === false ? 0 : ctx.c.rest.nightsInPlace) + 1;
   return { good: !!o.safeHaven || nights >= 3, nights, why: o.safeHaven ? "safe haven" : `${nights} nights in place` };
 };

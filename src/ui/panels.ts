@@ -1,6 +1,7 @@
 import { sourceLabel } from "../content/registry";
 import type { ConditionData, CreatureData } from "../content/types";
 import { MODULES } from "../rules";
+import { isGood } from "../rules/rests";
 import type { Panel, SheetController } from "./controller";
 import { comboForm } from "./combos-ui";
 import { describeEffects, sourceBadge } from "./widgets";
@@ -48,8 +49,14 @@ function restPanel(ctl: SheetController, id: string): HTMLElement {
   const opt = (label: string, key: "samePlace" | "safeHaven") => h("label", { cls: "fe-kv" },
     h("input", { attrs: { type: "checkbox", ...(ctl.restOpts[key] ? { checked: "" } : {}) }, on: { change: (e: Event) => { ctl.restOpts[key] = (e.target as HTMLInputElement).checked; ctl.emit(); } } }), label);
   const st = ctl.stats()!;
+  const haven = h("div", { cls: "fe-safe-haven" },
+    h("label", { cls: "fe-kv fe-safe-haven-row" }, h("span", { text: "Resting in a safe haven (GM decides)" }),
+      h("button", { cls: `fe-switch ${ctl.restOpts.safeHaven ? "is-on" : ""}`.trim(), data: { opt: "safe-haven" }, attrs: { role: "switch", "aria-checked": String(!!ctl.restOpts.safeHaven), "aria-label": "Resting in a safe haven" },
+        on: { click: () => { ctl.restOpts.safeHaven = !ctl.restOpts.safeHaven; ctl.emit(); } } })),
+    h("div", { cls: "fe-faint", text: "A safe haven turns tonight into a Good Rest: full recovery." }),
+    h("div", { cls: "fe-muted", data: { nights: "" }, text: `Night ${isGood(ctl.restCtx(), ctl.restOpts).nights} in this place (3 nights = Good Rest)` }));
   return h("div", {},
-    excursion ? opt("Same place as last night", "samePlace") : null, excursion ? opt("Safe haven", "safeHaven") : null,
+    excursion ? opt("Same place as last night", "samePlace") : null, excursion ? haven : null,
     h("div", { cls: "fe-muted", text: "This rest will:" }), h("ul", {}, ...ctl.restPreview(id).map(x => h("li", { text: x }))),
     id === "short" || (excursion && !ctl.restPreview(id)[0]?.startsWith("Good Rest"))
       ? h("div", {}, ...st.hitDice.map(d => h("div", { cls: "fe-kv" }, h("span", { text: `${d.die}: ${d.max - d.used} left` }), h("button", { cls: "fe-btn", text: "Spend 1", on: { click: () => ctl.spendHitDie(d.die) } }))))
