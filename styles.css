@@ -171,6 +171,8 @@
 .fe-sheet.fe-tablet button.fe-dot { width: 26px; height: 26px; }
 .fe-sheet.fe-tablet button.fe-switch { width: 68px; height: 44px; border: 6px solid transparent; background-clip: padding-box; }
 .fe-tablet .fe-switch::after { top: 4px; left: 4px; width: 24px; height: 24px; } .fe-tablet .fe-switch.is-on::after { left: 28px; }
+.fe-sheet.fe-mobile button.fe-switch { width: 68px; height: 44px; border: 6px solid transparent; background-clip: padding-box; }
+.fe-mobile .fe-switch::after { top: 4px; left: 4px; width: 24px; height: 24px; } .fe-mobile .fe-switch.is-on::after { left: 28px; }
 .fe-tablet .fe-row { min-height: 44px; border-bottom: 1px solid var(--background-modifier-border); }
 .fe-tablet select, .fe-tablet input:not([type="checkbox"]), .fe-tablet textarea { min-height: 44px; }
 .fe-tablet .fe-panel { left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(720px, 94vw); max-height: 85vh; border-radius: var(--radius-l); }

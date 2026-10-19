@@ -99,4 +99,9 @@ describe("tablet styles", () => {
     expect(css).toMatch(/\.fe-tablet select, \.fe-tablet input:not\(\[type="checkbox"\]\), \.fe-tablet textarea \{ min-height: 44px; \}/);
     expect(css).toMatch(/button\.fe-switch \{ width: 68px; height: 44px;/);
   });
+
+  it("phone switches are 44px tall like tablet ones", () => {
+    expect(css).toMatch(/\.fe-sheet\.fe-mobile button\.fe-switch \{ width: 68px; height: 44px;/);
+    expect(css).toMatch(/\.fe-mobile \.fe-switch::after \{ top: 4px; left: 4px; width: 24px; height: 24px; \}/);
+  });
 });
