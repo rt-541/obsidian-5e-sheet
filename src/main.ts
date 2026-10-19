@@ -19,6 +19,9 @@ import { newCharacterAction } from "./obsidian/menu";
 import { obsidianCreateNote, vaultNoteIO } from "./obsidian/vault-note";
 import { saveCreature, type SavedCreature } from "./obsidian/save-creature";
 import { renderStatblock } from "./ui/statblock-card";
+import { renderItemBlock } from "./ui/itemblock-card";
+import { saveItem, type SavedItem } from "./obsidian/save-item";
+import type { ItemDraft } from "./content/itemblock";
 import type { Draft } from "./content/creature-note";
 import { ObsidianVaultAdapter } from "./obsidian/vault-adapter";
 
@@ -57,6 +60,7 @@ export default class FiveESheetPlugin extends Plugin {
     this.addSettingTab(new FiveESettingTab(this.app, this));
     this.registry.onChange(() => this.refreshViews());
     this.registerMarkdownCodeBlockProcessor("5e-statblock", (src, el) => renderStatblock(el, src, d => this.saveCreature(d)));
+    this.registerMarkdownCodeBlockProcessor("5e-item", (src, el) => renderItemBlock(el, src, d => this.saveItem(d)));
 
     this.app.workspace.onLayoutReady(async () => {
       const moved = await healCompendiumFolder(this.data.settings.compendiumFolder, p => this.app.vault.adapter.exists(p));
@@ -103,6 +107,10 @@ export default class FiveESheetPlugin extends Plugin {
   /** Write a custom creature into Homebrew/Creatures and register it right away (see obsidian/save-creature.ts). */
   saveCreature(draft: Draft): Promise<SavedCreature> {
     return saveCreature({ registry: this.registry, io: vaultNoteIO(this.app), compendiumFolder: this.data.settings.compendiumFolder, stringify: o => stringifyYaml(o) }, draft);
+  }
+  /** Write a custom item into Homebrew/Items and register it right away (see obsidian/save-item.ts). */
+  saveItem(draft: ItemDraft): Promise<SavedItem> {
+    return saveItem({ registry: this.registry, io: vaultNoteIO(this.app), compendiumFolder: this.data.settings.compendiumFolder, stringify: o => stringifyYaml(o) }, draft);
   }
   async persist() { await this.saveData(this.data); }
   saveLogsSoon() { window.clearTimeout(this.logTimer); this.logTimer = window.setTimeout(() => { void this.persist(); }, LOG_SAVE_MS); }

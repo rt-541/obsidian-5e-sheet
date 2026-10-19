@@ -2,7 +2,7 @@ import { parseModifier } from "./modifier";
 import { ABILS, type Abil, type Modifier } from "./types";
 
 export interface ClassLevel { class: string; subclass?: string; level: number; }
-export interface InventoryEntry { id?: string; name?: string; qty: number; equipped: boolean; attuned: boolean; charges?: { used: number }; weight?: number; spellUses?: Record<string, number>; }
+export interface InventoryEntry { id?: string; name?: string; qty: number; equipped: boolean; attuned: boolean; charges?: { used: number }; weight?: number; spellUses?: Record<string, number>; /** Used up when used. Left out: a compendium potion is, a custom item is not. */ consumable?: boolean; }
 export type CompanionKind = "familiar" | "companion" | "steed" | "summon" | "sidekick";
 export interface CompanionEntry { creature: string; name: string; kind: CompanionKind; hp: { current?: number; temp: number }; conditions: Record<string, number>; }
 export interface Resource { name: string; max: number; used: number; reset: "short" | "long" | "dawn" | "none"; }
@@ -52,7 +52,7 @@ export interface Character {
   mainPins: string[];
   /** Combos: ordered coaching steps, each optionally pointing at an attack, spell, feature, item or resource. */
   combos: Combo[];
-  rest: { nightsInPlace: number }; companions: CompanionEntry[]; sheet: SheetToggles; rules: Record<string, boolean>;
+  rest: { nightsInPlace: number; /** Days of food foraged and not yet eaten (the Hexploration rule). */ foraged?: number }; companions: CompanionEntry[]; sheet: SheetToggles; rules: Record<string, boolean>;
 }
 export interface Npc {
   type: "5e-npc"; schema: 1; name: string; creature: string;
@@ -212,6 +212,7 @@ function parseCharacter(fm: R): Parsed {
       e.spellUses = uses;
     }
     if (x.weight !== undefined) e.weight = r.num(x.weight, `inventory[${i}].weight`, 0);
+    if (x.consumable !== undefined) e.consumable = r.bool(x.consumable, `inventory[${i}].consumable`);
     return [e];
   });
   const co = r.obj(fm.coins, "coins");
@@ -228,7 +229,8 @@ function parseCharacter(fm: R): Parsed {
   c.inspiration = r.bool(fm.inspiration, "inspiration");
   c.xp = r.whole(fm.xp, "xp");
   c.baseSpeed = r.whole(fm.baseSpeed, "baseSpeed", 30);
-  c.rest = { nightsInPlace: r.whole(r.obj(fm.rest, "rest").nightsInPlace, "rest.nightsInPlace") };
+  const restFm = r.obj(fm.rest, "rest"), foraged = restFm.foraged === undefined ? 0 : r.whole(restFm.foraged, "rest.foraged");
+  c.rest = { nightsInPlace: r.whole(restFm.nightsInPlace, "rest.nightsInPlace"), ...(foraged > 0 ? { foraged } : {}) };
   c.companions = r.list(fm.companions, "companions").flatMap((x, i) => {
     if (!isObj(x) || typeof x.creature !== "string") { r.errors.push(`companions[${i}]: must have a creature`); return []; }
     const hp = r.obj(x.hp, `companions[${i}].hp`);

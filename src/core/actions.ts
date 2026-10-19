@@ -18,6 +18,8 @@ export type Action =
   | { type: "equip"; index: number; on: boolean } | { type: "attune"; index: number; on: boolean }
   | { type: "inspiration"; on: boolean }
   | { type: "addItem"; id: string } | { type: "removeItem"; index: number }
+  /** An item that is not in the compendium: a name, how many, an optional weight per piece in pounds, and whether using one up it. */
+  | { type: "addCustomItem"; name: string; qty: number; weight?: number; consumable?: boolean }
   | { type: "addCompanion"; creature: string; name: string; kind: CompanionEntry["kind"] } | { type: "removeCompanion"; index: number }
   | { type: "ability"; abil: Abil; value: number }
   | { type: "cast"; spell: string; level?: number; item?: number } | { type: "endConcentration" }
@@ -25,6 +27,10 @@ export type Action =
   | { type: "pinSpell"; key: string; on: boolean }
   | { type: "pin"; ref: string; on: boolean }
   | { type: "itemQty"; index: number; qty: number }
+  /** Set one kind of coin to a whole number, 0 or more. */
+  | { type: "coins"; coin: "pp" | "gp" | "ep" | "sp" | "cp"; value: number }
+  /** Whether using one of this inventory entry uses it up (a potion is by default, a custom item is not). */
+  | { type: "itemConsumable"; index: number; on: boolean }
   /** Used count of a resource derived from class operations (stored in character.uses). */
   | { type: "uses"; id: string; used: number }
   | { type: "xp"; value: number }
@@ -45,6 +51,16 @@ export interface Limits {
   ctx?: EffectContext;
 }
 export const MAX_ATTUNED = 3;
+/** Pin key for an inventory entry: the compendium id, or the name of a custom item. */
+export const itemPinRef = (e: { id?: string; name?: string }) => (e.id ? `item:${e.id}` : `item-name:${e.name ?? ""}`);
+
+/** Why a custom item cannot be added, in plain words; undefined when it is fine. */
+export function customItemProblem(f: { name: string; qty: number; weight?: number }): string | undefined {
+  if (!f.name.trim()) return "Give the item a name.";
+  if (!Number.isInteger(f.qty) || f.qty < 1) return "How many? Use a whole number, 1 or more.";
+  if (f.weight !== undefined && (!Number.isFinite(f.weight) || f.weight < 0)) return "Weight is in pounds: use a number like 2 or 0.5, or leave it empty.";
+  return undefined;
+}
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, Math.round(v)));
 type Hp = { current?: number; temp: number };
@@ -55,6 +71,19 @@ function hpChange(hp: Hp, a: Action, max: number): void {
   if (a.type === "damage") { const n = Math.max(0, a.amount), fromTemp = Math.min(hp.temp, n); hp.temp -= fromTemp; hp.current = Math.max(0, cur - (n - fromTemp)); }
   if (a.type === "heal") hp.current = Math.min(max, cur + Math.max(0, a.amount));
   if (a.type === "temp") hp.temp = Math.max(hp.temp, Math.max(0, a.amount));
+}
+
+/** Wearing one suit of armor and carrying one shield: equipping a second of either puts the first away. Returns the words for what was unequipped. */
+function putAwayRivals(c: Character, keep: number, lim: Limits): string | undefined {
+  const reg = lim.ctx?.registry, mine = c.inventory[keep]?.id ? reg?.get<ItemData>("item", c.inventory[keep].id!)?.data : undefined;
+  if (!reg || !mine || (!mine.armor && mine.kind !== "shield")) return undefined;
+  const out: string[] = [];
+  c.inventory.forEach((x, i) => {
+    if (i === keep || !x.equipped || !x.id) return;
+    const e = reg.get<ItemData>("item", x.id), d = e?.data;
+    if (d && ((mine.armor && d.armor) || (mine.kind === "shield" && d.kind === "shield"))) { x.equipped = false; x.attuned = false; out.push(`${e!.name} unequipped.`); }
+  });
+  return out.length ? out.join(" ") : undefined;
 }
 
 const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
@@ -223,15 +252,39 @@ export function apply(c0: Character, a: Action, lim: Limits): Applied {
     case "charges": { const e = c.inventory[a.index]; if (e) e.charges = { used: clamp(a.used, 0, lim.chargesMax(a.index)) }; break; }
     case "hitDie": { const h = lim.self.hitDice.find(x => x.die === a.die); c.hitDice[a.die] = { used: clamp(a.used, 0, h?.max ?? 0) }; break; }
     case "deathSave": c.deathSaves[a.which] = clamp(a.value, 0, 3); break;
-    case "equip": { const e = c.inventory[a.index]; if (e) { e.equipped = a.on; if (!a.on) e.attuned = false; } break; }
+    case "equip": {
+      const e = c.inventory[a.index]; if (!e) break;
+      e.equipped = a.on; if (!a.on) e.attuned = false;
+      const note = a.on ? putAwayRivals(c, a.index, lim) : undefined;
+      return { value: c, ...(note ? { note } : {}) };
+    }
     case "attune": {
       const e = c.inventory[a.index]; if (!e) break;
       if (a.on && !e.attuned && c.inventory.filter(x => x.attuned).length >= MAX_ATTUNED) return { value: c0, error: "Already attuned to 3 items" };
-      e.attuned = a.on; if (a.on) e.equipped = true; break;
+      e.attuned = a.on; if (a.on) e.equipped = true;
+      const note = a.on ? putAwayRivals(c, a.index, lim) : undefined;
+      return { value: c, ...(note ? { note } : {}) };
     }
     case "inspiration": c.inspiration = a.on; break;
-    case "addItem": c.inventory.push({ id: a.id, qty: 1, equipped: false, attuned: false }); break;
-    case "removeItem": c.inventory.splice(a.index, 1); break;
+    case "addItem": {
+      // An item already in the pack gets one more instead of a second row.
+      const have = c.inventory.find(x => x.id === a.id);
+      if (have) have.qty += 1; else c.inventory.push({ id: a.id, qty: 1, equipped: false, attuned: false });
+      break;
+    }
+    case "addCustomItem": {
+      const bad = customItemProblem(a); if (bad) return { value: c0, error: bad };
+      const name = a.name.trim(), same = c.inventory.find(x => !x.id && x.name?.toLowerCase() === name.toLowerCase());
+      if (same) same.qty += a.qty;
+      else c.inventory.push({ name, qty: a.qty, equipped: false, attuned: false, ...(a.weight !== undefined ? { weight: a.weight } : {}), ...(a.consumable ? { consumable: true } : {}) });
+      break;
+    }
+    case "removeItem": {
+      const gone = c.inventory.splice(a.index, 1)[0];
+      // its pin goes with it, unless another row still has the same ref
+      if (gone && !c.inventory.some(x => itemPinRef(x) === itemPinRef(gone))) c.mainPins = c.mainPins.filter(k => k !== itemPinRef(gone));
+      break;
+    }
     case "addCompanion": c.companions.push({ creature: a.creature, name: a.name, kind: a.kind, hp: { temp: 0 }, conditions: {} }); break;
     case "removeCompanion": c.companions.splice(a.index, 1); break;
     case "cast": return cast(c0, c, a, lim);
@@ -242,6 +295,11 @@ export function apply(c0: Character, a: Action, lim: Limits): Applied {
     case "pinSpell": c.mainSpells = c.mainSpells.filter(k => k !== a.key); if (a.on) c.mainSpells.push(a.key); break;
     case "pin": c.mainPins = c.mainPins.filter(k => k !== a.ref); if (a.on) c.mainPins.push(a.ref); break;
     case "itemQty": { const e = c.inventory[a.index]; if (e) e.qty = Math.max(0, Math.floor(a.qty)); break; }
+    case "coins": {
+      if (!(a.coin in c.coins) || !Number.isFinite(a.value) || a.value < 0) return { value: c0, error: "Coins must be a whole number, 0 or more." };
+      c.coins[a.coin] = Math.floor(a.value); break;
+    }
+    case "itemConsumable": { const e = c.inventory[a.index]; if (e) e.consumable = a.on; break; }
     case "prepare": { const s = c.spells[a.index]; if (s) s.prepared = a.on; break; }
     case "languages": c.languages = a.value.map(s => s.trim()).filter(Boolean); break;
     case "xp": c.xp = Math.max(0, Math.round(a.value)); break;

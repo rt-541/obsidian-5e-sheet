@@ -18,7 +18,7 @@ const tagList = (fm: Raw): string[] => (Array.isArray(fm.tags) ? fm.tags.filter(
 const put = (o: Raw, k: string, v: unknown) => { if (v !== undefined) o[k] = v; };
 
 const ITEM_KINDS: Record<string, string> = {
-  weapon: "weapon", armor: "armor", shield: "shield", "wondrous item": "wondrous", potion: "consumable",
+  weapon: "weapon", armor: "armor", shield: "shield", "wondrous item": "wondrous", potion: "consumable", scroll: "consumable", ammunition: "consumable",
   ring: "wondrous", rod: "wondrous", staff: "wondrous", wand: "wondrous",
 };
 const DAMAGE_TYPES = new Set(["acid", "bludgeoning", "cold", "fire", "force", "lightning", "necrotic", "piercing", "poison", "psychic", "radiant", "slashing", "thunder"]);

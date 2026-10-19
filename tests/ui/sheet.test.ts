@@ -62,7 +62,7 @@ describe("layout parity", () => {
   it("desktop, tablet and mobile render the same feature set", () => {
     const d = setup(thalia, false), t = setup(thalia, "tablet"), m = setup(thalia, true);
     expect(features(d.root)).toEqual(features(m.root)); expect(features(t.root)).toEqual(features(d.root));
-    for (const f of CHARACTER_FEATURES) expect(features(d.root).has(f), f).toBe(true);
+    for (const f of CHARACTER_FEATURES.filter(x => x !== "rations")) expect(features(d.root).has(f), f).toBe(true);   // rations belongs to an optional rule
   });
   it("the same session gives identical results on both layouts", () => {
     const run = (mobile: boolean | "tablet") => {

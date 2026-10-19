@@ -62,7 +62,10 @@ describe.each([["desktop", false], ["mobile", true]] as const)("pickers on the %
     const p = parseNote(thalia); if (p.kind === "none") throw new Error("x");
     const ctl = new SheetController(host, p), root = document.createElement("div"); document.body.append(root); mountSheet(root, ctl, mobile);
     ctl.open({ kind: "compendium" });
+    const search = (t: string) => { const box = root.querySelector<HTMLInputElement>("[data-panel] .fe-search")!; box.value = t; box.dispatchEvent(new Event("input", { bubbles: true })); };
+    search("roll rod");
     expect(root.querySelector('[data-panel] [data-item="roll-rod"]')).toBeNull();
+    search("dagger");
     expect(root.querySelector('[data-panel] [data-item="dagger"]')!.closest(".fe-inv")!.querySelector(".fe-src")!.textContent).toBe("WotC (SRD)");
   });
 

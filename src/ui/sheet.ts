@@ -61,6 +61,9 @@ export function mountSheet(root: HTMLElement, ctl: SheetController, layoutIn: La
     const features = ctl.isNpc ? NPC_FEATURES : CHARACTER_FEATURES;
     const layout = layoutFor(ctl.isNpc, layoutName), visible = new Set(ctl.visible([...features])), st = ctl.stats();
     const body = root.querySelector<HTMLElement>(".fe-panel-body"), was = body ? { kind: (body.parentElement as HTMLElement).dataset.panel, top: body.scrollTop } : undefined;
+    // a search box or form field the player is typing in keeps its focus and caret across the redraw
+    const live = root.ownerDocument.activeElement as HTMLInputElement | null, keepKey = live && root.contains(live) ? live.dataset.keep : undefined;
+    const caret = keepKey ? ([live!.selectionStart, live!.selectionEnd, live!.selectionDirection] as const) : undefined;
     hidePopover(); clear(root);
     // classList, never className: `root` is Obsidian's .view-content, and that class is what makes the pane scroll
     root.classList.remove(...LAYOUT_CLASSES); root.classList.add("fe-sheet", `fe-${layoutName}`); root.classList.toggle("is-editing", ctl.editing);
@@ -90,6 +93,14 @@ export function mountSheet(root: HTMLElement, ctl: SheetController, layoutIn: La
       root.append(h("div", { cls: "fe-scrim", on: { click: () => ctl.close() } }), panel);
       // a form that redraws (a step added) stays scrolled where it was
       if (was && was.kind === ctl.panel.kind) panel.querySelector<HTMLElement>(".fe-panel-body")!.scrollTop = was.top;
+    }
+    const focusKey = ctl.focusNext; ctl.focusNext = undefined;
+    const target = !touch && focusKey ? root.querySelector<HTMLInputElement>(`[data-keep="${focusKey}"]`)
+      : keepKey ? root.querySelector<HTMLInputElement>(`[data-keep="${keepKey}"]`)
+      : !touch && ctl.panel && (!was || was.kind !== ctl.panel.kind) ? root.querySelector<HTMLInputElement>(".fe-panel [data-autofocus]") : null;
+    if (target) {
+      target.focus();
+      if (keepKey && caret && target.dataset.keep === keepKey) { try { target.setSelectionRange(caret[0], caret[1], caret[2] ?? undefined); } catch { /* number inputs have no caret */ } }
     }
     const r = ctl.lastRoll;
     const toast = h("div", { cls: `fe-toast ${r ? (r.crit ? "is-crit" : r.fumble ? "is-fumble" : "") : ""}`, data: { feature: "roll-result" } },

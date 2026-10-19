@@ -2,7 +2,7 @@ import type { Registry } from "../content/registry";
 import { slug } from "../content/registry";
 import type { Draft } from "../content/creature-note";
 import type { CampaignData, ItemData, LevelingMode, SpellData } from "../content/types";
-import { apply, applyNpc, type Action, type Limits } from "../core/actions";
+import { apply, applyNpc, customItemProblem, type Action, type Limits } from "../core/actions";
 import type { Character, Combo, Npc, Parsed } from "../core/character";
 import { blankCombo, validateCombo } from "../core/combos";
 import { deriveCharacter, deriveCompanion, deriveNpc, type ActorStats } from "../core/derive";
@@ -14,6 +14,9 @@ import { applyLevel, applyResolve, levelFromXp, planLevel, planResolve, rollHitD
 import { formulaVars, type FeatureRow } from "../core/progression";
 import type { RollMode, RollResult, RollTarget, Rng } from "../core/types";
 import { activeRests, MODULES } from "../rules";
+import { blankItemDraft, parseItemBlock, validateItemDraft, type ChargeReset, type ItemDraft, type ItemKind } from "../content/itemblock";
+import { blankItemSearch, type ItemSearch } from "./additem-ui";
+import { findRations, foodDays } from "../rules/hexploration";
 import { resolveRules, resolveSections, spendHitDie, type RestCtx, type RestOptions } from "../rules/module";
 
 /** What the Obsidian layer (or a test) provides to a sheet. */
@@ -29,6 +32,8 @@ export interface SheetHost {
   openBuilder?(): void;
   /** Save a custom creature as a Homebrew note and register it; resolves to its creature id. Never overwrites an existing note. */
   saveCreature?(draft: Draft): Promise<string>;
+  /** Save a custom item as a Homebrew note and register it; resolves to its item id. Never overwrites an existing note. */
+  saveItem?(draft: ItemDraft): Promise<string>;
   /** Trait groups the player collapsed, kept per character in plugin data (not in the note). */
   collapsedGroups?(): string[];
   setCollapsedGroups?(ids: string[]): void;
@@ -45,6 +50,16 @@ export interface LevelUpState {
   mode: "level" | "resolve"; classId?: string; page: number; /** Search text and the feat/ability switch, kept across redraws. */ view: LevelUpView;
   hp?: { method: "roll" | "average"; roll?: number }; choices: Record<string, unknown>; error?: string;
 }
+/** The "custom item" form in the add panel: raw text as typed, so a half-typed number is kept as is. */
+export interface CustomItemForm {
+  name: string; qty: string; weight: string; consumable: boolean; error?: string;
+  /** The extra fields (kind, rarity, charges ...) are shown. They matter when the item is saved to the compendium. */
+  more: boolean; kind: ItemKind; base: string; rarity: string; attunement: boolean; attunementNote: string;
+  chargesMax: string; chargesReset: ChargeReset; attackBonus: string; damageBonus: string; acBonus: string; heal: string; description: string; /** Price in copper, carried over from an import. */ value?: number;
+  /** The import view (paste text) is showing instead of the form. */ importing: boolean; importText: string; showTemplate: boolean; unread: string[];
+}
+export const blankCustomItem = (): CustomItemForm => ({ name: "", qty: "1", weight: "", consumable: false, more: false, kind: "gear", base: "", rarity: "", attunement: false, attunementNote: "",
+  chargesMax: "", chargesReset: "dawn", attackBonus: "", damageBonus: "", acBonus: "", heal: "", description: "", importing: false, importText: "", showTemplate: false, unread: [] });
 type Mods = { shiftKey?: boolean; ctrlKey?: boolean; metaKey?: boolean };
 
 export const LOG_MAX = 50;
@@ -57,6 +72,16 @@ export class SheetController {
   /** After damage while concentrating: the save the player is asked to make. */
   concentrationCheck: { dc: number; spell: string } | null = null;
   comboDraft: ComboDraft | null = null;
+  /** The add panel's custom item form; typing changes it without redrawing. */
+  customItem: CustomItemForm = blankCustomItem();
+  /** The add panel's search text and kind chip. */
+  itemSearch: ItemSearch = blankItemSearch();
+  /** Which inventory row has its "..." options open. */
+  itemMenu: number | null = null;
+  /** The open menu is asking "Remove <name>? Yes / No". */
+  confirmRemove = false;
+  /** The next redraw puts the keyboard focus on the element with this data-keep (desktop only). */
+  focusNext?: string;
   panel: Panel | null = null; levelUp: LevelUpState | null = null; confirmUndo = false; lastRoll?: RollResult; restOpts: RestOptions = { samePlace: true, safeHaven: false };
   private subs = new Set<() => void>();
   private collapsed?: Set<string>;
@@ -109,13 +134,133 @@ export class SheetController {
     const out = this.value.type === "5e-character" ? apply(this.value, a, this.limits()) : applyNpc(this.value, a, st, n => deriveNpc(n, this.ctx()));
     if (out.error) { this.host.notify(out.error); return { ok: false }; }
     this.commit(out.value);
-    if (a.type === "damage" && "note" in out && out.note) this.host.notify(out.note);
+    if ((a.type === "damage" || a.type === "equip" || a.type === "attune") && "note" in out && out.note) this.host.notify(out.note);
     if ("concentrationCheck" in out && out.concentrationCheck) {
       const prev = this.concentrationCheck;
       this.concentrationCheck = prev && prev.spell === out.concentrationCheck.spell && prev.dc > out.concentrationCheck.dc ? prev : out.concentrationCheck;
       this.emit();
     } else if (this.concentrationCheck && (a.type === "endConcentration" || this.character?.concentration !== this.concentrationCheck.spell)) { this.concentrationCheck = null; this.emit(); }
     return { ok: true, ...("note" in out && out.note ? { note: out.note } : {}) };
+  }
+
+  /** Add one of a compendium item to the pack (a second copy bumps the count) and say what happened. */
+  addItem(id: string): boolean {
+    const had = this.character?.inventory.find(e => e.id === id)?.qty ?? 0;
+    if (!this.dispatch({ type: "addItem", id }).ok) return false;
+    const name = this.host.registry.get<ItemData>("item", id)?.name ?? id;
+    this.host.notify(had ? `Added ${name} (now ${had + 1})` : `Added ${name}.`);
+    return true;
+  }
+
+  /**
+   * Use one of an inventory entry: take one off the stack, and when the item heals (a potion) roll its dice and heal.
+   * Says what happened in words.
+   */
+  useItem(index: number): boolean {
+    const c = this.character, e = c?.inventory[index];
+    if (!c || !e || e.qty <= 0) return false;
+    const it = e.id ? this.host.registry.get<ItemData>("item", e.id) : undefined, name = it?.name ?? e.name ?? "Item", left = e.qty - 1;
+    const tail = left > 0 ? `${left} left.` : "None left. It stays in your inventory, greyed out.";
+    if (!it?.data.heal) {
+      this.dispatch({ type: "itemQty", index, qty: left });
+      this.host.notify(left > 0 ? `Used ${name}: ${left} left.` : `Used ${name}: none left. It stays in your inventory, greyed out.`);
+      return true;
+    }
+    let rolled: number;
+    try { rolled = Number(this.damage(`${name} healing`, it.data.heal).total); }
+    catch (x) { this.host.notify(`${name}: ${(x as Error).message}`); return false; }
+    const before = this.stats()!.hp.current;
+    if (!this.dispatch({ type: "itemQty", index, qty: left }).ok || !this.dispatch({ type: "heal", amount: rolled }).ok) return false;
+    const healed = this.stats()!.hp.current - before;
+    this.host.notify(`${name}: healed ${healed}${healed < rolled ? ` (rolled ${rolled}, but that is all the room you had)` : ""}. ${tail}`);
+    return true;
+  }
+
+  // ---- Hexploration: rations and foraging
+
+  /** Put `n` more rations in the pack: onto the existing stack, else a new entry (the compendium rations, or a custom "Rations (1 day)"). */
+  addRations(n: number): boolean {
+    const c = this.character; if (!c || n < 1) return false;
+    const i = findRations(c, this.host.registry);
+    if (i >= 0) return this.dispatch({ type: "itemQty", index: i, qty: c.inventory[i].qty + n }).ok;
+    if (this.host.registry.get("item", "rations")) {
+      if (!this.dispatch({ type: "addItem", id: "rations" }).ok) return false;
+      return n === 1 || this.dispatch({ type: "itemQty", index: this.character!.inventory.length - 1, qty: n }).ok;
+    }
+    return this.dispatch({ type: "addCustomItem", name: "Rations (1 day)", qty: n, weight: 2, consumable: true }).ok;
+  }
+  /** Forage for food: a Wisdom (Survival) check. A quick forage takes half the time and has disadvantage. Says in words what was found. */
+  forage(quick: boolean, ev: Mods = {}): void {
+    const c = this.character, st = this.stats(); if (!c || !st || !this.guard()) return;
+    const sk = st.skills.find(k => k.id === "survival");
+    const r = this.roll(quick ? "Quick forage (Wisdom, Survival)" : "Forage (Wisdom, Survival)", sk?.mod ?? st.mods.wis, { kind: "skill", abil: "wis", skill: "survival" }, ev, undefined, quick ? "dis" : undefined);
+    const total = typeof r.total === "number" ? r.total : 0, days = foodDays(total);
+    if (!days) { this.host.notify(`Found nothing to eat (rolled ${r.total}, needed 10).`); return; }
+    const tonight = (c.rest.foraged ?? 0) === 0, extra = tonight ? days - 1 : days, dayWord = `${days} day${days === 1 ? "" : "s"}`;
+    if (tonight) { const v = structuredClone(this.character!); v.rest.foraged = 1; this.commit(v); }
+    if (extra > 0) this.addRations(extra);
+    const what = [tonight ? "tonight's meal" : "", extra ? `${extra} ration${extra === 1 ? "" : "s"} into your pack` : ""].filter(Boolean).join(" plus ");
+    this.host.notify(`Found food for ${dayWord}: ${what}`);
+  }
+
+  toggleItemMenu(index: number) { this.itemMenu = this.itemMenu === index ? null : index; this.confirmRemove = false; this.emit(); }
+  askRemove(on: boolean) { this.confirmRemove = on; this.emit(); }
+  /** Remove the entry (after the Yes tap); its pin goes with it. */
+  removeItemAt(index: number): boolean {
+    const e = this.character?.inventory[index]; if (!e) return false;
+    const name = this.host.registry.get<ItemData>("item", e.id ?? "")?.name ?? e.name ?? "Item";
+    this.itemMenu = null; this.confirmRemove = false;
+    if (!this.dispatch({ type: "removeItem", index }).ok) return false;
+    this.host.notify(`Removed ${name}.`); return true;
+  }
+
+  /** Add the custom item typed into the form. A problem is shown under the form in plain words. */
+  submitCustomItem(): boolean {
+    const f = this.customItem, qty = f.qty.trim() === "" ? NaN : Number(f.qty), weight = f.weight.trim() === "" ? undefined : Number(f.weight);
+    const bad = customItemProblem({ name: f.name, qty, ...(weight !== undefined ? { weight } : {}) });
+    if (bad) { f.error = bad; this.emit(); return false; }
+    const name = f.name.trim(), had = this.character?.inventory.find(e => !e.id && e.name?.toLowerCase() === name.toLowerCase())?.qty ?? 0;
+    this.customItem = blankCustomItem();   // before the dispatch redraws, so the redrawn form is the empty one
+    if (!this.dispatch({ type: "addCustomItem", name, qty, ...(weight !== undefined ? { weight } : {}), ...(f.consumable ? { consumable: true } : {}) }).ok) { this.customItem = f; return false; }
+    this.host.notify(had ? `Added ${name} (now ${had + qty})` : `Added ${name}.`);
+    return true;
+  }
+
+  /** Fill the item form from pasted text (a layout the 5e-item reader understands), listing what it could not read. */
+  readItemText(text: string) {
+    const { draft: d, unread } = parseItemBlock(text), f = this.customItem, num = (n: number | undefined) => (n === undefined ? "" : String(n));
+    Object.assign(f, { name: d.name, kind: d.kind, base: d.base ?? "", rarity: d.rarity ?? "", attunement: d.attunement, attunementNote: d.attunementNote ?? "", weight: num(d.weight),
+      chargesMax: num(d.charges?.max), chargesReset: d.charges?.reset ?? "dawn", attackBonus: num(d.attackBonus), damageBonus: num(d.damageBonus), acBonus: num(d.acBonus),
+      heal: d.heal ?? "", description: d.description, value: d.value, consumable: d.kind === "consumable", more: true, importing: false, unread, error: undefined });
+    this.emit();
+  }
+  /** The form as an item draft; text that is not a number becomes NaN so the validator names it. */
+  itemDraftFromForm(): ItemDraft {
+    const f = this.customItem, n = (s: string) => (s.trim() === "" ? undefined : Number(s));
+    const d = blankItemDraft();
+    Object.assign(d, { name: f.name.trim(), kind: f.kind, attunement: f.attunement, description: f.description.trim() });
+    const set = <K extends keyof ItemDraft>(k: K, v: ItemDraft[K] | undefined) => { if (v !== undefined) d[k] = v; };
+    set("base", f.base.trim() || undefined); set("rarity", f.rarity || undefined); set("attunementNote", f.attunement ? f.attunementNote.trim() || undefined : undefined);
+    set("weight", n(f.weight)); set("value", f.value); set("heal", f.heal.trim() || undefined);
+    const max = n(f.chargesMax); if (max !== undefined) d.charges = { max, reset: f.chargesReset };
+    set("attackBonus", n(f.attackBonus)); set("damageBonus", n(f.damageBonus)); set("acBonus", n(f.acBonus));
+    return d;
+  }
+  /** Save the form's item as a Homebrew note, then put it in the pack. The panel stays open. */
+  async saveItemToCompendium(): Promise<boolean> {
+    const f = this.customItem, save = this.host.saveItem;
+    if (!save || !this.character) return false;
+    const qty = f.qty.trim() === "" ? NaN : Number(f.qty), draft = this.itemDraftFromForm();
+    const bad = !Number.isInteger(qty) || qty < 1 ? "How many? Use a whole number, 1 or more." : validateItemDraft(draft)[0];
+    if (bad) { f.error = bad; this.emit(); return false; }
+    try {
+      const id = await save(draft);
+      this.customItem = blankCustomItem();
+      if (!this.dispatch({ type: "addItem", id }).ok) return false;
+      if (qty > 1) { const i = this.character.inventory.findIndex(e => e.id === id); if (i >= 0) this.dispatch({ type: "itemQty", index: i, qty }); }
+      this.host.notify(`Saved ${this.host.registry.get<ItemData>("item", id)?.name ?? draft.name} to your Homebrew items and added it.`);
+      return true;
+    } catch (x) { f.error = x instanceof Error ? x.message : String(x); this.emit(); return false; }
   }
 
   /** Start or end a toggle (Rage, a stance, an aura) and say in words what happened, including why it could not start. */
@@ -200,10 +345,12 @@ export class SheetController {
     this.lastRoll = r; this.host.log.unshift(r); if (this.host.log.length > LOG_MAX) this.host.log.length = LOG_MAX; this.emit(); return r;
   }
   /** d20 roll for the sheet's actor or companion `who`. Shift = adv, Ctrl/Cmd = dis, else the one-shot mode switch. */
-  roll(title: string, mod: number, target: RollTarget, ev: Mods = {}, who?: number): RollResult {
+  roll(title: string, mod: number, target: RollTarget, ev: Mods = {}, who?: number, force?: RollMode): RollResult {
     const st = who === undefined ? this.stats() : this.companionStats()[who];
     const src = st ? rollSources(st.effects, target) : { adv: [], dis: [], fail: [] };
-    const mode: RollMode = ev.shiftKey ? "adv" : (ev.ctrlKey || ev.metaKey) ? "dis" : this.mode;
+    const chosen: RollMode = ev.shiftKey ? "adv" : (ev.ctrlKey || ev.metaKey) ? "dis" : this.mode;
+    // `force` is a mode the action itself imposes (a hurried forage): it cancels the opposite mode the player picked
+    const mode: RollMode = force === undefined ? chosen : force === chosen || chosen === "normal" ? force : "normal";
     this.mode = "normal";
     const crit = st && target.kind === "attack" ? critInfo(st.effects, target) : undefined;
     // Reliable Talent, Halfling Lucky and the like: a minimum for the die, or a reroll of low dice.
@@ -224,15 +371,25 @@ export class SheetController {
   }
   private collapsedSet() { return (this.collapsed ??= new Set(this.host.collapsedGroups?.() ?? [])); }
   setTab(t: string) { this.tab = t; this.emit(); }
-  open(p: Panel) { this.panel = p; this.emit(); }
+  open(p: Panel) { if (p.kind === "compendium") { this.customItem = blankCustomItem(); this.itemSearch = blankItemSearch(); } this.panel = p; this.emit(); }
   close() { this.panel = null; this.emit(); }
 
   restCtx(): RestCtx { return { c: this.character!, stats: this.stats()!, registry: this.host.registry, rules: this.rules() }; }
-  restPreview(id: string) { const r = activeRests(this.rules()).find(x => x.id === id); return r ? r.preview(this.restCtx(), this.restOpts) : []; }
+  /** Lines optional rules add to a rest (Hexploration: the night's meal). `c` is changed; pass a copy for a preview. */
+  private restHooks(id: string, ctx: RestCtx, c: Character): string[] {
+    const rules = this.rules();
+    return MODULES.filter(m => rules[m.id] && m.onRest).flatMap(m => m.onRest!(id, ctx, c));
+  }
+  restPreview(id: string) {
+    const r = activeRests(this.rules()).find(x => x.id === id); if (!r) return [];
+    const ctx = this.restCtx();
+    return [...r.preview(ctx, this.restOpts), ...this.restHooks(id, ctx, structuredClone(ctx.c))];
+  }
   rest(id: string) {
     if (!this.guard() || !this.character) return;
     const r = activeRests(this.rules()).find(x => x.id === id); if (!r) return;
-    const out = r.apply(this.restCtx(), this.restOpts);
+    const ctx = this.restCtx(), out = r.apply(ctx, this.restOpts);
+    out.summary.push(...this.restHooks(id, ctx, out.value));
     this.panel = null; this.commit(out.value);
     this.record({ title: r.label, total: 0, dice: [], detail: out.summary.join(" · "), crit: false, fumble: false, sources: { adv: [], dis: [], fail: [] } });
   }

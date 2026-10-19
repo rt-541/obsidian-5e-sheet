@@ -62,7 +62,7 @@ describe("the tablet layout", () => {
     const s = setup({}, "tablet"), cols = s.all('[data-pane="main"] .fe-col');
     expect(cols.map(c => feats(c))).toEqual([
       ["abilities", "saves", "skills", "passive-perception"],
-      ["hp-controls", "toggles", "attacks", "pinned-spells", "pinned-combos", "traits", "resources", "hit-dice", "death-saves", "active-effects"]]);
+      ["hp-controls", "toggles", "attacks", "pinned-spells", "pinned-combos", "traits", "resources", "coins", "hit-dice", "death-saves", "active-effects"]]);
   });
   it("the other tabs hold what the plan says", () => {
     const s = setup({}, "tablet"), pane = (id: string) => s.all(`[data-pane="${id}"] .fe-col`).map(c => feats(c));
