@@ -180,11 +180,21 @@ let castLevel: number | undefined;
 export function castPanel(ctl: SheetController, spell: string): HTMLElement {
   const sp = ctl.host.registry.get<SpellData>("spell", spell), st = ctl.stats()!;
   if (!sp) return h("div", { cls: "fe-warn", text: "Spell missing from compendium" });
-  const levels = [...new Set(st.slots.filter(s => s.used < s.max).map(s => s.level === "pact" ? s.pactLevel! : Number(s.level)).filter(l => l >= sp.data.level))].sort((a, b) => a - b);
+  const left = new Map<number, number>();
+  for (const sl of st.slots) { const l = sl.level === "pact" ? sl.pactLevel! : Number(sl.level); if (l >= sp.data.level) left.set(l, (left.get(l) ?? 0) + Math.max(0, sl.max - sl.used)); }
+  const all = [...left.keys()].sort((x, y) => x - y), levels = all.filter(l => left.get(l)! > 0);
   if (castLevel === undefined || !levels.includes(castLevel)) castLevel = levels[0];
   const chosen = castLevel, row = chosen === undefined ? undefined : castRow(ctl.character!, st, ctl.ctx(), spell, chosen);
+  const idx = ctl.character!.spells.findIndex(x => x.id === spell), own = ctl.character!.spells[idx];
+  const unprepared = own && !own.prepared && !own.always && sp.data.level >= 1
+    ? h("div", { cls: "fe-warn", data: { unprepared: "" } }, h("span", { text: `${sp.name} is not prepared today.` }), " ",
+      btn("Prepare it", () => ctl.dispatch({ type: "prepare", index: idx, on: true }), "", { act: "prepare-now" })) : null;
   return h("div", {}, h("div", { cls: "fe-muted", text: `${sp.name}: choose a slot level` }),
-    levels.length ? h("div", { cls: "fe-filters" }, ...levels.map(l => btn(`Level ${l}`, () => { castLevel = l; ctl.emit(); }, chosen === l ? "is-on" : "", { slot: String(l) }))) : h("div", { cls: "fe-warn", text: "No free spell slots." }),
+    unprepared,
+    levels.length ? h("div", { cls: "fe-filters" }, ...all.map(l => {
+      const n = left.get(l)!, b = btn(`Level ${l} (${n ? `${n} left` : "none left"})`, () => { castLevel = l; ctl.emit(); }, chosen === l ? "is-on" : "", { slot: String(l) });
+      b.disabled = n === 0; return b;
+    })) : h("div", { cls: "fe-warn", text: "No free spell slots." }),
     row ? h("div", { cls: "fe-kv", data: { upcast: String(chosen) } }, ...rolls(ctl, row).filter(n => n && (n as HTMLElement).tagName === "BUTTON" && !(n as HTMLElement).title.startsWith("Spell attack"))) : null,
     h("div", { cls: "fe-kv" }, btn("Cancel", () => ctl.close()),
       btn("Cast", () => { if (chosen !== undefined && ctl.cast(spell, chosen)) { castLevel = undefined; ctl.close(); } }, "mod-cta", { act: "cast-apply" })));
