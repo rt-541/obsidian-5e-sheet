@@ -34,7 +34,7 @@ for (const layout of LAYOUTS) describe(`combos (${layout})`, () => {
     const s = setup(base, layout);
     s.click('[data-tab="combos"]');
     const add = s.q('[data-pane="combos"] [data-act="add-combo"]');
-    expect(add.textContent).toBe("No combos yet. Add your first combo");
+    expect(add.textContent).toBe("+ Add combo");
     expect(s.ctl.editing).toBe(false);
     add.click();
     expect(s.q('[data-panel="combo-edit"]')).toBeTruthy();

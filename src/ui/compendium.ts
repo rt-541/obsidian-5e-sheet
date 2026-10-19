@@ -85,6 +85,11 @@ export class CompendiumController {
   setType(t: string) { this.type = t; this.emit(); }
   setQuery(q: string) { this.query = q; this.emit(); }
   select(e: Entry | undefined) { this.selected = e && { type: e.type, id: e.id, sourceName: e.sourceName, ...(e.path ? { path: e.path } : {}) }; this.status = ""; this.emit(); }
+  /** The selected entry, but only while it is still in the list; a filter that hides it also clears the detail pane. */
+  visibleSelection(): Entry | undefined {
+    const e = this.selectedEntry();
+    return e && this.matches().some(m => m.sourceName === e.sourceName && m.type === e.type && m.id === e.id && m.path === e.path) ? e : undefined;
+  }
   selectedEntry(): Entry | undefined {
     const s = this.selected; if (!s) return undefined;
     return this.host.registry.getAll(s.type, s.id).find(e => e.sourceName === s.sourceName && e.path === s.path);
@@ -172,7 +177,7 @@ export function mountCompendium(root: HTMLElement, ctl: CompendiumController, mo
     for (const s of ctl.sources()) sourceTabs.append(tab(s === "all" ? "All" : s, ctl.source === s, { source: s }, () => ctl.setSource(s)));
     for (const t of BROWSER_TYPES) typeTabs.append(tab(`${t.label} (${counts[t.id] ?? 0})`, ctl.type === t.id, { type: t.id }, () => ctl.setType(t.id)));
     if (search.value !== ctl.query) search.value = ctl.query;
-    const rows = ctl.matches(), picked = ctl.selectedEntry();
+    const rows = ctl.matches(), picked = ctl.visibleSelection();
     const detail = h("div", { cls: "fe-comp-detail", data: { pane: "detail" } });
     const list = h("div", { cls: "fe-comp-list", data: { pane: "list" } },
       h("div", { cls: "fe-faint", text: `${rows.length} ${rows.length === 1 ? "entry" : "entries"}`, data: { note: "count" } }),

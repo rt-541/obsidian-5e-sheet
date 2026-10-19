@@ -116,7 +116,7 @@ describe.each([["desktop", false], ["mobile", true]] as const)("compendium brows
     s.click('[data-act="open-note"]');
     expect(s.opened).toEqual(["compendium/5e/Roll20/Spells/Roll Blast.md"]);
     s.click('.fe-tab[data-source="WotC (SRD)"]'); s.type("cure wounds");
-    if (mobile) s.click('[data-act="comp-back"]');
+    // the source switch hid the Roll20 pick, so the stale card is gone and the phone is already on the list (no back button)
     s.click('[data-id="cure-wounds"]');
     expect(s.root.querySelector('[data-act="open-note"]')).toBeNull();   // bundled SRD content has no note
   });

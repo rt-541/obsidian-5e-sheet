@@ -86,10 +86,9 @@ function comboCard(ctl: SheetController, st: ActorStats, v: ComboView, compact: 
 /** The Combos tab: an Add button that is always there, then every combo as a card with live buttons. */
 export function combosFeature(ctl: SheetController, st: ActorStats): HTMLElement {
   const views = comboViews(ctl.character!, st, ctl.companionStats(), ctl.ctx());
-  const add = views.length
-    ? btn("+ Add combo", () => ctl.startComboEdit(null), "mod-cta", { act: "add-combo" })
-    : h("button", { cls: "fe-btn mod-cta fe-combo-empty", text: "No combos yet. Add your first combo", data: { act: "add-combo" }, on: { click: () => ctl.startComboEdit(null) } });
-  return h("div", { cls: "fe-combos" }, add, ...views.map(v => comboCard(ctl, st, v, false)));
+  const add = btn("+ Add combo", () => ctl.startComboEdit(null), "mod-cta", { act: "add-combo" });
+  const intro = views.length ? null : h("div", { cls: "fe-muted", text: "A combo is your plan for a turn: what to do first, then next.", data: { note: "combo-intro" } });
+  return h("div", { cls: "fe-combos" }, intro, add, ...views.map(v => comboCard(ctl, st, v, false)));
 }
 
 /** The combos pinned to the main page; hidden while the character has none. */

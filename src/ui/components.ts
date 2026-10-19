@@ -117,18 +117,19 @@ function pinnedItems(ctl: SheetController): { index: number; row: HTMLElement }[
  */
 function identityParts(ctl: SheetController): HTMLElement {
   const c = ctl.character!, r = ctl.host.registry;
-  // a pick that is missing from the compendium stays plain text: there is no card to open
-  const part = (text: string, ref: string) => { const [type, id] = ref.split(":"); return h("span", { cls: "fe-id-part", text, ...(r.get(type, id ?? (type === "race" ? c.race! : type === "subrace" ? c.subrace! : c.background!)) ? { data: { ref: `identity:${ref}` } } : {}) }); };
+  // a pick that is missing from the compendium stays plain text, marked so it is not mistaken for a name
+  const part = (text: string, ref: string, missing = false) => { const [type, id] = ref.split(":"); return missing ? h("span", { cls: "fe-id-part is-missing", text: `${text} (missing from compendium)` }) : h("span", { cls: "fe-id-part", text, ...(r.get(type, id ?? (type === "race" ? c.race! : type === "subrace" ? c.subrace! : c.background!)) ? { data: { ref: `identity:${ref}` } } : {}) }); };
+  const named = (type: string, id: string) => { const e = r.get<{ name: string }>(type, id); return part(e?.name ?? id, `${type}:${id}`, !e); };
   const out: (Node | string)[] = [];
   c.classes.forEach((k, i) => {
     if (i) out.push(" / ");
     out.push(part(`${k.class} ${k.level}`, `class:${k.class}`));
-    if (k.subclass) out.push(" (", part(r.get<{ name: string }>("subclass", k.subclass)?.name ?? k.subclass, `subclass:${k.subclass}`), ")");
+    if (k.subclass) out.push(" (", named("subclass", k.subclass), ")");
   });
   const origin: Node[] = [];
-  if (c.race) origin.push(part(r.get<{ name: string }>("race", c.race)?.name ?? c.race, "race"));
-  if (c.subrace) origin.push(part(r.get<{ name: string }>("subrace", c.subrace)?.name ?? c.subrace, "subrace"));
-  if (c.background) origin.push(part(r.get<{ name: string }>("background", c.background)?.name ?? c.background, "background"));
+  if (c.race) origin.push((() => { const e = r.get<{ name: string }>("race", c.race!); return part(e?.name ?? c.race!, "race", !e); })());
+  if (c.subrace) origin.push((() => { const e = r.get<{ name: string }>("subrace", c.subrace!); return part(e?.name ?? c.subrace!, "subrace", !e); })());
+  if (c.background) origin.push((() => { const e = r.get<{ name: string }>("background", c.background!); return part(e?.name ?? c.background!, "background", !e); })());
   origin.forEach(o => out.push(" · ", o));
   return h("span", { cls: "fe-muted fe-identity-label" }, ...out);
 }
@@ -248,5 +249,5 @@ export const RENDER: Record<string, Render> = {
   "roll-log": ctl => btn(`Roll log${ctl.host.log.length ? ` (${ctl.host.log.length})` : ""}`, () => ctl.open({ kind: "log" })),
   "play-edit": ctl => h("div", { cls: "fe-kv" }, h("div", { cls: "fe-seg" }, btn("Play", () => ctl.setEditing(false), ctl.editing ? "" : "is-on"), btn("Edit", () => ctl.setEditing(true), ctl.editing ? "is-on" : "")),
     ctl.editing ? btn("Customize sheet", () => ctl.open({ kind: "customize" })) : null),
-  notes: ctl => { const el = h("div", { cls: "fe-notes" }); if (ctl.host.renderMarkdown && ctl.host.body) ctl.host.renderMarkdown(ctl.host.body, el); else el.textContent = ctl.host.body ?? ""; return el; },
+  notes: ctl => { const el = h("div", { cls: "fe-notes" }); if (ctl.host.renderMarkdown && ctl.host.body) ctl.host.renderMarkdown(ctl.host.body, el); else { el.textContent = ctl.host.body ?? ""; el.style.whiteSpace = "pre-wrap"; } return card("Notes", el); },
 };

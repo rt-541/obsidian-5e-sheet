@@ -145,7 +145,6 @@
 
 /* combos: coaching cards with ordered steps, action badges and live buttons */
 .fe-combos { display: grid; gap: var(--fe-gap); align-content: start; }
-.fe-sheet button.fe-combo-empty { width: 100%; min-height: 48px; font-weight: 600; }
 .fe-combo.is-short { border-color: var(--background-modifier-error); }
 .fe-ready { font-size: var(--font-ui-smaller); color: var(--text-success, var(--text-muted)); font-weight: 600; }
 .fe-ready.is-short { color: var(--text-error); }
@@ -296,9 +295,7 @@
 .fe-mobile button.fe-mode-opt, .fe-tablet button.fe-mode-opt { min-height: 44px; }
 .fe-hd-recharge { margin-top: 4px; }
 .fe-safe-haven { align-items: center; }
-.fe-badges { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 2px; }
-.fe-badge { font-size: var(--font-ui-smaller); padding: 0 6px; border-radius: var(--radius-s); border: 1px solid var(--background-modifier-border); color: var(--text-muted); }
-.fe-badge.is-mine { border-color: var(--interactive-accent); color: var(--text-normal); }
+.fe-tag.is-mine { border-color: var(--interactive-accent); color: var(--text-normal); }
 .fe-spell-add { width: 100%; margin-bottom: 8px; }
 .fe-mobile .fe-spell-add, .fe-tablet .fe-spell-add { min-height: 44px; }
 .fe-spell-menu { margin: 0 0 6px 12px; padding: 4px 8px; border-left: 3px solid var(--interactive-accent); background: var(--background-secondary); border-radius: var(--radius-s); }
@@ -316,3 +313,4 @@
 .fe-sheet .fe-auto { font-size: var(--font-ui-smaller); padding: 0 6px; margin-left: 6px; color: var(--text-faint); }
 .fe-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 2px; }
 .fe-tag { font-size: var(--font-ui-smaller); padding: 0 6px; margin-left: 6px; border-radius: var(--radius-s); border: 1px solid var(--background-modifier-border); color: var(--text-muted); }
+.fe-id-part.is-missing { color: var(--text-error, var(--text-muted)); }

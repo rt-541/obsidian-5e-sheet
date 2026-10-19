@@ -255,9 +255,9 @@ export function addSpellPanel(ctl: SheetController, panel: object = fallbackPane
       const hidden = st.higher ? 0 : inScope.length - rows.length;
       for (const e of rows.slice(0, MAX_ROWS)) list.append(h("div", { cls: "fe-inv", data: { pick: e.id } },
         h("div", { cls: "fe-grow" }, h("span", { cls: "fe-spell-name", text: e.name, data: { ref: `spell:${e.id}`, noclick: "" } }), playBadge(sourceLabel(e)),
-          h("div", { cls: "fe-badges" }, h("span", { cls: "fe-badge", text: e.data.level === 0 ? "Cantrip" : `Level ${e.data.level}`, data: { badge: "level" } }),
-            h("span", { cls: "fe-badge", text: e.data.school, data: { badge: "school" } }),
-            ...e.data.classes.map(k => h("span", { cls: `fe-badge ${mine.has(k) ? "is-mine" : ""}`.trim(), text: cap(k), data: { badge: "class" } })))),
+          h("div", { cls: "fe-tags" }, h("span", { cls: "fe-tag", text: e.data.level === 0 ? "Cantrip" : `Level ${e.data.level}`, data: { badge: "level" } }),
+            h("span", { cls: "fe-tag", text: e.data.school, data: { badge: "school" } }),
+            ...e.data.classes.map(k => h("span", { cls: `fe-tag ${mine.has(k) ? "is-mine" : ""}`.trim(), text: cap(k), data: { badge: "class" } })))),
         owned.has(e.id) ? h("button", { cls: "fe-btn", text: "Known", attrs: { disabled: "", "aria-label": `${e.name} is already known` }, data: { known: e.id } })
           : btn("Add", () => { ctl.dispatch({ type: "addSpell", id: e.id }); ctl.host.notify(`Added ${e.name}`); }, "", { add: e.id })));
       if (rows.length > MAX_ROWS) list.append(h("div", { cls: "fe-faint", data: { more: "" }, text: `${rows.length - MAX_ROWS} more: keep typing.` }));
