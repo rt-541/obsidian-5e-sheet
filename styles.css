@@ -341,3 +341,15 @@
 .fe-mobile .fe-slider, .fe-tablet .fe-slider { height: 44px; }
 .fe-sheet button.fe-mode-opt.is-blocked { opacity: 0.5; }
 .fe-grip-prompt { flex: 1 1 100%; padding: 4px 0 6px; }
+
+/* attack options card: a switch per option, and the short "Hit? Roll damage" button after an attack roll */
+.fe-opt { display: flex; align-items: flex-start; gap: 8px; padding: 4px 0; }
+.fe-sheet button.fe-opt-switch { width: 42px; height: 24px; min-height: 0; flex: none; border-radius: 12px; padding: 0; background: var(--background-modifier-border); position: relative; box-shadow: none; margin-top: 1px; }
+.fe-opt-switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: var(--background-primary); transition: left .15s; }
+.fe-sheet button.fe-opt-switch.is-on { background: var(--interactive-accent); } .fe-opt-switch.is-on::after { left: 21px; }
+.fe-sheet button.fe-opt-switch:disabled { opacity: .4; cursor: not-allowed; }
+.fe-sheet.fe-tablet button.fe-opt-switch, .fe-sheet.fe-mobile button.fe-opt-switch { width: 68px; height: 44px; min-height: 44px; border: 6px solid transparent; background-clip: padding-box; margin-top: 0; }
+.fe-tablet .fe-opt-switch::after, .fe-mobile .fe-opt-switch::after { top: 4px; left: 4px; width: 24px; height: 24px; } .fe-tablet .fe-opt-switch.is-on::after, .fe-mobile .fe-opt-switch.is-on::after { left: 28px; }
+.fe-sheet button.fe-hit-window { flex: none; background: var(--interactive-accent); color: var(--text-on-accent); animation: fe-hit-fade 3s linear forwards; }
+@keyframes fe-hit-fade { from { opacity: 1; } to { opacity: .4; } }
+@media (prefers-reduced-motion: reduce) { .fe-sheet button.fe-hit-window { animation: none; } }

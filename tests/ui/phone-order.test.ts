@@ -8,10 +8,10 @@ const css = readFileSync("styles.css", "utf8");
 
 describe("phone and tablet order", () => {
   it("phone combat puts HP controls, death saves, the roll mode, attacks and resources first", () =>
-    { expect(MOBILE.tabs[0].columns[0][0]).toEqual(STAT_TILES); expect(MOBILE.tabs[0].columns[0].slice(1, 6)).toEqual(["hp-controls", "death-saves", "roll-mode", "attacks", "resources"]); });
+    { expect(MOBILE.tabs[0].columns[0][0]).toEqual(STAT_TILES); expect(MOBILE.tabs[0].columns[0].slice(1, 7)).toEqual(["hp-controls", "death-saves", "roll-mode", "attacks", "attack-options", "resources"]); });
   it("tablet balances its columns: features under the checks, rest in the fight column", () => {
     const [left, right] = TABLET.tabs[0].columns;
-    expect(left.at(-1)).toBe("traits"); expect(right[0]).toEqual(STAT_TILES); expect(right.slice(1, 6)).toEqual(["hp-controls", "death-saves", "roll-mode", "attacks", "resources"]);
+    expect(left.at(-1)).toBe("traits"); expect(right[0]).toEqual(STAT_TILES); expect(right.slice(1, 7)).toEqual(["hp-controls", "death-saves", "roll-mode", "attacks", "attack-options", "resources"]);
   });
   it("the phone header stays put and covers the pane's top padding (tablet too)", () => {
     expect(css).toMatch(/\.fe-mobile \.fe-pinned \{[^}]*position: sticky; top: 0;/);

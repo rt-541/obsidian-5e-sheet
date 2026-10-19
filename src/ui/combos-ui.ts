@@ -18,9 +18,10 @@ function stepButtons(ctl: SheetController, st: ActorStats, v: StepView, combo: C
   const out: (Node | null)[] = [];
   if (v.attack) {
     const a = v.attack;
-    if (a.toHit !== undefined) out.push(roll(sgn(a.toHit), `${a.name}: roll to hit`, e => ctl.roll(`${a.name} to hit`, a.toHit!, a.target, e, a.who)));
+    const ai = a.who === undefined ? st.attacks.findIndex(x => x.name === a.name) : -1;
+    if (a.toHit !== undefined) out.push(roll(sgn(a.toHit), `${a.name}: roll to hit`, e => { if (ai >= 0) ctl.attackRoll(ai, e); else ctl.roll(`${a.name} to hit`, a.toHit!, a.target, e, a.who); }));
     if (a.save) out.push(h("span", { cls: "fe-src", text: `DC ${a.save.dc} ${ABIL[a.save.abil]}` }));
-    if (a.damage) out.push(roll(a.damage, `${a.name}: roll damage`, () => ctl.damage(`${a.name} damage`, a.damage!)));
+    if (a.damage) out.push(roll(a.damage, `${a.name}: roll damage`, () => { if (ai >= 0) ctl.attackDamage(ai); else ctl.damage(`${a.name} damage`, a.damage!); }));
   }
   if (v.spell) {
     out.push(...rolls(ctl, v.spell));

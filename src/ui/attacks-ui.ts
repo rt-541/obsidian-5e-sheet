@@ -6,7 +6,8 @@ import { h, sgn } from "./h";
 import { btn } from "./widgets";
 
 const ABIL_NAME: Record<Abil, string> = { str: "STR", dex: "DEX", con: "CON", int: "INT", wis: "WIS", cha: "CHA" };
-const refData = (ref?: string, noclick = false): { data: Record<string, string> } | Record<string, never> => (ref ? { data: { ref, ...(noclick ? { noclick: "" } : {}) } } : {});
+const refData = (ref?: string, noclick = false, act?: string): { data: Record<string, string> } | Record<string, never> =>
+  (ref || act ? { data: { ...(ref ? { ref } : {}), ...(ref && noclick ? { noclick: "" } : {}), ...(act ? { act } : {}) } } : {});
 
 /** "1d8+3 slashing + 1d6 fire" -> "1d8+3 + 1d6": the damage type words drop off, the full text stays in the button's label. */
 export function compactDamage(damage: string): string {
@@ -20,13 +21,15 @@ export function attacksList(ctl: SheetController, st: ActorStats, who?: number):
     who === undefined && st.kind === "character" && st.attacksPerAction > 1 ? h("div", { cls: "fe-muted fe-attacks-per", text: `Attacks per action: ${st.attacksPerAction}` }) : null,
     ...st.attacks.flatMap((a, ai) => {
       const noteRef = a.why ? `why:attack:${ai}` : a.note ? `attack-note:${who ?? "self"}:${ai}` : undefined;
+      const own = who === undefined && st.kind === "character";
       const hit = a.toHit !== undefined
-        ? h("button", { cls: "fe-roll fe-atk", text: `${sgn(a.toHit)} Atk`, ...refData(a.why?.hit ? `why:attack:${ai}:hit` : undefined, true),
-          on: { click: (e: MouseEvent) => ctl.roll(`${a.name} to hit`, a.toHit!, a.target, e, who) } })
+        ? h("button", { cls: "fe-roll fe-atk", text: `${sgn(a.toHit)} Atk`, ...refData(a.why?.hit ? `why:attack:${ai}:hit` : undefined, true, "to-hit"),
+          on: { click: (e: MouseEvent) => { if (own) ctl.attackRoll(ai, e); else ctl.roll(`${a.name} to hit`, a.toHit!, a.target, e, who); } } })
         : a.save ? h("span", { cls: "fe-faint fe-atk-save", text: `DC ${a.save.dc} ${ABIL_NAME[a.save.abil]}` }) : null;
       const dmg = a.damage
         ? h("button", { cls: "fe-roll fe-atk-dmg", text: compactDamage(a.damage), title: `${a.name} damage: ${a.damage}`, attrs: { "aria-label": `${a.name} damage: ${a.damage}` },
-          ...refData(a.why?.damage ? `why:attack:${ai}:damage` : undefined, true), on: { click: () => ctl.damage(`${a.name} damage`, a.damage!) } })
+          ...refData(a.why?.damage ? `why:attack:${ai}:damage` : undefined, true, "damage"),
+          on: { click: () => { if (own) ctl.attackDamage(ai); else ctl.damage(`${a.name} damage`, a.damage!); } } })
         : null;
       const row = h("div", { cls: "fe-attack", data: { attack: String(ai) } },
         h("span", { cls: "fe-grow", text: a.name, ...refData(noteRef) }),
@@ -34,8 +37,11 @@ export function attacksList(ctl: SheetController, st: ActorStats, who?: number):
         h("span", { cls: "fe-attack-ctl" },
           gripSwitch(ctl, a, who),
           hit, hit && dmg ? h("span", { cls: "fe-faint fe-attack-sep", text: "/" }) : null, dmg,
-          a.critDamage ? h("button", { cls: "fe-roll fe-crit", text: "Crit", title: `Damage on a critical hit: ${a.critDamage}`, attrs: { "aria-label": `${a.name} critical hit damage` },
-            on: { click: () => ctl.damage(`${a.name} critical damage`, a.critDamage!) } }) : null));
+          a.critDamage ? h("button", { cls: "fe-roll fe-crit", text: "Crit", data: { act: "crit" }, title: `Damage on a critical hit: ${a.critDamage}`, attrs: { "aria-label": `${a.name} critical hit damage` },
+            on: { click: () => { if (own) ctl.attackDamage(ai, true); else ctl.damage(`${a.name} critical damage`, a.critDamage!); } } }) : null,
+          own && ctl.hitWindow?.ai === ai
+            ? h("button", { cls: "fe-roll fe-hit-window", text: ctl.hitWindow.crit ? "Crit! Roll damage" : "Hit? Roll damage", data: { act: "hit-window" },
+              on: { click: () => { ctl.attackDamage(ai, ctl.hitWindow?.crit ?? false); } } }) : null));
       const asking = who === undefined && a.grip && a.grip.shield && a.item !== undefined && ctl.gripPrompt === a.item;
       if (!asking) return [row];
       const item = a.item!;
