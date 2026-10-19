@@ -7,7 +7,7 @@ import { evalFormula, fillDice } from "./formula";
 
 export interface SpellRow {
   id: string; name: string; level: number; known: boolean;     // false only for missing ids
-  source: { kind: "own"; prepared: boolean } | { kind: "item"; itemIndex: number; itemName: string; cost: GrantedSpell["cost"]; usesLeft?: number; chargesLeft?: number };
+  source: { kind: "own"; prepared: boolean; always?: boolean } | { kind: "item"; itemIndex: number; itemName: string; cost: GrantedSpell["cost"]; usesLeft?: number; chargesLeft?: number };
   castLevel: number;                       // item level override or spell level
   attack?: number; dc?: number;            // item overrides, else character spellcasting
   damage?: string; heal?: string;          // dice at castLevel (cantrips: by character level), MOD replaced
@@ -76,7 +76,7 @@ function build(id: string, data: SpellData | undefined, source: SpellRow["source
 
 export function spellRows(c: Character, stats: ActorStats, ctx: EffectContext): { own: SpellRow[]; fromItems: SpellRow[] } {
   const r = ctx.registry;
-  const own = c.spells.map(s => build(s.id, r.get<SpellData>("spell", s.id)?.data, { kind: "own", prepared: s.prepared }, undefined, stats));
+  const own = c.spells.map(s => build(s.id, r.get<SpellData>("spell", s.id)?.data, { kind: "own", prepared: s.prepared || !!s.always, ...(s.always ? { always: true } : {}) }, undefined, stats));
   const fromItems: SpellRow[] = [];
   c.inventory.forEach((e, itemIndex) => {
     if (!e.id) return;
@@ -96,5 +96,5 @@ export function spellRows(c: Character, stats: ActorStats, ctx: EffectContext): 
 export function castRow(c: Character, stats: ActorStats, ctx: EffectContext, id: string, level: number): SpellRow | undefined {
   const e = c.spells.find(x => x.id === id) ?? { id, prepared: true };
   const data = ctx.registry.get<SpellData>("spell", id)?.data;
-  return data ? build(id, data, { kind: "own", prepared: e.prepared }, Math.max(level, data.level), stats) : undefined;
+  return data ? build(id, data, { kind: "own", prepared: e.prepared || !!(e as { always?: boolean }).always }, Math.max(level, data.level), stats) : undefined;
 }

@@ -29,7 +29,7 @@ export interface Character {
   hitDice: Record<string, { used: number }>;
   deathSaves: { successes: number; failures: number };
   spellSlots: Record<string, { used: number }>;
-  spells: { id: string; prepared: boolean }[];
+  spells: { id: string; prepared: boolean; /** Always prepared (a domain or class feature): counts as prepared and cannot be unprepared. */ always?: boolean }[];
   inventory: InventoryEntry[]; coins: { pp: number; gp: number; ep: number; sp: number; cp: number };
   resources: Resource[]; conditions: Record<string, number>; injuries: { id: string; overcome: boolean }[];
   modifiers: Modifier[]; inspiration: boolean; xp: number; baseSpeed: number;
@@ -200,7 +200,7 @@ function parseCharacter(fm: R): Parsed {
     if (!isObj(v)) { r.errors.push(`spellSlots.${k}: must be a mapping`); continue; }
     c.spellSlots[k] = { ...v, used: r.whole(v.used, `spellSlots.${k}.used`) };
   }
-  c.spells = r.list(fm.spells, "spells").flatMap((x, i) => isObj(x) && typeof x.id === "string" ? [{ ...x, id: x.id, prepared: r.bool(x.prepared, `spells[${i}].prepared`) }] : (r.errors.push(`spells[${i}]: must have an id`), []));
+  c.spells = r.list(fm.spells, "spells").flatMap((x, i) => isObj(x) && typeof x.id === "string" ? [{ ...x, id: x.id, prepared: r.bool(x.prepared, `spells[${i}].prepared`), ...(r.bool(x.always, `spells[${i}].always`) ? { always: true } : {}) }] : (r.errors.push(`spells[${i}]: must have an id`), []));
   c.inventory = r.list(fm.inventory, "inventory").flatMap((x, i) => {
     if (!isObj(x) || (typeof x.id !== "string" && typeof x.name !== "string")) { r.errors.push(`inventory[${i}]: needs an id or a name`); return []; }
     const e: InventoryEntry = { ...x, qty: r.whole(x.qty, `inventory[${i}].qty`, 1), equipped: r.bool(x.equipped, `inventory[${i}].equipped`), attuned: r.bool(x.attuned, `inventory[${i}].attuned`) };
