@@ -55,13 +55,13 @@ describe("the tablet layout", () => {
   it("has the six tabs and the sticky header from the plan", () => {
     const s = setup({}, "tablet");
     expect(s.all(".fe-tab").map(t => t.textContent)).toEqual(["Main", "Combos", "Spells", "Gear", "Features", "More"]);
-    expect(feats(s.q(".fe-pinned"))).toEqual(["identity", "hp", "ac", "initiative", "speed", "conditions", "concentration", "roll-mode", "level-up", "roll-log"]);
+    expect(feats(s.q(".fe-pinned"))).toEqual(["identity", "hp", "conditions", "concentration", "roll-mode", "level-up", "roll-log"]);
     expect(s.root.classList.contains("fe-tablet")).toBe(true); expect(s.root.classList.contains("fe-mobile")).toBe(false);
   });
   it("Main has two columns: the checks, then what you use in a fight", () => {
     const s = setup({}, "tablet"), cols = s.all('[data-pane="main"] .fe-col');
     expect(cols.map(c => feats(c))).toEqual([
-      ["abilities", "saves", "skills", "passive-perception", "traits"],
+      ["abilities", "saves", "skills", "traits"],
       ["hp-controls", "death-saves", "attacks", "resources", "toggles", "pinned-spells", "pinned-combos", "spell-dc", "spell-slots", "coins", "hit-dice", "rests", "active-effects"]]);
   });
   it("the other tabs hold what the plan says", () => {

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { readFileSync } from "node:fs";
-import { MOBILE, TABLET } from "../../src/ui/layouts";
+import { MOBILE, STAT_TILES, TABLET } from "../../src/ui/layouts";
 import { thalia } from "../fixtures/notes";
 import { sheet } from "./review-helpers";
 
@@ -8,10 +8,10 @@ const css = readFileSync("styles.css", "utf8");
 
 describe("phone and tablet order", () => {
   it("phone combat puts HP controls, death saves, attacks and resources first", () =>
-    expect(MOBILE.tabs[0].columns[0].slice(0, 4)).toEqual(["hp-controls", "death-saves", "attacks", "resources"]));
+    { expect(MOBILE.tabs[0].columns[0][0]).toEqual(STAT_TILES); expect(MOBILE.tabs[0].columns[0].slice(1, 5)).toEqual(["hp-controls", "death-saves", "attacks", "resources"]); });
   it("tablet balances its columns: features under the checks, rest in the fight column", () => {
     const [left, right] = TABLET.tabs[0].columns;
-    expect(left.at(-1)).toBe("traits"); expect(right.slice(0, 4)).toEqual(["hp-controls", "death-saves", "attacks", "resources"]);
+    expect(left.at(-1)).toBe("traits"); expect(right[0]).toEqual(STAT_TILES); expect(right.slice(1, 5)).toEqual(["hp-controls", "death-saves", "attacks", "resources"]);
   });
   it("the phone header stays put and covers the pane's top padding (tablet too)", () => {
     expect(css).toMatch(/\.fe-mobile \.fe-pinned \{[^}]*position: sticky; top: 0;/);

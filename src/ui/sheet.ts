@@ -74,8 +74,13 @@ export function mountSheet(root: HTMLElement, ctl: SheetController, layoutIn: La
       if (!visible.has(f) || !RENDER[f]) return null;
       const el = RENDER[f](ctl, st); el.dataset.feature = f; return el;
     };
+    // a group of tiles is one row; it vanishes when every tile in it is hidden
+    const statRow = (fs: readonly string[]): HTMLElement | null => {
+      const tiles = fs.map(slot).filter((e): e is HTMLElement => e !== null);
+      return tiles.length ? h("div", { cls: "fe-stat-row", data: { row: "stats" } }, ...tiles) : null;
+    };
     root.append(h("div", { cls: "fe-pinned" }, ...layout.pinned.map(slot)));
-    const tabs = layout.tabs.filter(t => t.columns.flat().some(f => visible.has(f)));
+    const tabs = layout.tabs.filter(t => t.columns.flat(2).some(f => visible.has(f)));
     const active = tabs.find(t => t.id === ctl.tab) ?? tabs[0];
     const nav = h("nav", { cls: "fe-tabs", data: { feature: "tabs" } }, ...tabs.map(t =>
       h("button", { cls: `fe-tab ${t === active ? "is-on" : ""}`, text: t.label, data: { tab: t.id }, on: { click: () => ctl.setTab(t.id) } })));
@@ -86,7 +91,7 @@ export function mountSheet(root: HTMLElement, ctl: SheetController, layoutIn: La
       // a tab that opens with the abilities column sizes it to its content; the other columns share the rest (desktop CSS)
       const checks = t.columns.length > 1 && t.columns[0][0] === "abilities";
       const pane = h("div", { cls: `fe-pane ${checks ? "has-checks" : ""}`.trim(), data: { pane: t.id } },
-        ...t.columns.map((col, i) => h("div", { cls: `fe-col ${checks && i === 0 ? "fe-col-checks" : ""}`.trim() }, ...col.map(slot))));
+        ...t.columns.map((col, i) => h("div", { cls: `fe-col ${checks && i === 0 ? "fe-col-checks" : ""}`.trim() }, ...col.map(s => typeof s === "string" ? slot(s) : statRow(s)))));
       if (checks) pane.style.setProperty("--fe-rest", String(t.columns.length - 1));
       pane.hidden = t !== active; root.append(pane);
     }

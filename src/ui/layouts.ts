@@ -10,14 +10,19 @@ export const NPC_FEATURES = [
   "active-effects", "abilities", "saves", "skills", "attacks", "traits", "roll-mode", "roll-log", "play-edit", "notes",
 ] as const;
 
-export interface LayoutSpec { pinned: string[]; tabs: { id: string; label: string; columns: string[][] }[]; }
+/** One place in a column: a feature id, or a group of ids drawn together as one row. */
+export type Slot = string | readonly string[];
+/** The four numbers read together at the top of the fight column. */
+export const STAT_TILES = ["ac", "initiative", "speed", "passive-perception"] as const;
+
+export interface LayoutSpec { pinned: string[]; tabs: { id: string; label: string; columns: Slot[][] }[]; }
 
 export const DESKTOP: LayoutSpec = {
   pinned: ["identity", "inspiration", "prof", "xp", "level-up", "roll-mode", "play-edit", "roll-log"],
   tabs: [
     { id: "main", label: "Main", columns: [
       ["abilities", "saves", "skills"],
-      ["ac", "initiative", "speed", "passive-perception", "hp", "hp-controls", "coins", "hit-dice", "rests", "death-saves", "conditions", "concentration", "active-effects"],
+      [STAT_TILES, "hp", "hp-controls", "coins", "hit-dice", "rests", "death-saves", "conditions", "concentration", "active-effects"],
       ["toggles", "attacks", "pinned-spells", "pinned-combos", "spell-dc", "spell-slots", "resources", "rations", "traits"]] },
     { id: "combos", label: "Combos", columns: [["combos"]] },
     { id: "spells", label: "Spells", columns: [["spells"]] },
@@ -28,11 +33,11 @@ export const DESKTOP: LayoutSpec = {
   ],
 };
 export const MOBILE: LayoutSpec = {
-  pinned: ["identity", "hp", "ac", "initiative", "speed", "roll-mode", "conditions", "concentration"],
+  pinned: ["identity", "hp", "roll-mode", "conditions", "concentration"],
   tabs: [
-    { id: "combat", label: "Fight", columns: [["hp-controls", "death-saves", "attacks", "resources", "rations", "toggles", "pinned-spells", "pinned-combos", "spell-dc", "spell-slots", "coins", "traits", "hit-dice", "rests"]] },
+    { id: "combat", label: "Fight", columns: [[STAT_TILES, "hp-controls", "death-saves", "attacks", "resources", "rations", "toggles", "pinned-spells", "pinned-combos", "spell-dc", "spell-slots", "coins", "traits", "hit-dice", "rests"]] },
     { id: "combos", label: "Combo", columns: [["combos"]] },
-    { id: "checks", label: "Check", columns: [["abilities", "saves", "skills", "passive-perception"]] },
+    { id: "checks", label: "Check", columns: [["abilities", "saves", "skills"]] },
     { id: "spells", label: "Spell", columns: [["spells"]] },
     { id: "gear", label: "Gear", columns: [["inventory"]] },
     { id: "pets", label: "Pets", columns: [["companions"]] },
@@ -42,15 +47,15 @@ export const MOBILE: LayoutSpec = {
 export const NPC_DESKTOP: LayoutSpec = {
   pinned: ["identity", "roll-mode", "play-edit", "roll-log"],
   tabs: [
-    { id: "main", label: "Stat block", columns: [["abilities", "saves", "skills"], ["ac", "initiative", "speed", "passive-perception", "hp", "hp-controls", "conditions", "active-effects"], ["attacks", "traits"]] },
+    { id: "main", label: "Stat block", columns: [["abilities", "saves", "skills"], [STAT_TILES, "hp", "hp-controls", "conditions", "active-effects"], ["attacks", "traits"]] },
     { id: "notes", label: "Notes", columns: [["notes"]] },
   ],
 };
 export const NPC_MOBILE: LayoutSpec = {
-  pinned: ["identity", "hp", "ac", "initiative", "speed", "roll-mode", "conditions", "roll-log"],
+  pinned: ["identity", "hp", "roll-mode", "conditions", "roll-log"],
   tabs: [
-    { id: "combat", label: "Combat", columns: [["hp-controls", "attacks", "traits"]] },
-    { id: "checks", label: "Checks", columns: [["abilities", "saves", "skills", "passive-perception"]] },
+    { id: "combat", label: "Combat", columns: [[STAT_TILES, "hp-controls", "attacks", "traits"]] },
+    { id: "checks", label: "Checks", columns: [["abilities", "saves", "skills"]] },
     { id: "more", label: "More", columns: [["active-effects", "play-edit", "notes"]] },
   ],
 };
@@ -60,11 +65,11 @@ export const NPC_MOBILE: LayoutSpec = {
  * The switches (Rage and the like) sit at the top of the right column rather than in the header, so their descriptions have room.
  */
 export const TABLET: LayoutSpec = {
-  pinned: ["identity", "hp", "ac", "initiative", "speed", "conditions", "concentration", "roll-mode", "level-up", "roll-log"],
+  pinned: ["identity", "hp", "conditions", "concentration", "roll-mode", "level-up", "roll-log"],
   tabs: [
     { id: "main", label: "Main", columns: [
-      ["abilities", "saves", "skills", "passive-perception", "traits"],
-      ["hp-controls", "death-saves", "attacks", "resources", "rations", "toggles", "pinned-spells", "pinned-combos", "spell-dc", "spell-slots", "coins", "hit-dice", "rests", "active-effects"]] },
+      ["abilities", "saves", "skills", "traits"],
+      [STAT_TILES, "hp-controls", "death-saves", "attacks", "resources", "rations", "toggles", "pinned-spells", "pinned-combos", "spell-dc", "spell-slots", "coins", "hit-dice", "rests", "active-effects"]] },
     { id: "combos", label: "Combos", columns: [["combos"]] },
     { id: "spells", label: "Spells", columns: [["spells"]] },
     { id: "gear", label: "Gear", columns: [["inventory"]] },
@@ -92,4 +97,4 @@ export function layoutFor(npc: boolean, layout: LayoutName | boolean): LayoutSpe
   const name: LayoutName = layout === true ? "mobile" : layout === false ? "desktop" : layout;
   return npc ? (name === "mobile" ? NPC_MOBILE : NPC_DESKTOP) : name === "mobile" ? MOBILE : name === "tablet" ? TABLET : DESKTOP;
 }
-export const placed = (l: LayoutSpec) => [...l.pinned, ...l.tabs.flatMap(t => t.columns.flat())];
+export const placed = (l: LayoutSpec): string[] => [...l.pinned, ...l.tabs.flatMap(t => t.columns.flat(2))] as string[];
