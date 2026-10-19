@@ -30,10 +30,7 @@ export function itemState(ctl: SheetController, index: number) {
   const upWord = outOfStock ? "none left" : outOfCharges ? "no charges left" : "";
   const useBtn = () => {
     if (!consumable) return null;
-    const b = btn(e.qty > 0 ? "Use one" : "None left", () => {
-      ctl.dispatch({ type: "itemQty", index, qty: e.qty - 1 });
-      ctl.host.notify(e.qty - 1 > 0 ? `Used ${name}: ${e.qty - 1} left.` : `Used ${name}: none left. It stays in your inventory, greyed out.`);
-    });
+    const b = btn(e.qty > 0 ? "Use one" : "None left", () => ctl.useItem(index));
     b.dataset.act = "use-item"; (b as HTMLButtonElement).disabled = e.qty <= 0; return b;
   };
   return { e, it, name, charges, consumable, usedUp, upWord, useBtn };

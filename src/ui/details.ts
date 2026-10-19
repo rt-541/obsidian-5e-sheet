@@ -40,6 +40,7 @@ function itemCard(reg: Registry, e: Entry<ItemData>): HTMLElement {
   if (d.armor) lines.push(`Armor: AC ${d.armor.base}${d.armor.dex === "full" ? " + Dex" : d.armor.dex === "max2" ? " + Dex (max 2)" : ""}${d.armor.stealthDis ? ", disadvantage on Stealth" : ""}`);
   if (d.weapon) lines.push(`Weapon: ${d.weapon.dmg}${d.weapon.bonus ? sgn(d.weapon.bonus) : ""} ${d.weapon.type}${d.weapon.extraDamage ? ` + ${d.weapon.extraDamage}` : ""} (${d.weapon.range})`);
   lines.push(...effectLines(d.effects));
+  if (d.heal) lines.push(`Healing: ${d.heal}`);
   if (d.weight) lines.push(`Weight: ${d.weight} lb`);
   if (d.value !== undefined) lines.push(`Value: ${priceText(d.value)}`);
   if (d.charges) lines.push(`Charges: ${d.charges.max}, resets ${d.charges.reset === "none" ? "never" : d.charges.reset}`);

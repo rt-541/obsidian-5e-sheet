@@ -139,6 +139,30 @@ export class SheetController {
     return true;
   }
 
+  /**
+   * Use one of an inventory entry: take one off the stack, and when the item heals (a potion) roll its dice and heal.
+   * Says what happened in words.
+   */
+  useItem(index: number): boolean {
+    const c = this.character, e = c?.inventory[index];
+    if (!c || !e || e.qty <= 0) return false;
+    const it = e.id ? this.host.registry.get<ItemData>("item", e.id) : undefined, name = it?.name ?? e.name ?? "Item", left = e.qty - 1;
+    const tail = left > 0 ? `${left} left.` : "None left. It stays in your inventory, greyed out.";
+    if (!it?.data.heal) {
+      this.dispatch({ type: "itemQty", index, qty: left });
+      this.host.notify(left > 0 ? `Used ${name}: ${left} left.` : `Used ${name}: none left. It stays in your inventory, greyed out.`);
+      return true;
+    }
+    let rolled: number;
+    try { rolled = Number(this.damage(`${name} healing`, it.data.heal).total); }
+    catch (x) { this.host.notify(`${name}: ${(x as Error).message}`); return false; }
+    const before = this.stats()!.hp.current;
+    if (!this.dispatch({ type: "itemQty", index, qty: left }).ok || !this.dispatch({ type: "heal", amount: rolled }).ok) return false;
+    const healed = this.stats()!.hp.current - before;
+    this.host.notify(`${name}: healed ${healed}${healed < rolled ? ` (rolled ${rolled}, but that is all the room you had)` : ""}. ${tail}`);
+    return true;
+  }
+
   toggleItemMenu(index: number) { this.itemMenu = this.itemMenu === index ? null : index; this.emit(); }
 
   /** Add the custom item typed into the form. A problem is shown under the form in plain words. */
