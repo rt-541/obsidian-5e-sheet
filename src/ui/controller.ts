@@ -14,6 +14,7 @@ import { applyLevel, applyResolve, levelFromXp, planLevel, planResolve, rollHitD
 import { formulaVars, type FeatureRow } from "../core/progression";
 import type { RollMode, RollResult, RollTarget, Rng } from "../core/types";
 import { activeRests, MODULES } from "../rules";
+import { blankItemDraft, parseItemBlock, validateItemDraft, type ChargeReset, type ItemDraft, type ItemKind } from "../content/itemblock";
 import { blankItemSearch, type ItemSearch } from "./additem-ui";
 import { findRations, foodDays } from "../rules/hexploration";
 import { resolveRules, resolveSections, spendHitDie, type RestCtx, type RestOptions } from "../rules/module";
@@ -31,6 +32,8 @@ export interface SheetHost {
   openBuilder?(): void;
   /** Save a custom creature as a Homebrew note and register it; resolves to its creature id. Never overwrites an existing note. */
   saveCreature?(draft: Draft): Promise<string>;
+  /** Save a custom item as a Homebrew note and register it; resolves to its item id. Never overwrites an existing note. */
+  saveItem?(draft: ItemDraft): Promise<string>;
   /** Trait groups the player collapsed, kept per character in plugin data (not in the note). */
   collapsedGroups?(): string[];
   setCollapsedGroups?(ids: string[]): void;
@@ -48,8 +51,15 @@ export interface LevelUpState {
   hp?: { method: "roll" | "average"; roll?: number }; choices: Record<string, unknown>; error?: string;
 }
 /** The "custom item" form in the add panel: raw text as typed, so a half-typed number is kept as is. */
-export interface CustomItemForm { name: string; qty: string; weight: string; consumable: boolean; error?: string; }
-export const blankCustomItem = (): CustomItemForm => ({ name: "", qty: "1", weight: "", consumable: false });
+export interface CustomItemForm {
+  name: string; qty: string; weight: string; consumable: boolean; error?: string;
+  /** The extra fields (kind, rarity, charges ...) are shown. They matter when the item is saved to the compendium. */
+  more: boolean; kind: ItemKind; base: string; rarity: string; attunement: boolean; attunementNote: string;
+  chargesMax: string; chargesReset: ChargeReset; attackBonus: string; damageBonus: string; acBonus: string; heal: string; description: string; /** Price in copper, carried over from an import. */ value?: number;
+  /** The import view (paste text) is showing instead of the form. */ importing: boolean; importText: string; showTemplate: boolean; unread: string[];
+}
+export const blankCustomItem = (): CustomItemForm => ({ name: "", qty: "1", weight: "", consumable: false, more: false, kind: "gear", base: "", rarity: "", attunement: false, attunementNote: "",
+  chargesMax: "", chargesReset: "dawn", attackBonus: "", damageBonus: "", acBonus: "", heal: "", description: "", importing: false, importText: "", showTemplate: false, unread: [] });
 type Mods = { shiftKey?: boolean; ctrlKey?: boolean; metaKey?: boolean };
 
 export const LOG_MAX = 50;
@@ -214,6 +224,43 @@ export class SheetController {
     if (!this.dispatch({ type: "addCustomItem", name, qty, ...(weight !== undefined ? { weight } : {}), ...(f.consumable ? { consumable: true } : {}) }).ok) { this.customItem = f; return false; }
     this.host.notify(had ? `Added ${name} (now ${had + qty})` : `Added ${name}.`);
     return true;
+  }
+
+  /** Fill the item form from pasted text (a layout the 5e-item reader understands), listing what it could not read. */
+  readItemText(text: string) {
+    const { draft: d, unread } = parseItemBlock(text), f = this.customItem, num = (n: number | undefined) => (n === undefined ? "" : String(n));
+    Object.assign(f, { name: d.name, kind: d.kind, base: d.base ?? "", rarity: d.rarity ?? "", attunement: d.attunement, attunementNote: d.attunementNote ?? "", weight: num(d.weight),
+      chargesMax: num(d.charges?.max), chargesReset: d.charges?.reset ?? "dawn", attackBonus: num(d.attackBonus), damageBonus: num(d.damageBonus), acBonus: num(d.acBonus),
+      heal: d.heal ?? "", description: d.description, value: d.value, consumable: d.kind === "consumable", more: true, importing: false, unread, error: undefined });
+    this.emit();
+  }
+  /** The form as an item draft; text that is not a number becomes NaN so the validator names it. */
+  itemDraftFromForm(): ItemDraft {
+    const f = this.customItem, n = (s: string) => (s.trim() === "" ? undefined : Number(s));
+    const d = blankItemDraft();
+    Object.assign(d, { name: f.name.trim(), kind: f.kind, attunement: f.attunement, description: f.description.trim() });
+    const set = <K extends keyof ItemDraft>(k: K, v: ItemDraft[K] | undefined) => { if (v !== undefined) d[k] = v; };
+    set("base", f.base.trim() || undefined); set("rarity", f.rarity || undefined); set("attunementNote", f.attunement ? f.attunementNote.trim() || undefined : undefined);
+    set("weight", n(f.weight)); set("value", f.value); set("heal", f.heal.trim() || undefined);
+    const max = n(f.chargesMax); if (max !== undefined) d.charges = { max, reset: f.chargesReset };
+    set("attackBonus", n(f.attackBonus)); set("damageBonus", n(f.damageBonus)); set("acBonus", n(f.acBonus));
+    return d;
+  }
+  /** Save the form's item as a Homebrew note, then put it in the pack. The panel stays open. */
+  async saveItemToCompendium(): Promise<boolean> {
+    const f = this.customItem, save = this.host.saveItem;
+    if (!save || !this.character) return false;
+    const qty = f.qty.trim() === "" ? NaN : Number(f.qty), draft = this.itemDraftFromForm();
+    const bad = !Number.isInteger(qty) || qty < 1 ? "How many? Use a whole number, 1 or more." : validateItemDraft(draft)[0];
+    if (bad) { f.error = bad; this.emit(); return false; }
+    try {
+      const id = await save(draft);
+      this.customItem = blankCustomItem();
+      if (!this.dispatch({ type: "addItem", id }).ok) return false;
+      if (qty > 1) { const i = this.character.inventory.findIndex(e => e.id === id); if (i >= 0) this.dispatch({ type: "itemQty", index: i, qty }); }
+      this.host.notify(`Saved ${this.host.registry.get<ItemData>("item", id)?.name ?? draft.name} to your Homebrew items and added it.`);
+      return true;
+    } catch (x) { f.error = x instanceof Error ? x.message : String(x); this.emit(); return false; }
   }
 
   /** Start or end a toggle (Rage, a stance, an aura) and say in words what happened, including why it could not start. */

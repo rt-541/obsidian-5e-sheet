@@ -21,10 +21,10 @@ export function addInvented(r: Registry) {
   r.add("vault", "item", { id: "elm-buckler", name: "Elm Buckler", kind: "shield", attunement: false, weight: 5, effects: { modifiers: [{ target: "ac", value: 2 }] } }, { path: "elm-buckler.md" });
 }
 
-export function setup(layout: LayoutName, note: object = {}, extra?: (r: Registry) => void, campaign?: object) {
+export function setup(layout: LayoutName, note: object = {}, extra?: (r: Registry) => void, campaign?: object, hostExtra?: (r: Registry) => Partial<SheetHost>) {
   const r = mechanicsRegistry(); addInvented(r); extra?.(r);
   const saved: (Character | Npc)[] = [], notices: string[] = [];
-  const host: SheetHost = { registry: r, ...(campaign ? { campaign: campaign as never } : {}), ruleDefaults: {}, save: v => saved.push(structuredClone(v)), notify: m => notices.push(m), log: [], rng: seeded(4), body: "" };
+  const host: SheetHost = { registry: r, ...(campaign ? { campaign: campaign as never } : {}), ruleDefaults: {}, save: v => saved.push(structuredClone(v)), notify: m => notices.push(m), log: [], rng: seeded(4), body: "", ...(hostExtra?.(r) ?? {}) };
   const p = parseNote({ ...tester, ...note }); if (p.kind === "none") throw new Error("not a sheet");
   const ctl = new SheetController(host, p), root = document.createElement("div");
   document.body.append(root); mountSheet(root, ctl, layout);
