@@ -2,7 +2,7 @@ import type { Registry } from "../content/registry";
 import { slug } from "../content/registry";
 import { findOverlay, overlayOptionList, type OverlayEntry, type OverlayKind } from "../content/overlay";
 import { abilityKey } from "./ability-increase";
-import type { ActionDef, ClassData, FeatData, GrantsData, Op, OptionDef, Progression, Reset, SubclassData, SubraceData, TableRow, ToggleDef } from "../content/types";
+import type { ActionDef, AttackOptionDef, ClassData, FeatData, GrantsData, Op, OptionDef, Progression, Reset, SubclassData, SubraceData, TableRow, ToggleDef } from "../content/types";
 import { abilityMod, profBonus } from "./abilities";
 import type { Character } from "./character";
 import { gatedByToggle, type SourcedEffects } from "./effects";
@@ -38,6 +38,8 @@ export interface Progress {
   pending: PendingChoice[]; effects: SourcedEffects[];
   /** Every switch a feature or option declares (Rage, a stance); its effects are in `effects` only while it is on. */
   toggles: DeclaredToggle[];
+  /** Every attack option (a focus die, extra on-hit dice, a reroll) a feature, option or built-in entry declares; the sheet lists them under Attack options. */
+  attackOptions: DeclaredAttackOption[];
   /** Content ids the character names that are not in the compendium (race:x, feat:y, subclass:z). */
   unknown: string[];
   /** Bad homebrew that was skipped: formulas that do not evaluate, picks that are not allowed, and so on. */
@@ -46,12 +48,15 @@ export interface Progress {
   overlay: { used: string[]; skipped: string[] };
 }
 
+/** An attack option declared by a feature or option. */
+export interface DeclaredAttackOption { id: string; name: string; source: string; /** Key of the feature row that declares it. */ key: string; /** Owner level the scale reads. */ level: number; def: AttackOptionDef; }
+
 /** A switch declared by a feature or option: `effects` count only while it is on. */
 export interface DeclaredToggle { id: string; name: string; source: string; /** Key of the feature row that declares it. */ key: string; text?: string; def: ToggleDef; effects: Effects; }
 
 export const emptyProgress = (): Progress => ({
   features: [], resources: [], scales: {}, dcs: [], proficiencies: { saves: [], skills: [], expertise: [], other: [] }, languages: [],
-  options: {}, spellcasting: [], grantedSpells: [], grantedItems: [], pending: [], effects: [], toggles: [], unknown: [], problems: [], overlay: { used: [], skipped: [] },
+  options: {}, spellcasting: [], grantedSpells: [], grantedItems: [], pending: [], effects: [], toggles: [], attackOptions: [], unknown: [], problems: [], overlay: { used: [], skipped: [] },
 });
 
 const own = (o: object, k: string) => Object.prototype.hasOwnProperty.call(o, k);
@@ -112,11 +117,15 @@ export function progress(c: Character, registry: Registry): Progress {
       else seen.other.add(p);
     }
   };
-  const feature = (src: Src, key: string, name: string, text: string | undefined, effects: Effects, action: ActionDef | undefined, kind = src.kind, toggle?: ToggleDef, overlay?: string, toggleName?: string) => {
+  const feature = (src: Src, key: string, name: string, text: string | undefined, effects: Effects, action: ActionDef | undefined, kind = src.kind, toggle?: ToggleDef, overlay?: string, toggleName?: string, attackOption?: AttackOptionDef) => {
     out.features.push({ key, source: src.label, sourceKind: kind, level: src.level, name, effects, ...(text !== undefined ? { text } : {}), ...(action ? { action } : {}), ...(toggle ? { toggle } : {}), ...(overlay ? { overlay } : {}) });
     if (toggle) {
       if (out.toggles.some(t => t.id === toggle.id)) problem(`${name}: another switch is already called "${toggle.id}"`);
       else out.toggles.push({ id: toggle.id, name: toggleName ?? name, source: src.label, key, def: toggle, effects, ...(text !== undefined ? { text } : {}) });
+    }
+    if (attackOption) {
+      if (out.attackOptions.some(x => x.id === attackOption.id)) problem(`${name}: another attack option is already called "${attackOption.id}"`);
+      else out.attackOptions.push({ id: attackOption.id, name, source: src.label, key, level: src.classLevel, def: attackOption });
     }
     if (Object.keys(effects).length) out.effects.push({ source: name, effects: toggle ? gatedByToggle(effects, toggle) : effects });
   };
@@ -135,19 +144,19 @@ export function progress(c: Character, registry: Registry): Progress {
    * A note with its own effects keeps them and the entry is skipped. Each entry's effects and switch count once, however many rows (levels) carry the feature.
    */
   const withOverlay = (src: Src, kind: OverlayKind, list: string | undefined, name: string, id: string | undefined, off: boolean | undefined,
-    effects: Effects, action: ActionDef | undefined, toggle: ToggleDef | undefined) => {
-    const same = { effects, action, toggle, entry: undefined as OverlayEntry | undefined, key: undefined as string | undefined, toggleName: undefined as string | undefined };
+    effects: Effects, action: ActionDef | undefined, toggle: ToggleDef | undefined, attackOption?: AttackOptionDef) => {
+    const same = { effects, action, toggle, attackOption, entry: undefined as OverlayEntry | undefined, key: undefined as string | undefined, toggleName: undefined as string | undefined };
     const entry = off || src.noOverlay ? undefined : findOverlay(kind, ownerOf(src, kind, list), name, id);
     if (!entry) return same;
     const first = !overlayDone.has(entry.key);
     overlayDone.add(entry.key);
     if (!first) return { ...same, entry };
-    const mine = Object.keys(effects).length > 0, wantsMech = Object.keys(entry.effects).length > 0 || !!entry.toggle;
+    const mine = Object.keys(effects).length > 0, wantsMech = Object.keys(entry.effects).length > 0 || !!entry.toggle || !!entry.attackOption;
     if (mine && wantsMech && !out.overlay.skipped.includes(entry.key)) out.overlay.skipped.push(entry.key);
-    const useMech = !mine && wantsMech, useAction = !action && !!entry.action;
-    if ((useMech || useAction || entry.ops.length) && !out.overlay.used.includes(entry.key)) out.overlay.used.push(entry.key);
-    return { effects: useMech ? entry.effects : effects, toggle: toggle ?? (useMech ? entry.toggle : undefined), action: action ?? entry.action, entry,
-      key: useMech || useAction ? entry.key : undefined, toggleName: !toggle && useMech ? entry.name : undefined };
+    const useMech = !mine && wantsMech, useAction = !action && !!entry.action, useOption = !attackOption && !!entry.attackOption;
+    if ((useMech || useAction || useOption || entry.ops.length) && !out.overlay.used.includes(entry.key)) out.overlay.used.push(entry.key);
+    return { effects: useMech ? entry.effects : effects, toggle: toggle ?? (useMech ? entry.toggle : undefined), action: action ?? entry.action, attackOption: attackOption ?? entry.attackOption, entry,
+      key: useMech || useAction || useOption ? entry.key : undefined, toggleName: !toggle && useMech ? entry.name : undefined };
   };
   /** The extra ops of an entry (resources, scales, picks): run with the owner's source, skipping what the note already declares. */
   const overlayOps = (src: Src, entry: OverlayEntry) => {
@@ -189,8 +198,8 @@ export function progress(c: Character, registry: Registry): Progress {
         case "feature":
           // an optional feature is only there when the level-up (or the note's choices) says it was taken
           if (!op.optional || choice(key, src.classId, src.level) === true) {
-            const o = withOverlay(src, src.kind === "option" ? "class" : src.kind, undefined, op.name, op.id, op.overlay === false, op.effects, op.action, op.toggle);
-            feature(src, key, op.name, op.text, o.effects, o.action, undefined, o.toggle, o.key, o.toggleName);
+            const o = withOverlay(src, src.kind === "option" ? "class" : src.kind, undefined, op.name, op.id, op.overlay === false, op.effects, op.action, op.toggle, op.attackOption);
+            feature(src, key, op.name, op.text, o.effects, o.action, undefined, o.toggle, o.key, o.toggleName, o.attackOption);
             if (o.entry) overlayOps(src, o.entry);
           }
           break;
@@ -267,8 +276,8 @@ export function progress(c: Character, registry: Registry): Progress {
               const d = defs!.find(x => x.id === id)!;
               if (d.minLevel !== undefined && d.minLevel > src.classLevel) { problem(`${src.label}: ${d.name} needs level ${d.minLevel}`); continue; }
               (out.options[list] ??= []).push(id);
-              const o = withOverlay(src, "option", list, d.name, d.id, d.overlay === false, d.effects, d.action, d.toggle);
-              feature(src, `${key}:${id}`, d.name, d.text, o.effects, o.action, "option", o.toggle, o.key, o.toggleName);
+              const o = withOverlay(src, "option", list, d.name, d.id, d.overlay === false, d.effects, d.action, d.toggle, d.attackOption);
+              feature(src, `${key}:${id}`, d.name, d.text, o.effects, o.action, "option", o.toggle, o.key, o.toggleName, o.attackOption);
               if (o.entry) overlayOps(src, o.entry);
             }
           }

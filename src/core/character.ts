@@ -47,6 +47,10 @@ export interface Character {
   /** Switched-on states such as a Rage, keyed by toggle id (true, or a number / text for a toggle with a value). */
   active: Record<string, boolean | number | string>;
   concentration?: string;
+  /** Declared attack options switched on (by id). Left out when none. */
+  optionsOn?: string[];
+  /** Extra-damage switches switched off (`extra:<slug>`); they are on by default. Left out when none. */
+  optionsOff?: string[];
   /** Spells shown on the main page: own spell id, or "<item id>/<spell id>" for item spells. */
   mainSpells: string[];
   /** Pinned to the Resources and charges card: "feature:<key>", "feat:<id>", "item:<id>" or "item-name:<name>" (a custom item). */
@@ -264,6 +268,8 @@ function parseCharacter(fm: R): Parsed {
     else r.errors.push(`active.${k}: must be true, false, a number or text`);
   }
   const conc = r.str(fm.concentration, "concentration"); if (conc) c.concentration = conc;
+  const on = r.strs(fm.optionsOn, "optionsOn"); if (on.length) c.optionsOn = on;
+  const off = r.strs(fm.optionsOff, "optionsOff"); if (off.length) c.optionsOff = off;
   c.mainSpells = r.strs(fm.mainSpells, "mainSpells");
   c.mainPins = r.strs(fm.mainPins, "mainPins");
   c.combos = r.combos(fm.combos, "combos");
@@ -296,6 +302,7 @@ export function parseNote(fm: unknown): Parsed {
 export function writeInto(fm: Record<string, unknown>, value: Character | Npc): void {
   const defaults = (value.type === "5e-character" ? newCharacter(value.name) : { modifiers: [], conditions: {}, sheet: { hide: [], show: [] }, rules: {} }) as unknown as Record<string, unknown>;
   if (value.type === "5e-character" && value.concentration === undefined) delete fm.concentration;
+  if (value.type === "5e-character") { if (value.optionsOn === undefined) delete fm.optionsOn; if (value.optionsOff === undefined) delete fm.optionsOff; }
   for (const [k, v] of Object.entries(value)) {
     if (v === undefined) continue;
     const isDefault = JSON.stringify(v) === JSON.stringify(defaults[k]);

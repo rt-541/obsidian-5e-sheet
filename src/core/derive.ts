@@ -4,6 +4,7 @@ import { collectEffects, damageTraits, itemWorks, missingIds, modifierParts, not
 import { filterGated, gateHolds, gateStateOf, NO_GATES } from "./gates";
 import { abilityMod, profBonus } from "./abilities";
 import { buildAttacks, NOT_PROFICIENT } from "./attack-rows";
+import { attackOptionRows, type AttackOptionRow } from "./attack-options";
 import { evalFormula } from "./formula";
 import { emptyProgress, formulaVars, progress, type Progress, type DerivedResource } from "./progression";
 import { matchesTag } from "./roll-tags";
@@ -85,6 +86,8 @@ export interface ActorStats {
   why: Record<string, string>;
   /** Manual resources followed by those derived from class operations. */
   resources: ResourceRow[]; casters: CasterStat[];
+  /** Attack options (declared by features and items, and extra-damage switches) for the Attack options card. */
+  attackOptions: AttackOptionRow[];
   /** Features, scales, class DCs, pending choices and so on, replayed from race, background, feats and class levels. */
   progress: Progress;
   /** Lowest weapon crit range from effects, if any; vs is a note only. */
@@ -278,7 +281,7 @@ export function deriveCharacter(c: Character, ctx: EffectContext): ActorStats {
     ...(spellcasting ? { spellcasting } : {}), slots, hitDice,
     carry: { weight, capacity },
     traits: damageTraits(fx), notes: notes(fx), effects: fx, missing, attunedCount: c.inventory.filter(e => e.attuned).length,
-    toggles, resources, casters, progress: prog, maxScores, ...(crits[0] ? { crit: { range: crits[0].effects.critRange!, ...(crits[0].effects.critVs ? { vs: crits[0].effects.critVs } : {}) } } : {}),
+    toggles, resources, casters, attackOptions: attackOptionRows(c, prog.attackOptions, items, fx, resources, prog.scales, level), progress: prog, maxScores, ...(crits[0] ? { crit: { range: crits[0].effects.critRange!, ...(crits[0].effects.critVs ? { vs: crits[0].effects.critVs } : {}) } } : {}),
     languages: mergeLanguages(prog.languages, c.languages),
     ...(senses.darkvision !== undefined ? { darkvision: senses.darkvision } : {}),
   };
@@ -304,7 +307,7 @@ export function deriveCreature(b: CreatureData, st: { name: string; hp: { max?: 
       ...(a.damage ? { damage: a.damage } : {}), ...(a.note ? { note: a.note } : {}), target: { kind: "attack" } })),
     slots: [], hitDice: [], carry: { weight: 0, capacity: b.abilities.str * 15 }, traits: damageTraits(fx), notes: notes(fx), effects: fx,
     missing: missingIds({ conditions: st.conditions }, ctx.registry), attunedCount: 0,
-    toggles: [], resources: [], casters: [], why: {}, progress: emptyProgress(), maxScores: { str: 20, dex: 20, con: 20, int: 20, wis: 20, cha: 20 },
+    toggles: [], resources: [], casters: [], attackOptions: [], why: {}, progress: emptyProgress(), maxScores: { str: 20, dex: 20, con: 20, int: 20, wis: 20, cha: 20 },
   };
 }
 

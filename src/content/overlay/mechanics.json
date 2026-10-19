@@ -355,6 +355,9 @@
         { "op": "resource", "id": "ov-firbolg-magic-disguise", "name": "Disguise Self", "max": 1, "reset": "short" }
       ]
     },
+    "feat::savage-attacker": {
+      "attackOption": { "reroll": true, "oncePerTurn": true, "on": "attack:weapon" }
+    },
     "feat::tough": {
       "effects": { "modifiers": [{ "target": "hpMax", "value": "2*total" }] }
     },
