@@ -27,6 +27,8 @@ export type Action =
   | { type: "pinSpell"; key: string; on: boolean }
   | { type: "pin"; ref: string; on: boolean }
   | { type: "itemQty"; index: number; qty: number }
+  /** Set one kind of coin to a whole number, 0 or more. */
+  | { type: "coins"; coin: "pp" | "gp" | "ep" | "sp" | "cp"; value: number }
   /** Whether using one of this inventory entry uses it up (a potion is by default, a custom item is not). */
   | { type: "itemConsumable"; index: number; on: boolean }
   /** Used count of a resource derived from class operations (stored in character.uses). */
@@ -293,6 +295,10 @@ export function apply(c0: Character, a: Action, lim: Limits): Applied {
     case "pinSpell": c.mainSpells = c.mainSpells.filter(k => k !== a.key); if (a.on) c.mainSpells.push(a.key); break;
     case "pin": c.mainPins = c.mainPins.filter(k => k !== a.ref); if (a.on) c.mainPins.push(a.ref); break;
     case "itemQty": { const e = c.inventory[a.index]; if (e) e.qty = Math.max(0, Math.floor(a.qty)); break; }
+    case "coins": {
+      if (!(a.coin in c.coins) || !Number.isFinite(a.value) || a.value < 0) return { value: c0, error: "Coins must be a whole number, 0 or more." };
+      c.coins[a.coin] = Math.floor(a.value); break;
+    }
     case "itemConsumable": { const e = c.inventory[a.index]; if (e) e.consumable = a.on; break; }
     case "prepare": { const s = c.spells[a.index]; if (s) s.prepared = a.on; break; }
     case "languages": c.languages = a.value.map(s => s.trim()).filter(Boolean); break;

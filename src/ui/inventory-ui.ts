@@ -2,6 +2,7 @@ import { itemPinRef } from "../core/actions";
 import type { ItemData } from "../content/types";
 import type { ActorStats } from "../core/derive";
 import type { SheetController } from "./controller";
+import { coinsRow } from "./coins-ui";
 import { h } from "./h";
 import { btn, card, pips } from "./widgets";
 
@@ -85,7 +86,7 @@ export function qtyStepper(ctl: SheetController, index: number, name: string): H
 
 export function inventoryFeature(ctl: SheetController, st: ActorStats): HTMLElement {
   const c = ctl.character!;
-  return card("Inventory", addItemButton(ctl), ...c.inventory.map((e, i) => {
+  return card("Inventory", addItemButton(ctl), coinsRow(ctl), ...c.inventory.map((e, i) => {
     const s = itemState(ctl, i), it = s.it, name = s.name, stack = isStackable(ctl, i);
     return h("div", { cls: `fe-inv ${it || e.name ? "" : "is-missing"} ${s.usedUp ? "is-used-up" : ""}`.replace(/\s+/g, " ").trim(), data: { item: String(i) } },
       h("div", { cls: "fe-grow" }, h("span", { cls: "fe-inv-name", text: name, ...(it && e.id ? { data: { ref: `item:${e.id}` } } : {}) }), it?.source === "vault" ? h("span", { cls: "fe-src", text: "Homebrew" }) : null,
@@ -98,7 +99,7 @@ export function inventoryFeature(ctl: SheetController, st: ActorStats): HTMLElem
       itemMenuButton(ctl, i, name),
       ctl.itemMenu === i ? itemMenu(ctl, i, s) : null);
   }),
-  h("div", { cls: "fe-kv" }, h("span", { text: Object.entries(c.coins).filter(([, v]) => v).map(([k, v]) => `${v} ${k}`).join(" ") || "No coins" }),
+  h("div", { cls: "fe-kv" }, h("span", { text: "" }),
     h("span", { cls: "fe-muted", text: `${st.carry.weight} / ${st.carry.capacity} lb · attuned ${st.attunedCount}/3`, ...(st.why.carry ? { data: { ref: "why:carry" } } : {}) })),
   );
 }

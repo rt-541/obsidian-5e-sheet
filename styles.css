@@ -250,6 +250,11 @@
 .fe-item-menu .fe-amt { width: 80px; }
 .fe-mobile .fe-item-menu input, .fe-tablet .fe-item-menu input:not([type="checkbox"]) { min-height: 44px; }
 .fe-mobile button.fe-item-menu-btn, .fe-tablet button.fe-item-menu-btn { min-width: 44px; }
+.fe-coins { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; margin-bottom: 6px; }
+.fe-coin { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.fe-coin input { width: 100%; text-align: center; }
+.fe-mobile .fe-coin input, .fe-tablet .fe-coin input { min-height: 44px; }
+.fe-mobile .fe-coins { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 /* inventory quantity stepper */
 .fe-qty { display: inline-flex; align-items: center; gap: 4px; }
 .fe-qty-n { min-width: 2ch; text-align: center; font-variant-numeric: tabular-nums; font-weight: var(--font-semibold); }
