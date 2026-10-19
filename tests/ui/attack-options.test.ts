@@ -67,5 +67,28 @@ for (const layout of ["desktop", "tablet", "mobile"] as const) {
       d.ctl.attackRoll(ai); d.ctl.reload(parseNote({ ...tester, feats: ["test-analysis"] }) as never);
       expect(d.ctl.hitWindow).toBeNull(); expect(d.ctl.attackDamage(99)).toBeUndefined();
     });
+
+    // the weapon changes under an open window without a reload (an edit), so row `ai` is now another attack
+    const swapWeapon = (d: ReturnType<typeof sheetWith>) => { (d.ctl.value as { inventory: unknown[] }).inventory = [{ id: "test-hunting-blade", equipped: true }]; };
+
+    it("a window left over from another attack list rolls nothing and spends nothing", () => {
+      const d = sheetWith(layout, { feats: ["test-analysis"], optionsOn: ["test-analysis"] }, seq(0.5));
+      const ai = attackIndex(d);
+      d.ctl.attackRoll(ai); expect(d.ctl.hitWindow).not.toBeNull();
+      swapWeapon(d);
+      expect(d.ctl.stats()!.attacks[ai]?.name).not.toBe("Longsword");
+      expect(d.ctl.attackDamage(ai)).toBeUndefined();
+      expect(d.left("insight-dice").used).toBe(0);
+      expect(d.ctl.hitWindow).toBeNull();
+    });
+
+    it("a stale window also stops a new to-hit roll on the renamed row", () => {
+      const d = sheetWith(layout, { feats: ["test-focus"], optionsOn: ["test-focus"] }, seq(0.5));
+      const ai = attackIndex(d);
+      d.ctl.attackRoll(ai); expect(d.left("focus-dice").used).toBe(1);
+      swapWeapon(d);
+      expect(d.ctl.attackRoll(ai)).toBeUndefined();
+      expect(d.left("focus-dice").used).toBe(1);
+    });
   });
 }

@@ -430,9 +430,10 @@ export class SheetController {
   }
 
   private closeHitWindow() { clearTimeout(this.hitTimer); this.hitTimer = undefined; this.hitWindow = null; }
-  /** Close the hit window when its attack row is no longer the same attack (the note changed under it). */
-  private checkHitWindow(st: ActorStats) {
-    const w = this.hitWindow; if (w && st.attacks[w.ai]?.name !== w.name) this.closeHitWindow();
+  /** Close the hit window when its attack row is no longer the same attack (the note changed under it). Returns true when it was stale, so the caller must not roll whatever now sits at that row. */
+  private checkHitWindow(st: ActorStats): boolean {
+    const w = this.hitWindow; if (w && st.attacks[w.ai]?.name !== w.name) { this.closeHitWindow(); return true; }
+    return false;
   }
 
   /** Switch an attack option on or off. A problem is said in words. */
@@ -441,7 +442,7 @@ export class SheetController {
   /** Roll attack row `ai` to hit (own attacks only); opens the hit window unless it failed. */
   attackRoll(ai: number, ev: Mods = {}): RollResult | undefined {
     const st = this.stats(); if (!st) return undefined;
-    this.checkHitWindow(st);
+    if (this.checkHitWindow(st)) return undefined;
     const a = st.attacks[ai];
     if (!a || a.toHit === undefined) return undefined;
     const r = this.roll(`${a.name} to hit`, a.toHit, a.target, ev);
@@ -457,7 +458,7 @@ export class SheetController {
   /** Roll attack row `ai`'s damage; always counts as a hit (spends on-hit options). `crit` uses critDamage and doubles option dice. Closes the hit window. */
   attackDamage(ai: number, crit = false): RollResult | undefined {
     const st = this.stats(); if (!st) return undefined;
-    this.checkHitWindow(st);
+    if (this.checkHitWindow(st)) return undefined;
     const a = st.attacks[ai], expr = a && (crit ? a.critDamage : a.damage);
     if (!a || !expr) return undefined;
     const opts = affordable(onHitOptions(st.attackOptions, a.target));
