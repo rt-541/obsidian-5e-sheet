@@ -66,7 +66,7 @@ function traitParts(st: ActorStats, t: TraitRow): { uses: DerivedResource[]; act
   const shown = new Map<string, DerivedResource>();
   for (const f of t.rows) {
     const cost = f.action?.cost && "resource" in f.action.cost ? slug(f.action.cost.resource) : undefined;
-    const r = res.find(x => x.id === slug(f.name)) ?? (cost ? res.find(x => x.id === cost) : undefined);
+    const r = res.find(x => x.id === slug(f.name)) ?? res.find(x => x.id === slug(f.name.replace(/\s*\([^)]*\)\s*$/, ""))) ?? (cost ? res.find(x => x.id === cost) : undefined);
     if (r) shown.set(r.id, r);
     if (f.action) acts.push(f);
   }

@@ -81,7 +81,7 @@ for (const layout of LAYOUTS) describe(`combos (${layout})`, () => {
     (card.querySelector('[data-step="1"] [data-act="step-spend"]') as HTMLElement).click();
     expect((s.ctl.value as Character).uses.fury).toBe(1);
     const after = s.q('[data-pane="combos"] [data-combo="0"]');
-    expect(after.querySelector('[data-step="1"] [data-left]')!.getAttribute("data-left")).toBe("1");
+    expect(after.querySelector('[data-pool="fury"]')!.getAttribute("data-left")).toBe("1");
     (after.querySelector('[data-step="2"] [data-act="step-spend"]') as HTMLElement).click();
     const empty = s.q('[data-pane="combos"] [data-combo="0"]');
     expect((s.ctl.value as Character).uses.fury).toBe(2);

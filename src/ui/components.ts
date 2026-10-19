@@ -6,6 +6,7 @@ import { hitDiceRecharge } from "../content/glossary";
 import { activeRests } from "../rules";
 import type { SheetController } from "./controller";
 import { h, sgn } from "./h";
+import { slug } from "../content/registry";
 import { btn, card, describeEffects, pips, bar, restModeControl, usesPips } from "./widgets";
 import { featuresFeature, levelUpFeature, xpFeature } from "./features-ui";
 import { combosFeature, pinnedCombosFeature } from "./combos-ui";
@@ -16,7 +17,7 @@ import { togglesFeature } from "./toggles-ui";
 import { coinsRow } from "./coins-ui";
 import { rationsFeature } from "./rations-ui";
 import { inventoryFeature, itemRef, itemState } from "./inventory-ui";
-import { concentrationFeature, pinnedSpellsFeature, spellsFeature } from "./spells-ui";
+import { concentrationFeature, pinnedSpellsFeature, slotRows, spellsFeature } from "./spells-ui";
 
 export { describeEffects, pips };
 export type Render = (ctl: SheetController, st: ActorStats) => HTMLElement;
@@ -173,24 +174,24 @@ export const RENDER: Record<string, Render> = {
   "spell-dc": (ctl, st) => h("div", { cls: "fe-kv" }, st.spellcasting
     ? h("span", {}, h("span", { text: `Spell save DC ${st.spellcasting.dc}`, ...whyData(whyOf(st, "spell-dc")) }), " · ", h("span", { text: `spell attack ${sgn(st.spellcasting.attack)}`, ...whyData(whyOf(st, "spell-attack")) }))
     : "No spellcasting"),
-  "spell-slots": (ctl, st) => card("Spell slots", ...st.slots.map(s => h("div", { cls: "fe-kv" },
-    h("span", { text: s.level === "pact" ? `Pact (level ${s.pactLevel})` : `Level ${s.level}` }),
-    pips(s.max, s.used, n => ctl.dispatch({ type: "slot", level: s.level, used: n }))))),
+  "spell-slots": (ctl, st) => card("Spell slots", ...slotRows(ctl, st)),
   resources: (ctl, st) => { const c = ctl.character!, r = ctl.host.registry;
     const charged = c.inventory.map((e, i) => ({ e, i, it: e.id ? r.get<ItemData>("item", e.id)?.data : undefined })).filter(x => x.it?.charges && (!x.it.attunement || x.e.attuned));
     const pinned = pinnedTraits(ctl, st), derived = st.resources.filter(x => x.derived && !pinned.covered.has(x.id));
+    const derivedIds = new Set(st.resources.filter(x => x.derived).map(x => x.id));
     const items = pinnedItems(ctl), itemRows = items.map(x => x.row);
     const el = card("Resources and charges", ...pinned.rows, ...itemRows,
       ...derived.map(x => h("div", { cls: "fe-kv fe-res-row", data: { resource: x.id } }, h("span", { cls: "fe-grow", text: x.unlimited ? x.name : `${x.name}: ${Math.max(0, x.max - x.used)} of ${x.max} left` }),
         h("span", { cls: "fe-res-ctl" }, usesPips(x, n => ctl.dispatch({ type: "uses", id: x.id, used: n })), ...resourceUseButtons(ctl, st, x)))),
       ...c.resources.map((res, i) => {
+        if (derivedIds.has(slug(res.name))) return null;   // a hand-tracked twin of a derived resource: shown once, the note keeps its entry
         // `track: progress` (downtime, training, crafting) counts up toward max instead of spending uses down.
         const progress = (res as { track?: string }).track === "progress", setUsed = (n: number) => ctl.dispatch({ type: "resource", index: i, used: n });
-        return h("div", { cls: "fe-kv" }, h("span", { text: progress ? res.name : `${res.name} (${res.reset})` }),
+        return h("div", { cls: "fe-kv fe-res-row" }, h("span", { cls: "fe-grow", text: progress ? res.name : `${res.name}: ${Math.max(0, res.max - res.used)} of ${res.max} left (${res.reset})` }),
           progress ? bar(res.max, res.used, setUsed, "progress") : pips(res.max, res.used, setUsed));
       }),
-      ...charged.filter(x => !items.some(p => p.index === x.i)).map(x => h("div", { cls: "fe-kv" }, h("span", { text: `${x.it!.name} charges` }), pips(x.it!.charges!.max, x.e.charges?.used ?? 0, n => ctl.dispatch({ type: "charges", index: x.i, used: n })))));
-    if (!pinned.rows.length && !itemRows.length && !derived.length && !c.resources.length && !charged.length) el.hidden = true;
+      ...charged.filter(x => !items.some(p => p.index === x.i)).map(x => h("div", { cls: "fe-kv fe-res-row" }, h("span", { cls: "fe-grow", text: `${x.it!.name} charges: ${Math.max(0, x.it!.charges!.max - (x.e.charges?.used ?? 0))} of ${x.it!.charges!.max} left` }), pips(x.it!.charges!.max, x.e.charges?.used ?? 0, n => ctl.dispatch({ type: "charges", index: x.i, used: n })))));
+    if (!pinned.rows.length && !itemRows.length && !derived.length && !c.resources.some(x => !derivedIds.has(slug(x.name))) && !charged.length) el.hidden = true;
     return el; },
   rests: ctl => {
     // a card on the Main page, under Hit Dice: resting and spending hit dice go together

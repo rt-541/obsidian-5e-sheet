@@ -40,8 +40,6 @@ function stepButtons(ctl: SheetController, st: ActorStats, v: StepView, combo: C
     if (row.unlimited) out.push(h("span", { cls: "fe-src", text: `${row.name}: ${row.unlimited.toLowerCase()}` }));
     else {
       if (r.cost > 0 && !paysItself) out.push(h("button", { cls: `fe-btn ${r.out ? "is-out" : ""}`.trim(), text: `Spend ${resourceCount(r.cost, row.name)}`, data: { act: "step-spend" }, on: { click: () => ctl.spendResource(row.name, r.cost) } }));
-      out.push(h("span", { cls: "fe-src", text: `${r.left} of ${row.max} left`, data: { left: String(r.left) } }));
-      if (row.max <= 10 && !paysItself) out.push(pips(row.max, row.used, n => setUsed(ctl, st, row.name, n)));
     }
   }
   return out;
@@ -62,12 +60,22 @@ function stepEl(ctl: SheetController, st: ActorStats, v: StepView, combo: Combo)
     h("div", { cls: "fe-step-ctl" }, ...stepButtons(ctl, st, v, combo)));
 }
 
+/** Each resource a combo's steps spend, shown once under the title instead of on every step. */
+function poolRows(ctl: SheetController, st: ActorStats, v: ComboView): HTMLElement[] {
+  const seen = new Map<string, NonNullable<ComboView["steps"][number]["resource"]>>();
+  for (const s of v.steps) if (s.resource && !s.resource.row.unlimited && !seen.has(s.resource.row.id)) seen.set(s.resource.row.id, s.resource);
+  return [...seen.entries()].map(([id, r]) => h("div", { cls: "fe-kv fe-res-row fe-combo-pool", data: { pool: id, left: String(r.left) } },
+    h("span", { cls: "fe-grow", text: `${r.row.name}: ${r.left} of ${r.row.max} left` }),
+    h("span", { cls: "fe-res-ctl" }, pips(r.row.max, r.row.used, n => setUsed(ctl, st, r.row.name, n)))));
+}
+
 function comboCard(ctl: SheetController, st: ActorStats, v: ComboView, compact: boolean): HTMLElement {
   const c = v.combo;
   return h("div", { cls: `fe-card fe-combo ${v.ready ? "" : "is-short"}`.trim(), data: { combo: String(v.index) } },
     h("div", { cls: "fe-kv" }, h("span", { cls: "fe-name", text: c.name, data: { ref: `combo:${v.index}` } }),
       h("span", { cls: `fe-ready ${v.ready ? "" : "is-short"}`.trim(), text: v.readyText, data: { ready: v.ready ? "yes" : "no" } })),
     c.when ? h("div", { cls: "fe-muted fe-combo-when", text: `When to use it: ${c.when}` }) : null,
+    ...poolRows(ctl, st, v),
     h("ol", { cls: "fe-steps" }, ...v.steps.map(s => stepEl(ctl, st, s, c))),
     !compact && c.notes ? h("div", { cls: "fe-note", text: c.notes }) : null,
     h("div", { cls: "fe-kv fe-combo-ctl" },

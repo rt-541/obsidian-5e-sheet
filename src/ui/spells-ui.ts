@@ -4,7 +4,7 @@ import { castRow, spellRows, type SpellRow } from "../core/spells";
 import type { ActorStats } from "../core/derive";
 import type { SheetController } from "./controller";
 import { clear, h, sgn } from "./h";
-import { sourceBadge } from "./widgets";
+import { pips, sourceBadge } from "./widgets";
 import { titleCase } from "../core/words";
 import { blankSpellDraft, spellDataToDraft, type SpellDraft } from "../content/spell-note";
 import { parseSpellblock, SPELLBLOCK_TEMPLATE } from "../content/spellblock";
@@ -107,10 +107,17 @@ function ownRow(ctl: SheetController, r: SpellRow, index: number): HTMLElement {
   return menuState(ctl).open === key ? h("div", { cls: "fe-spell-wrap" }, row, ownMenu(ctl, r, index)) : row;
 }
 
+/** One row per spell slot level, "Level 1 slots: 3 of 4 left" with boxes, for the slots card and the Spells tab. */
+export function slotRows(ctl: SheetController, st: ActorStats): HTMLElement[] {
+  return st.slots.map(s => h("div", { cls: "fe-kv fe-res-row", data: { slot: s.level } },
+    h("span", { cls: "fe-grow", text: `${s.level === "pact" ? `Pact slots (level ${s.pactLevel})` : `Level ${s.level} slots`}: ${Math.max(0, s.max - s.used)} of ${s.max} left` }),
+    h("span", { cls: "fe-res-ctl" }, pips(s.max, s.used, n => ctl.dispatch({ type: "slot", level: s.level, used: n })))));
+}
+
 export function spellsFeature(ctl: SheetController, st: ActorStats): HTMLElement {
   const c = ctl.character!, rows = spellRows(c, st, ctl.ctx());
-  const head = h("div", { cls: "fe-kv" }, h("span", { text: st.spellcasting ? `Spell DC ${st.spellcasting.dc} · attack ${sgn(st.spellcasting.attack)} · ${ABIL[st.spellcasting.abil]}` : "No spellcasting" }),
-    h("span", { cls: "fe-muted", text: st.slots.map(s => `${s.level === "pact" ? "P" : s.level}: ${s.max - s.used}/${s.max}`).join("  ") }));
+  const head = h("div", {}, h("div", { cls: "fe-kv" }, h("span", { text: st.spellcasting ? `Spell DC ${st.spellcasting.dc} · attack ${sgn(st.spellcasting.attack)} · ${ABIL[st.spellcasting.abil]}` : "No spellcasting" })),
+    ...slotRows(ctl, st));
   const byLevel = new Map<number, { r: SpellRow; i: number }[]>();
   rows.own.forEach((r, i) => { const l = r.known ? r.level : 0; byLevel.set(l, [...(byLevel.get(l) ?? []), { r, i }]); });
   const own = [...byLevel.keys()].sort((a, b) => a - b).map(l => h("div", { cls: "fe-spell-group", data: { level: String(l) } },
