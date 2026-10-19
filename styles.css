@@ -33,6 +33,8 @@
 .fe-stat-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
 .fe-mobile .fe-stat-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .fe-stat-row > * { min-width: 0; }
+.fe-stat-row .fe-stat-l { overflow-wrap: break-word; hyphens: auto; font-size: calc(var(--font-ui-smaller) * 0.85); line-height: 1.15; letter-spacing: 0; }
+.fe-stat-row .fe-stat-v { overflow-wrap: break-word; }
 .fe-roll { font-family: var(--font-monospace); font-weight: var(--font-semibold); }
 .fe-sheet button.fe-btn.is-on, .fe-sheet button.fe-btn.mod-cta { background: var(--interactive-accent); color: var(--text-on-accent); }
 .fe-seg { display: inline-flex; } .fe-sheet .fe-seg button.fe-btn { border-radius: 0; } .fe-sheet .fe-seg button.fe-btn:first-child { border-radius: var(--radius-s) 0 0 var(--radius-s); } .fe-sheet .fe-seg button.fe-btn:last-child { border-radius: 0 var(--radius-s) var(--radius-s) 0; }

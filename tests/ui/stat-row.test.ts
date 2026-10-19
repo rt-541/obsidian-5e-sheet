@@ -47,6 +47,10 @@ describe("stat row placement", () => {
   it.each([["desktop", DESKTOP], ["tablet", TABLET], ["mobile", MOBILE], ["npc desktop", NPC_DESKTOP], ["npc mobile", NPC_MOBILE]] as const)("%s places each tile once", (_n, l) => {
     for (const t of STAT_TILES) expect(placed(l).filter(f => f === t), t).toHaveLength(1);
   });
+  it("labels wrap inside a narrow tile instead of overflowing into the next", () => {
+    expect(css).toMatch(/\.fe-stat-row \.fe-stat-l \{[^}]*overflow-wrap: break-word/);
+    expect(css).toMatch(/\.fe-stat-row \.fe-stat-v \{[^}]*overflow-wrap: break-word/);
+  });
   it("the tiles get a four-wide grid, two-wide on a phone", () => {
     expect(css).toContain(".fe-stat-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));");
     expect(css).toContain(".fe-mobile .fe-stat-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }");
