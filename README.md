@@ -55,6 +55,37 @@ Bite. Melee Weapon Attack: +3 to hit, reach 5 ft., one creature. Hit: 4 (1d6 + 1
 
 Reactions and Legendary Actions are kept as traits. Extra blank lines, bullets, markdown bold and the unicode minus sign are fine.
 
+## Spells: add, manage, create, import
+
+The **Spells** tab always has a **+ Add spell** button, in Play mode too. The panel searches as you type (and keeps your cursor in the box when you add one), lists your class's spells by default (switch on **Show all spells** for the rest), shows level, school and class badges, and says **Known** on spells you already have. Each spell row has a **...** button: **Prepared** and **Always prepared** switches (for level 1 and up; an always-prepared spell counts as prepared and is saved as `always: true` in the note's `spells` list), **Remove** (asks "Remove X? Yes / No"), and:
+
+- **Edit spell** on spells in your own notes (any vault spell that is not a generated library note): the form opens filled in and saving rewrites only the spell fields of that note; its id, other properties and body stay. If you change the description, the note body is replaced.
+- **Make my own copy** on bundled and library spells: the form opens with the mechanics (not the book text) and saves a new Homebrew note.
+- **Open note** for spells that come from a note.
+- A spell granted by an attuned item cannot be removed or edited; its menu says so.
+
+**Create a spell** (in the add panel, or **Create 'name' as a new spell** when a search finds nothing) is a form in plain words: name, level, school, casting time, range, duration, Verbal / Somatic / Material switches, concentration, ritual, classes, description, optional damage dice and type, healing dice, spell attack, and a saving throw that uses your spell save DC. It is written to `<compendium>/Homebrew/Spells/<Name>.md` (never overwriting: a taken name becomes "Name (2)") and added to the character at once.
+
+**Import a spell** reads a spell pasted in the usual 2014 layout and fills the same form for you to check; lines it could not read are listed. **Copy template** copies a blank block:
+
+````markdown
+```5e-spell
+Spell Name
+1st-level evocation
+Casting Time: 1 action
+Range: 60 feet
+Components: V, S, M (a pinch of ash)
+Duration: Concentration, up to 1 minute
+Say what the spell does. Write damage and saving throws the way the books do, like 2d6 fire damage and a Dexterity saving throw, and the sheet fills in the dice for you.
+
+At Higher Levels. Say what changes when it is cast with a higher level slot.
+
+Classes: Wizard, Sorcerer
+```
+````
+
+Use "Evocation cantrip" for a cantrip and add "(ritual)" after the school line for a ritual. Bold, italics, bullets and blank lines are fine. A fenced `5e-spell` block in any note shows as a spell card with an **Add to compendium** button that saves it to `Homebrew/Spells`.
+
 ## Built-in mechanics
 
 Most notes (the SRD, the WotC library, most homebrew) describe a feature in words but carry no numbers. The plugin ships a table of built-in mechanics (`src/content/overlay/mechanics.json`) and fills in what a note leaves empty: Unarmored Defense, Rage, Martial Arts, Sneak Attack, fighting styles, Divine Strike, Draconic Resilience, racial resistances, breath weapons, common feats and more. Players never write any of it: it shows up as armor class, attack rows, resources and Start / End buttons, and the feature row carries a small "built-in" badge.
