@@ -1,4 +1,4 @@
-import { MarkdownView, Notice, Plugin, TFile, TFolder, type WorkspaceLeaf } from "obsidian";
+import { MarkdownView, Notice, Plugin, stringifyYaml, TFile, TFolder, type WorkspaceLeaf } from "obsidian";
 import { Registry, type Entry } from "./content/registry";
 import type { SourceSwitches } from "./content/sources";
 import { campaignType, type CampaignData } from "./content/types/campaign";
@@ -16,7 +16,10 @@ import { DEFAULT_SETTINGS, FiveESettingTab, type PluginData } from "./obsidian/s
 import { healCompendiumFolder } from "./obsidian/heal";
 import { campaignLink, NoteStore } from "./obsidian/store";
 import { newCharacterAction } from "./obsidian/menu";
-import { obsidianCreateNote } from "./obsidian/vault-note";
+import { obsidianCreateNote, vaultNoteIO } from "./obsidian/vault-note";
+import { saveCreature, type SavedCreature } from "./obsidian/save-creature";
+import { renderStatblock } from "./ui/statblock-card";
+import type { Draft } from "./content/creature-note";
 import { ObsidianVaultAdapter } from "./obsidian/vault-adapter";
 
 const SHEET_TYPES = new Set(["5e-character", "5e-npc"]);
@@ -53,6 +56,7 @@ export default class FiveESheetPlugin extends Plugin {
     }));
     this.addSettingTab(new FiveESettingTab(this.app, this));
     this.registry.onChange(() => this.refreshViews());
+    this.registerMarkdownCodeBlockProcessor("5e-statblock", (src, el) => renderStatblock(el, src, d => this.saveCreature(d)));
 
     this.app.workspace.onLayoutReady(async () => {
       const moved = await healCompendiumFolder(this.data.settings.compendiumFolder, p => this.app.vault.adapter.exists(p));
@@ -96,6 +100,10 @@ export default class FiveESheetPlugin extends Plugin {
   async onunload() { await this.store.flush(); await this.persist(); }
 
   notice(msg: string) { new Notice(msg, 6000); }
+  /** Write a custom creature into Homebrew/Creatures and register it right away (see obsidian/save-creature.ts). */
+  saveCreature(draft: Draft): Promise<SavedCreature> {
+    return saveCreature({ registry: this.registry, io: vaultNoteIO(this.app), compendiumFolder: this.data.settings.compendiumFolder, stringify: o => stringifyYaml(o) }, draft);
+  }
   async persist() { await this.saveData(this.data); }
   saveLogsSoon() { window.clearTimeout(this.logTimer); this.logTimer = window.setTimeout(() => { void this.persist(); }, LOG_SAVE_MS); }
 

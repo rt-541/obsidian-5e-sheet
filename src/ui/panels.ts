@@ -1,6 +1,5 @@
 import { sourceLabel } from "../content/registry";
 import type { ConditionData, CreatureData, ItemData } from "../content/types";
-import type { CompanionKind } from "../core/character";
 import { MODULES } from "../rules";
 import type { Panel, SheetController } from "./controller";
 import { comboForm } from "./combos-ui";
@@ -9,8 +8,8 @@ import { detailCard } from "./details";
 import { h } from "./h";
 import { levelUpPanel } from "./levelup-ui";
 import { addSpellPanel, castPanel } from "./spells-ui";
+import { addCompanionPanel } from "./companion-ui";
 
-const KINDS: CompanionKind[] = ["familiar", "companion", "steed", "summon", "sidekick"];
 let condFilter: "all" | "active" | "srd" | "vault" = "all", condQuery = "";
 
 function conditionsPanel(ctl: SheetController, who?: number): HTMLElement {
@@ -65,16 +64,6 @@ function compendiumPanel(ctl: SheetController): HTMLElement {
     owned.has(e.id) ? h("span", { cls: "fe-faint", text: "owned" }) : h("button", { cls: "fe-btn", text: "Add", data: { item: e.id }, on: { click: () => ctl.dispatch({ type: "addItem", id: e.id }) } }))));
 }
 
-function addCompanionPanel(ctl: SheetController): HTMLElement {
-  let kind: CompanionKind = "familiar";
-  const name = h("input", { cls: "fe-search", attrs: { placeholder: "Name (optional)" } });
-  const sel = h("select", { on: { change: (e: Event) => { kind = (e.target as HTMLSelectElement).value as CompanionKind; } } }, ...KINDS.map(k => h("option", { text: k, attrs: { value: k } })));
-  return h("div", {}, h("div", { cls: "fe-kv" }, name, sel),
-    ...ctl.pickers().list<CreatureData>("creature").map(e => h("div", { cls: "fe-inv" },
-      h("div", { cls: "fe-grow" }, h("span", { cls: "fe-inv-name", text: e.name }), sourceBadge(sourceLabel(e)), h("span", { cls: "fe-faint", text: ` ${e.data.size} ${e.data.ctype}, AC ${e.data.ac}, HP ${e.data.hp.average}` })),
-      h("button", { cls: "fe-btn", text: "Add", data: { creature: e.id }, on: { click: () => { ctl.dispatch({ type: "addCompanion", creature: e.id, name: name.value.trim() || e.name, kind }); ctl.close(); } } }))));
-}
-
 const sectionName = (id: string) => { const t = id.replace(/-/g, " "); return t.charAt(0).toUpperCase() + t.slice(1); };
 
 function customizePanel(ctl: SheetController, features: readonly string[]): HTMLElement {
@@ -101,7 +90,7 @@ const TITLES: Record<Panel["kind"], string> = { conditions: "Conditions", log: "
 
 export function renderPanel(ctl: SheetController, p: Panel, features: readonly string[]): HTMLElement {
   const body = p.kind === "conditions" ? conditionsPanel(ctl, p.who) : p.kind === "rest" ? restPanel(ctl, p.id) : p.kind === "compendium" ? compendiumPanel(ctl)
-    : p.kind === "details" ? detailsPanel(ctl, p.ref) : p.kind === "cast" ? castPanel(ctl, p.spell) : p.kind === "add-spell" ? addSpellPanel(ctl) : p.kind === "add-companion" ? addCompanionPanel(ctl) : p.kind === "customize" ? customizePanel(ctl, features) : p.kind === "level-up" ? levelUpPanel(ctl) : p.kind === "combo-edit" ? comboForm(ctl) : logPanel(ctl);
+    : p.kind === "details" ? detailsPanel(ctl, p.ref) : p.kind === "cast" ? castPanel(ctl, p.spell) : p.kind === "add-spell" ? addSpellPanel(ctl) : p.kind === "add-companion" ? addCompanionPanel(ctl, p) : p.kind === "customize" ? customizePanel(ctl, features) : p.kind === "level-up" ? levelUpPanel(ctl) : p.kind === "combo-edit" ? comboForm(ctl) : logPanel(ctl);
   return h("div", { cls: "fe-panel", data: { panel: p.kind } },
     h("div", { cls: "fe-panel-head" }, h("span", { cls: "fe-grow fe-name", text: TITLES[p.kind] }), h("button", { cls: "fe-btn", text: "Close", on: { click: () => (p.kind === "combo-edit" ? ctl.cancelComboEdit() : ctl.close()) } })),
     h("div", { cls: "fe-panel-body" }, body));
