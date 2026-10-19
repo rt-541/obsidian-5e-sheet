@@ -55,7 +55,7 @@
 .fe-dot { width: 9px; height: 9px; border-radius: 50%; border: 1px solid var(--text-muted); flex: none; } .fe-dot.is-prof { background: var(--interactive-accent); border-color: var(--interactive-accent); } .fe-dot.is-expert { box-shadow: 0 0 0 2px var(--interactive-accent); }
 .fe-attack { display: flex; flex-wrap: nowrap; align-items: center; gap: 6px; padding: 3px 0; }
 .fe-mobile .fe-attack, .fe-tablet .fe-attack { flex-wrap: wrap; }
-.fe-attack-ctl { flex: none; display: inline-flex; gap: 6px; align-items: center; }
+.fe-attack-ctl { flex: 0 1 auto; min-width: 0; flex-wrap: wrap; display: inline-flex; gap: 6px; align-items: center; }
 .fe-sheet button.fe-atk, .fe-sheet button.fe-atk-dmg { flex: none; }
 .fe-attack-note-mark { flex: none; font-size: var(--font-ui-smaller); text-decoration: underline dotted; cursor: help; }
 .fe-mobile .fe-attack-note-mark, .fe-tablet .fe-attack-note-mark { min-height: 44px; display: inline-flex; align-items: center; }

@@ -39,11 +39,24 @@ describe.each(LAYOUTS)("attack row (%s)", layout => {
   });
 });
 
+describe.each(LAYOUTS)("attack notes with a breakdown (%s)", layout => {
+  it("the name card carries Notes after the hit and damage lines, the number cards do not", () => {
+    const s = setup(layout, { feats: ["glow-training"], inventory: [{ id: "ash-cudgel", equipped: true }] }, (r: Registry) => {
+      addWeapons(r);
+      r.add("vault", "feat", { name: "Glow Training", grants: [{ op: "effect", effects: { weaponRule: [{ match: ["all"], magical: true, note: "Hits glow faintly." }] } }] }, { path: "glow-training.md" });
+    });
+    const a = s.ctl.stats()!.attacks[0]; expect(a.why).toBeTruthy(); expect(a.note).toContain("Hits glow faintly.");
+    const show = (ref: string) => { s.ctl.panel = null; s.q(`[data-ref='${ref}']`).dispatchEvent(new MouseEvent("click", { bubbles: true })); return s.ctl.panel ? s.q('[data-panel="details"]').textContent! : ""; };
+    const name = show("why:attack:0"); expect(name).toContain("Notes:"); expect(name).toContain("Hits glow faintly.");
+    for (const k of ["hit", "damage"]) expect(show(`why:attack:0:${k}`)).not.toContain("Hits glow faintly.");
+  });
+});
+
 describe("attack row styles", () => {
   it("is one nowrap line on desktop and wraps under the name on phone and tablet", () => {
     expect(css).toMatch(/\.fe-attack \{ display: flex; flex-wrap: nowrap;/);
     expect(css).toMatch(/\.fe-mobile \.fe-attack, \.fe-tablet \.fe-attack \{ flex-wrap: wrap; \}/);
-    expect(css).toMatch(/\.fe-attack-ctl \{ flex: none; display: inline-flex;/);
+    expect(css).toMatch(/\.fe-attack-ctl \{ flex: 0 1 auto; min-width: 0; flex-wrap: wrap; display: inline-flex;/);
     expect(css).toContain(".fe-sheet button.fe-atk-dmg");
   });
 });
