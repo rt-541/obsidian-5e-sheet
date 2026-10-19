@@ -23,6 +23,8 @@ export type Action =
   | { type: "cast"; spell: string; level?: number; item?: number } | { type: "endConcentration" }
   | { type: "addSpell"; id: string } | { type: "removeSpell"; index: number } | { type: "prepare"; index: number; on: boolean }
   | { type: "pinSpell"; key: string; on: boolean }
+  | { type: "pin"; ref: string; on: boolean }
+  | { type: "itemQty"; index: number; qty: number }
   /** Used count of a resource derived from class operations (stored in character.uses). */
   | { type: "uses"; id: string; used: number }
   | { type: "xp"; value: number }
@@ -238,6 +240,8 @@ export function apply(c0: Character, a: Action, lim: Limits): Applied {
     case "addSpell": if (!c.spells.some(x => x.id === a.id)) c.spells.push({ id: a.id, prepared: false }); break;
     case "removeSpell": { const gone = c.spells.splice(a.index, 1)[0]; if (gone) c.mainSpells = c.mainSpells.filter(k => k !== gone.id); break; }
     case "pinSpell": c.mainSpells = c.mainSpells.filter(k => k !== a.key); if (a.on) c.mainSpells.push(a.key); break;
+    case "pin": c.mainPins = c.mainPins.filter(k => k !== a.ref); if (a.on) c.mainPins.push(a.ref); break;
+    case "itemQty": { const e = c.inventory[a.index]; if (e) e.qty = Math.max(0, Math.floor(a.qty)); break; }
     case "prepare": { const s = c.spells[a.index]; if (s) s.prepared = a.on; break; }
     case "languages": c.languages = a.value.map(s => s.trim()).filter(Boolean); break;
     case "xp": c.xp = Math.max(0, Math.round(a.value)); break;

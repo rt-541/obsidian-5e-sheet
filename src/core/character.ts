@@ -48,6 +48,8 @@ export interface Character {
   concentration?: string;
   /** Spells shown on the main page: own spell id, or "<item id>/<spell id>" for item spells. */
   mainSpells: string[];
+  /** Pinned to the Resources and charges card: "feature:<key>", "feat:<id>", "item:<id>" or "item-name:<name>" (a custom item). */
+  mainPins: string[];
   /** Combos: ordered coaching steps, each optionally pointing at an attack, spell, feature, item or resource. */
   combos: Combo[];
   rest: { nightsInPlace: number }; companions: CompanionEntry[]; sheet: SheetToggles; rules: Record<string, boolean>;
@@ -159,7 +161,7 @@ export function newCharacter(name: string): Character {
     type: "5e-character", schema: 1, name, classes: [], abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
     proficiencies: { saves: [], skills: [], expertise: [] }, hp: { max: 0, current: 0, temp: 0 }, hitDice: {},
     deathSaves: { successes: 0, failures: 0 }, spellSlots: {}, spells: [], inventory: [], coins: { pp: 0, gp: 0, ep: 0, sp: 0, cp: 0 },
-    resources: [], conditions: {}, injuries: [], modifiers: [], inspiration: false, xp: 0, baseSpeed: 30, levelLog: [], feats: [], languages: [], uses: {}, choices: {}, active: {}, mainSpells: [], combos: [],
+    resources: [], conditions: {}, injuries: [], modifiers: [], inspiration: false, xp: 0, baseSpeed: 30, levelLog: [], feats: [], languages: [], uses: {}, choices: {}, active: {}, mainSpells: [], mainPins: [], combos: [],
     rest: { nightsInPlace: 0 }, companions: [], sheet: { hide: [], show: [] }, rules: {},
   };
 }
@@ -258,6 +260,7 @@ function parseCharacter(fm: R): Parsed {
   }
   const conc = r.str(fm.concentration, "concentration"); if (conc) c.concentration = conc;
   c.mainSpells = r.strs(fm.mainSpells, "mainSpells");
+  c.mainPins = r.strs(fm.mainPins, "mainPins");
   c.combos = r.combos(fm.combos, "combos");
   c.sheet = r.toggles(fm.sheet, "sheet");
   c.rules = r.rules(fm.rules, "rules");

@@ -7,7 +7,7 @@ import { h, sgn } from "./h";
 import { btn, card, describeEffects, pips, bar, usesPips } from "./widgets";
 import { featuresFeature, levelUpFeature, xpFeature } from "./features-ui";
 import { combosFeature, pinnedCombosFeature } from "./combos-ui";
-import { traitsFeature } from "./traits-ui";
+import { pinnedTraits, traitsFeature } from "./traits-ui";
 import { activeEffectsFeature } from "./effects-ui";
 import { togglesFeature } from "./toggles-ui";
 import { concentrationFeature, pinnedSpellsFeature, spellsFeature } from "./spells-ui";
@@ -87,6 +87,36 @@ function attacksList(ctl: SheetController, st: ActorStats, who?: number) {
     a.note ? h("div", { cls: "fe-note", text: a.note }) : null)));
 }
 
+/** Pin key for an inventory entry: the compendium id, or the name of a custom item. */
+const itemRef = (e: { id?: string; name?: string }) => (e.id ? `item:${e.id}` : `item-name:${e.name ?? ""}`);
+function itemPinButton(ctl: SheetController, ref: string): HTMLElement {
+  const on = ctl.character!.mainPins.includes(ref);
+  const el = btn(on ? "Pinned" : "Pin", () => ctl.dispatch({ type: "pin", ref, on: !on }), `fe-pin ${on ? "is-on" : ""}`.trim()); el.dataset.act = "pin-item";
+  el.title = on ? "Shown under Resources and charges (click to unpin)" : "Show under Resources and charges";
+  return el;
+}
+/**
+ * Pinned potions and items for the Resources and charges card: quantity, charges (when attuned, if it needs it) and, for
+ * consumables, a Use one button that takes one off the stack. An item that is gone from the inventory is skipped.
+ */
+function pinnedItems(ctl: SheetController): { index: number; row: HTMLElement }[] {
+  const c = ctl.character!, r = ctl.host.registry;
+  return c.mainPins.filter(k => k.startsWith("item:") || k.startsWith("item-name:")).flatMap(ref => {
+    const index = c.inventory.findIndex(e => itemRef(e) === ref); if (index < 0) return [];
+    const e = c.inventory[index], it = e.id ? r.get<ItemData>("item", e.id) : undefined, name = it?.name ?? e.name ?? e.id ?? "Item";
+    const charges = it?.data.charges && (!it.data.attunement || e.attuned) ? it.data.charges : undefined;
+    const consumable = it?.data.kind === "consumable" || (!it && e.qty > 1);
+    const use = () => { ctl.dispatch({ type: "itemQty", index, qty: e.qty - 1 }); ctl.host.notify(`Used ${name}: ${e.qty} left.`); };
+    const useBtn = consumable ? btn(e.qty > 0 ? "Use one" : "None left", use) : null; if (useBtn) useBtn.dataset.act = "use-item";
+    if (useBtn && e.qty <= 0) (useBtn as HTMLButtonElement).disabled = true;
+    return [{ index, row: h("div", { cls: "fe-kv fe-pinned-item", data: { pinnedItem: ref } },
+      h("span", { cls: "fe-grow" }, h("span", { cls: "fe-inv-name", text: name, ...(it && e.id ? { data: { ref: `item:${e.id}` } } : {}) }),
+        consumable || e.qty > 1 ? h("span", { cls: "fe-faint", text: ` x${e.qty}` }) : null),
+      charges ? pips(charges.max, e.charges?.used ?? 0, n => ctl.dispatch({ type: "charges", index, used: n })) : null,
+      useBtn) }];
+  });
+}
+
 export const RENDER: Record<string, Render> = {
   identity: (ctl, st) => h("div", { cls: "fe-identity" }, h("span", { cls: "fe-name", text: st.name }), h("span", { cls: "fe-muted", text: st.label })),
   inspiration: ctl => btn("Inspiration", () => ctl.dispatch({ type: "inspiration", on: !ctl.character!.inspiration }), ctl.character?.inspiration ? "is-on" : ""),
@@ -126,8 +156,9 @@ export const RENDER: Record<string, Render> = {
     pips(s.max, s.used, n => ctl.dispatch({ type: "slot", level: s.level, used: n }))))),
   resources: (ctl, st) => { const c = ctl.character!, r = ctl.host.registry;
     const charged = c.inventory.map((e, i) => ({ e, i, it: e.id ? r.get<ItemData>("item", e.id)?.data : undefined })).filter(x => x.it?.charges && (!x.it.attunement || x.e.attuned));
-    const derived = st.resources.filter(x => x.derived);
-    const el = card("Resources and charges",
+    const pinned = pinnedTraits(ctl, st), derived = st.resources.filter(x => x.derived && !pinned.covered.has(x.id));
+    const items = pinnedItems(ctl), itemRows = items.map(x => x.row);
+    const el = card("Resources and charges", ...pinned.rows, ...itemRows,
       ...derived.map(x => h("div", { cls: "fe-kv", data: { resource: x.id } }, h("span", { text: x.unlimited ? x.name : `${x.name}: ${Math.max(0, x.max - x.used)} of ${x.max} left` }),
         usesPips(x, n => ctl.dispatch({ type: "uses", id: x.id, used: n })))),
       ...c.resources.map((res, i) => {
@@ -136,8 +167,8 @@ export const RENDER: Record<string, Render> = {
         return h("div", { cls: "fe-kv" }, h("span", { text: progress ? res.name : `${res.name} (${res.reset})` }),
           progress ? bar(res.max, res.used, setUsed, "progress") : pips(res.max, res.used, setUsed));
       }),
-      ...charged.map(x => h("div", { cls: "fe-kv" }, h("span", { text: `${x.it!.name} charges` }), pips(x.it!.charges!.max, x.e.charges?.used ?? 0, n => ctl.dispatch({ type: "charges", index: x.i, used: n })))));
-    if (!derived.length && !c.resources.length && !charged.length) el.hidden = true;
+      ...charged.filter(x => !items.some(p => p.index === x.i)).map(x => h("div", { cls: "fe-kv" }, h("span", { text: `${x.it!.name} charges` }), pips(x.it!.charges!.max, x.e.charges?.used ?? 0, n => ctl.dispatch({ type: "charges", index: x.i, used: n })))));
+    if (!pinned.rows.length && !itemRows.length && !derived.length && !c.resources.length && !charged.length) el.hidden = true;
     return el; },
   rests: ctl => h("div", { cls: "fe-rests" }, ...activeRests(ctl.rules()).map(r => btn(r.label, () => ctl.open({ kind: "rest", id: r.id })))),
   inventory: (ctl, st) => { const c = ctl.character!, r = ctl.host.registry;
@@ -149,7 +180,8 @@ export const RENDER: Record<string, Render> = {
           h("div", { cls: "fe-faint", text: [e.qty > 1 ? `x${e.qty}` : "", it?.data.rarity ?? "", it?.data.attunement ? (e.attuned ? "attuned" : "requires attunement") : ""].filter(Boolean).join(" · ") })),
         it && it.data.kind !== "gear" && it.data.kind !== "consumable" ? btn(e.equipped ? "Equipped" : "Equip", () => ctl.dispatch({ type: "equip", index: i, on: !e.equipped }), e.equipped ? "is-on" : "") : null,
         it?.data.attunement ? btn(e.attuned ? "Attuned" : "Attune", () => ctl.dispatch({ type: "attune", index: i, on: !e.attuned }), e.attuned ? "is-on" : "") : null,
-        ctl.editing ? btn("Remove", () => ctl.dispatch({ type: "removeItem", index: i })) : null);
+        ctl.editing ? btn("Remove", () => ctl.dispatch({ type: "removeItem", index: i })) : null,
+        itemPinButton(ctl, itemRef(e)));
     }),
     h("div", { cls: "fe-kv" }, h("span", { text: Object.entries(c.coins).filter(([, v]) => v).map(([k, v]) => `${v} ${k}`).join(" ") || "No coins" }),
       h("span", { cls: "fe-muted", text: `${st.carry.weight} / ${st.carry.capacity} lb · attuned ${st.attunedCount}/3`, ...whyData(whyOf(st, "carry")) })),
