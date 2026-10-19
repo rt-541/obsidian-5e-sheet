@@ -376,8 +376,14 @@ export function progress(c: Character, registry: Registry): Progress {
   // Cross-checks the validators cannot make: an action may spend or save against things defined elsewhere.
   for (const f of out.features) {
     const a = f.action; if (!a) continue;
-    if (a.cost && "resource" in a.cost && !out.resources.some(r => r.id === slug((a.cost as { resource: string }).resource))) problem(`${f.name}: action spends unknown resource "${(a.cost as { resource: string }).resource}"`);
-    if (a.save && !out.dcs.some(x => x.id === slug(a.save!.dc))) problem(`${f.name}: action uses unknown DC "${a.save.dc}"`);
+    if (a.cost && "resource" in a.cost) {
+      const id = slug(a.cost.resource);
+      // a derived resource, or a hand-made one on the character with the same slug
+      if (!out.resources.some(r => r.id === id) && !c.resources.some(r => slug(r.name) === id)) problem(`${f.name}: action spends unknown resource "${a.cost.resource}"`);
+    }
+    if (a.cost && "charges" in a.cost) problem(`${f.name}: only items have charges`);
+    const dcName = a.save?.dc.trim();
+    if (a.save && dcName && !/^\d+$/.test(dcName) && dcName.toLowerCase() !== "spell" && !out.dcs.some(x => x.id === slug(dcName) || x.name.toLowerCase() === dcName.toLowerCase())) problem(`${f.name}: action uses unknown DC "${a.save.dc}"`);
   }
 
   out.proficiencies = { saves: [...seen.saves], skills: [...seen.skills], expertise: [...seen.expertise], other: [...seen.other] };

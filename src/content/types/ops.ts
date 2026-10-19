@@ -12,8 +12,9 @@ export const RESET_VALUES = ["short", "long", "dawn", "none"] as const;
 
 export interface ActionDef {
   name: string; text?: string;
-  cost?: { resource: string; amount?: Formula } | { selfDamage: string };
-  attack?: Formula; save?: { abil: Abil; dc: string }; damage?: string; heal?: string;
+  cost?: { resource: string; amount?: Formula } | { selfDamage: string } | { charges: number };
+  /** DC: a class DC name or id, the word "spell", or a whole number (read as text). */
+  attack?: Formula; save?: { abil: Abil; dc: string }; damage?: string; damageType?: string; heal?: string;
 }
 export interface OptionDef { id: string; name: string; text?: string; minLevel?: number; effects: Effects; action?: ActionDef;
   /** false: the built-in mechanics never fill this option in. */ overlay?: false;
@@ -90,17 +91,21 @@ export function validateAction(v: unknown, at: string, e: Errs): ActionDef | und
   if (!isObj(v)) { e.push(`${at}: must be a mapping`); return undefined; }
   const out: ActionDef = { name: reqName(v.name, `${at}.name`, e) };
   const text = optText(v.text, `${at}.text`, e); if (text !== undefined) out.text = text;
+  const damageType = optText(v.damageType, `${at}.damageType`, e); if (damageType !== undefined) out.damageType = damageType;
   if (v.cost !== undefined) {
     if (!isObj(v.cost)) e.push(`${at}.cost: must be a mapping`);
     else if (typeof v.cost.resource === "string" && v.cost.resource.trim()) {
       out.cost = { resource: v.cost.resource.trim(), ...(v.cost.amount !== undefined ? { amount: formula(v.cost.amount, `${at}.cost.amount`, e) } : {}) };
     } else if (v.cost.selfDamage !== undefined) out.cost = { selfDamage: dice(v.cost.selfDamage, `${at}.cost.selfDamage`, e) };
-    else e.push(`${at}.cost: needs a resource or selfDamage`);
+    else if (v.cost.charges !== undefined) {
+      if (whole(v.cost.charges, 1)) out.cost = { charges: v.cost.charges as number };
+      else e.push(`${at}.cost.charges: must be a whole number from 1`);
+    } else e.push(`${at}.cost: needs a resource, selfDamage or charges`);
   }
   if (v.attack !== undefined) out.attack = formula(v.attack, `${at}.attack`, e);
   if (v.save !== undefined) {
     if (!isObj(v.save)) e.push(`${at}.save: must be a mapping`);
-    else out.save = { abil: abil(v.save.abil, `${at}.save.abil`, e), dc: reqName(v.save.dc, `${at}.save.dc`, e) };
+    else out.save = { abil: abil(v.save.abil, `${at}.save.abil`, e), dc: reqName(typeof v.save.dc === "number" && Number.isInteger(v.save.dc) ? String(v.save.dc) : v.save.dc, `${at}.save.dc`, e) };
   }
   if (v.damage !== undefined) out.damage = dice(v.damage, `${at}.damage`, e);
   if (v.heal !== undefined) out.heal = dice(v.heal, `${at}.heal`, e);

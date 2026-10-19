@@ -6,7 +6,7 @@ import type { CampaignData, ItemData, LevelingMode, SpellData } from "../content
 import { apply, applyNpc, customItemProblem, type Action, type Limits } from "../core/actions";
 import type { Character, Combo, Npc, Parsed } from "../core/character";
 import { blankCombo, validateCombo } from "../core/combos";
-import { deriveCharacter, deriveCompanion, deriveNpc, type ActorStats } from "../core/derive";
+import { actionDc, deriveCharacter, deriveCompanion, deriveNpc, type ActorStats } from "../core/derive";
 import { critDamageOf, rollD20, rollDice, rollKeepHigher } from "../core/dice";
 import { affordable, onHitOptions, spendWords, toHitOptions, type AttackOptionRow } from "../core/attack-options";
 import { d20Words, damageWords, saveWords, spaced, type Extra } from "../core/own-dice";
@@ -15,7 +15,8 @@ import { critInfo, d20Rules, rollSources } from "../core/effects";
 import { explainChange, type ChangeGroup } from "../core/level-diff";
 import { evalFormula, fillDice } from "../core/formula";
 import { applyLevel, applyResolve, levelFromXp, planLevel, planResolve, rollHitDie, undoLevel, xpProgress, MAX_TOTAL_LEVEL, type LevelPlan, type Step } from "../core/levelup";
-import { formulaVars, type FeatureRow } from "../core/progression";
+import type { ActionDef } from "../content/types/ops";
+import { formulaVars } from "../core/progression";
 import type { Abil, RollMode, RollResult, RollTarget, Rng } from "../core/types";
 import { activeRests, MODULES, OWN_DICE } from "../rules";
 import { blankItemDraft, parseItemBlock, validateItemDraft, type ChargeReset, type ItemDraft, type ItemKind } from "../content/itemblock";
@@ -780,19 +781,30 @@ export class SheetController {
   cancelUndo() { if (this.confirmUndo) { this.confirmUndo = false; this.emit(); } }
 
   /** Use a feature or option action: spend its cost, then roll its attack, damage and healing; a save is shown as its DC. */
-  useAction(f: FeatureRow) {
+  useAction(f: { action?: ActionDef }, itemIndex?: number) {
     const a = f.action, c = this.character, st = this.stats();
     if (!a || !c || !st || !this.guard()) return;
     const plain = { crit: false, fumble: false, sources: { adv: [], dis: [], fail: [] } }, own = this.ownDice();
     try {
       const scales = st.progress.scales, vars = formulaVars(c, scales), parts: string[] = [];
       if (a.cost && "resource" in a.cost) {
-        const id = slug(a.cost.resource), r = st.resources.find(x => x.derived && x.id === id);
+        const id = slug(a.cost.resource), r = st.resources.find(x => x.id === id || (!x.derived && slug(x.name) === id));
         if (!r) { this.host.notify(`${a.name}: no resource called ${a.cost.resource}`); return; }
         const amount = a.cost.amount === undefined ? 1 : Math.max(0, Math.floor(evalFormula(a.cost.amount, vars)));
         if (!r.unlimited && r.used + amount > r.max) { this.host.notify(`No ${r.name} left for ${a.name}`); return; }
         if (r.unlimited) parts.push(`${r.name} (${r.unlimited.toLowerCase()})`);
-        else { if (!this.dispatch({ type: "uses", id, used: r.used + amount }).ok) return; parts.push(`${r.name} -${amount}`); }
+        else {
+          const spend: Action = r.derived ? { type: "uses", id: r.id, used: r.used + amount } : { type: "resource", index: Number(r.id.split(":")[1]), used: r.used + amount };
+          if (!this.dispatch(spend).ok) return; parts.push(`${r.name} -${amount}`);
+        }
+      }
+      if (a.cost && "charges" in a.cost) {
+        const e = itemIndex !== undefined ? c.inventory[itemIndex] : undefined;
+        if (!e) { this.host.notify("This only works on an item."); return; }
+        const max = this.limits().chargesMax(itemIndex!), used = e.charges?.used ?? 0, n = a.cost.charges;
+        if (used + n > max) { this.host.notify(`Not enough charges left for ${a.name}`); return; }
+        if (!this.dispatch({ type: "charges", index: itemIndex!, used: used + n }).ok) return;
+        parts.push(`${n} charge${n === 1 ? "" : "s"} spent`);
       }
       let selfAt = -1, selfDie = "";
       if (a.cost && "selfDamage" in a.cost) {
@@ -804,7 +816,7 @@ export class SheetController {
       }
       let saveAt = -1;
       if (a.save) {
-        const dc = st.progress.dcs.find(x => x.id === slug(a.save!.dc));
+        const dc = actionDc(st, a.save.dc);
         saveAt = parts.length;
         parts.push(own && dc ? saveWords(a.save.abil, dc.dc) : `${a.save.abil.toUpperCase()} save DC ${dc ? dc.dc : "?"}`);
       }
@@ -815,7 +827,7 @@ export class SheetController {
           const target: RollTarget = { kind: "attack" }, setup = this.d20Setup(target, {});
           words.splice(saveAt >= 0 ? saveAt : words.length, 0, this.d20Say(Math.floor(evalFormula(a.attack, vars)), setup, this.ownToHitExtras(setup, target)));
         }
-        if (a.damage) words.push(`you roll ${spaced(fillDice(a.damage, scales))}`);
+        if (a.damage) words.push(`you roll ${spaced(fillDice(a.damage, scales))}${a.damageType ? ` ${a.damageType}` : ""}`);
         if (a.heal) words.push(`Roll ${spaced(fillDice(a.heal, scales))} healing`);
         if (selfAt < 0) { this.ownSay(a.name, words.join("; ")); return; }
         // the damage to you changes the sheet, so it asks for its total; the rest of the action is said in the same box
@@ -828,7 +840,7 @@ export class SheetController {
       if (a.attack === undefined && !a.damage && !a.heal) { this.record({ title: a.name, total: 0, dice: [], detail: [...parts, a.text ?? ""].filter(Boolean).join(" · "), ...plain }); return; }
       if (parts.length) this.record({ title: `${a.name} used`, total: 0, dice: [], detail: parts.join(" · "), ...plain });
       if (a.attack !== undefined) this.roll(`${a.name} attack`, Math.floor(evalFormula(a.attack, vars)), { kind: "attack" });
-      if (a.damage) this.damage(`${a.name} damage`, fillDice(a.damage, scales));
+      if (a.damage) this.damage(`${a.name} damage${a.damageType ? ` (${a.damageType})` : ""}`, fillDice(a.damage, scales));
       if (a.heal) this.damage(`${a.name} healing`, fillDice(a.heal, scales));
     } catch (x) { this.host.notify(`${a.name}: ${(x as Error).message}`); }
   }

@@ -1,5 +1,5 @@
 import type { Character } from "../core/character";
-import type { ActorStats } from "../core/derive";
+import { actionDc, type ActorStats } from "../core/derive";
 import { evalFormula, fillDice } from "../core/formula";
 import { formulaVars, type FeatureRow } from "../core/progression";
 import { tagParts } from "../core/roll-tags";
@@ -169,9 +169,10 @@ export function actionWords(a: NonNullable<FeatureRow["action"]>, st: ActorStats
   const ctx: WordsCtx = { scales: st.progress.scales };
   const cost = a.cost && "resource" in a.cost
     ? `costs ${a.cost.amount === undefined ? 1 : typeof a.cost.amount === "number" ? a.cost.amount : formulaWords(String(a.cost.amount))} ${a.cost.resource}`
-    : a.cost && "selfDamage" in a.cost ? `costs ${diceWords(a.cost.selfDamage, ctx)} damage to you` : "";
-  const dc = a.save ? st.progress.dcs.find(x => x.name.toLowerCase() === a.save!.dc.toLowerCase() || x.id === a.save!.dc.toLowerCase().replace(/[^a-z0-9]+/g, "-")) : undefined;
-  return [cost, a.attack !== undefined ? "attack" : "", a.damage ? diceWords(a.damage, ctx) : "", a.heal ? `heals ${diceWords(a.heal, ctx)}` : "",
+    : a.cost && "selfDamage" in a.cost ? `costs ${diceWords(a.cost.selfDamage, ctx)} damage to you`
+    : a.cost && "charges" in a.cost ? `costs ${a.cost.charges} charge${a.cost.charges === 1 ? "" : "s"}` : "";
+  const dc = a.save ? actionDc(st, a.save.dc) : undefined;
+  return [cost, a.attack !== undefined ? "attack" : "", a.damage ? [diceWords(a.damage, ctx), a.damageType].filter(Boolean).join(" ") : "", a.heal ? `heals ${diceWords(a.heal, ctx)}` : "",
     a.save ? `${SAVE_ABIL[a.save.abil]} save${dc ? ` DC ${dc.dc}` : ""}` : ""].filter(Boolean);
 }
 

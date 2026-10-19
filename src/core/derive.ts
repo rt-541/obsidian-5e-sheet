@@ -7,6 +7,7 @@ import { buildAttacks, NOT_PROFICIENT } from "./attack-rows";
 import { attackOptionRows, type AttackOptionRow } from "./attack-options";
 import { evalFormula } from "./formula";
 import { emptyProgress, formulaVars, progress, type Progress, type DerivedResource } from "./progression";
+import { slug } from "../content/registry";
 import { matchesTag } from "./roll-tags";
 import { slotTable } from "./slots";
 import { titleCase } from "./words";
@@ -117,6 +118,18 @@ function hpFullOf(max0: number, fx: SourcedEffects[], o: ModOpts = {}) { return 
 function hpOf(max0: number, current: number, temp: number, fx: SourcedEffects[], o: ModOpts = {}) {
   const m = sumModifier(fx, "hpMax", o), full = Math.max(0, max0 + m.add), half = m.half, max = m.zero ? 0 : half ? Math.floor(full / 2) : full;
   return { current: Math.min(current, max), max, temp, maxReduced: half };
+}
+
+/**
+ * The save DC an action names: a whole number, the word "spell" (the first caster's spell save DC), or a class DC by name or slug.
+ * `label` names where the number comes from ("DC 13", "spell save DC", "<Name> save DC").
+ */
+export function actionDc(st: ActorStats, dc: string): { dc: number; label: string } | undefined {
+  const t = dc.trim();
+  if (/^\d+$/.test(t)) return { dc: Number(t), label: `DC ${Number(t)}` };
+  if (t.toLowerCase() === "spell") return st.casters[0] ? { dc: st.casters[0].dc, label: "spell save DC" } : undefined;
+  const d = st.progress.dcs.find(x => x.name.toLowerCase() === t.toLowerCase() || x.id === slug(t));
+  return d ? { dc: d.dc, label: `${d.name} save DC` } : undefined;
 }
 
 export function deriveCharacter(c: Character, ctx: EffectContext): ActorStats {

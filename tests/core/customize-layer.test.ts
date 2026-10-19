@@ -14,7 +14,7 @@ describe("layering a customization over a note", () => {
     expect(layerRow("Fury", note, {}, 1, fail).custom).toBeUndefined();
   });
   it("a new Use button from nothing", () => {
-    expect(layerRow("Spark", {}, { action: { name: "Spark", damage: "2d6" } }, 1, fail).action).toEqual({ name: "Spark", damage: "2d6" });
+    expect(layerRow("Spark", {}, { action: { name: "Spark", damage: "2d6", damageType: "fire" } }, 1, fail).action).toEqual({ name: "Spark", damage: "2d6", damageType: "fire" });
   });
   it("grows with level: nothing below the first level, then the highest step reached", () => {
     const mine = { attackOption: { onHit: { byLevel: { 3: "1d4", 7: "2d4" } }, resource: "Fury" } };
