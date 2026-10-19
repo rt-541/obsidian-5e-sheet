@@ -60,8 +60,8 @@ export const NPC_MOBILE: LayoutSpec = {
   ],
 };
 /**
- * The tablet layout: a header that stays put while you scroll (who you are, HP, AC, initiative, speed, conditions, rests, level up, roll log),
- * then six big-target tabs. Main has two columns: the checks on the left, and on the right what you use in a fight.
+ * The tablet layout: a header that stays put while you scroll (who you are, HP, conditions, rests, level up, roll log),
+ * then six big-target tabs. Main has two columns: the checks on the left, and on the right what you use in a fight (AC, initiative and speed in a stat row at its top).
  * The switches (Rage and the like) sit at the top of the right column rather than in the header, so their descriptions have room.
  */
 export const TABLET: LayoutSpec = {

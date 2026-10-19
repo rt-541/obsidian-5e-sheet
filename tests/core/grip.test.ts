@@ -31,6 +31,10 @@ describe("versatile grip", () => {
     const a = at([{ id: "ash-cudgel", equipped: true, hands: 2 }, { id: "oak-buckler", equipped: true }]);
     expect(a.damage).toBe("1d6+3 bludgeoning"); expect(a.grip).toEqual({ hands: 1, twoHanded: "1d8", shield: true });
   });
+  it("an equipped shield that is not attuned still blocks two hands", () => {
+    const a = at([{ id: "ash-cudgel", equipped: true, hands: 2 }, { id: "rune-targe", equipped: true }]);
+    expect(a.damage).toBe("1d6+3 bludgeoning"); expect(a.grip).toEqual({ hands: 1, twoHanded: "1d8", shield: true });
+  });
   it("rules aimed at one-handed or two-handed weapons follow the grip", () => {
     const give = carrier(r);
     const fx = { modifiers: [{ target: "damage", value: 2, on: "weapon:one-handed" }, { target: "attack", value: 1, on: "weapon:two-handed" }] };

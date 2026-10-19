@@ -78,8 +78,8 @@ export const SECTION_LABELS: Record<string, string> = {
 };
 /** The sections as the sheet is laid out. */
 export const SECTION_GROUPS: { title: string; ids: string[] }[] = [
-  { title: "Header", ids: ["inspiration", "prof", "xp", "level-up", "roll-mode", "roll-log"] },
-  { title: "Combat", ids: ["ac", "initiative", "speed", "passive-perception", "hp", "hp-controls", "hit-dice", "death-saves", "conditions", "active-effects", "attacks"] },
+  { title: "Header", ids: ["inspiration", "prof", "xp", "level-up", "roll-log"] },
+  { title: "Combat", ids: ["ac", "initiative", "speed", "passive-perception", "hp", "hp-controls", "hit-dice", "death-saves", "conditions", "active-effects", "roll-mode", "attacks"] },
   { title: "Resources and rests", ids: ["coins", "resources", "rations", "rests", "settings", "toggles", "traits", "features"] },
   { title: "Checks", ids: ["abilities", "saves", "skills"] },
   { title: "Spells", ids: ["concentration", "spell-dc", "spell-slots", "spells", "pinned-spells"] },

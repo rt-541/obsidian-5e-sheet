@@ -33,6 +33,14 @@ describe.each(LAYOUTS)("1H / 2H switch (%s)", layout => {
     expect(s.notices.at(-1)).toBe("Oak Buckler put away. Ash Cudgel in two hands.");
     expect(s.ctl.stats()!.ac.value).toBe(ac - 2); expect(s.q('[data-note="grip-shield"]')).toBeNull();
   });
+  it("an equipped but unattuned attunable shield also greys 2H and opens the prompt", () => {
+    const s = setup(layout, { inventory: [{ id: "ash-cudgel", equipped: true }, { id: "rune-targe", equipped: true }] }, addWeapons);
+    const two = row(s).querySelector<HTMLElement>('[data-hands="2"]')!;
+    expect(two.getAttribute("aria-disabled")).toBe("true");
+    s.click(two); expect(s.q('[data-note="grip-shield"]')).not.toBeNull();
+    s.click(s.q('[data-act="put-away-shield"]'));
+    expect(s.char().inventory.map(e => [e.equipped, e.hands])).toEqual([[true, 2], [false, undefined]]);
+  });
   it("Not now closes the question and changes nothing", () => {
     const s = setup(layout, { inventory: [{ id: "ash-cudgel", equipped: true }, { id: "oak-buckler", equipped: true }] }, addWeapons);
     s.click(row(s).querySelector('[data-hands="2"]')); s.click(s.q('[data-act="grip-cancel"]'));

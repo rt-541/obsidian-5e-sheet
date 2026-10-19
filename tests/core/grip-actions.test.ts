@@ -26,6 +26,12 @@ describe("grip actions", () => {
     const at = act(inv([{ id: "ash-cudgel", equipped: true, hands: 2 }, { id: "rune-targe" }]), { type: "attune", index: 1, on: true }, r);
     expect(at.value.inventory[0].hands).toBeUndefined(); expect(at.note).toBe("Ash Cudgel switched to one hand (shield equipped).");
   });
+  it("an equipped, unattuned attunable shield blocks two hands until put away", () => {
+    const c = inv([{ id: "ash-cudgel", equipped: true }, { id: "rune-targe", equipped: true }]);
+    expect(act(c, { type: "hands", index: 0, hands: 2 }, r).error).toBe("Put away your shield to use two hands.");
+    const out = act(c, { type: "hands", index: 0, hands: 2, putAwayShield: true }, r);
+    expect(out.value.inventory.map(e => [e.equipped, e.hands])).toEqual([[true, 2], [false, undefined]]);
+  });
   it("a stowed weapon keeps its choice and is not announced", () => {
     const out = act(inv([{ id: "ash-cudgel", equipped: false, hands: 2 }, { id: "oak-buckler" }]), { type: "equip", index: 1, on: true }, r);
     expect(out.value.inventory[0].hands).toBe(2); expect(out.note).toBeUndefined();
