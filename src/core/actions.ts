@@ -230,7 +230,12 @@ export function apply(c0: Character, a: Action, lim: Limits): Applied {
       e.attuned = a.on; if (a.on) e.equipped = true; break;
     }
     case "inspiration": c.inspiration = a.on; break;
-    case "addItem": c.inventory.push({ id: a.id, qty: 1, equipped: false, attuned: false }); break;
+    case "addItem": {
+      // An item already in the pack gets one more instead of a second row.
+      const have = c.inventory.find(x => x.id === a.id);
+      if (have) have.qty += 1; else c.inventory.push({ id: a.id, qty: 1, equipped: false, attuned: false });
+      break;
+    }
     case "removeItem": c.inventory.splice(a.index, 1); break;
     case "addCompanion": c.companions.push({ creature: a.creature, name: a.name, kind: a.kind, hp: { temp: 0 }, conditions: {} }); break;
     case "removeCompanion": c.companions.splice(a.index, 1); break;

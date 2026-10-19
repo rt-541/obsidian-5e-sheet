@@ -118,6 +118,15 @@ export class SheetController {
     return { ok: true, ...("note" in out && out.note ? { note: out.note } : {}) };
   }
 
+  /** Add one of a compendium item to the pack (a second copy bumps the count) and say what happened. */
+  addItem(id: string): boolean {
+    const had = this.character?.inventory.find(e => e.id === id)?.qty ?? 0;
+    if (!this.dispatch({ type: "addItem", id }).ok) return false;
+    const name = this.host.registry.get<ItemData>("item", id)?.name ?? id;
+    this.host.notify(had ? `Added ${name} (now ${had + 1})` : `Added ${name}.`);
+    return true;
+  }
+
   /** Start or end a toggle (Rage, a stance, an aura) and say in words what happened, including why it could not start. */
   toggle(id: string, on: boolean, value?: number): boolean {
     const out = this.dispatch({ type: "toggle", id, on, ...(value !== undefined ? { value } : {}) });

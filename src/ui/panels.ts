@@ -61,7 +61,7 @@ function compendiumPanel(ctl: SheetController): HTMLElement {
   return h("div", {}, ...ctl.pickers().list<ItemData>("item").map(e => h("div", { cls: "fe-inv" },
     h("div", { cls: "fe-grow" }, h("span", { cls: "fe-inv-name", text: e.name, data: { ref: `item:${e.id}` } }), sourceBadge(sourceLabel(e)),
       h("div", { cls: "fe-faint", text: [e.data.rarity, e.data.attunement ? "attunement" : "", e.path ?? ""].filter(Boolean).join(" · ") })),
-    owned.has(e.id) ? h("span", { cls: "fe-faint", text: "owned" }) : h("button", { cls: "fe-btn", text: "Add", data: { item: e.id }, on: { click: () => ctl.dispatch({ type: "addItem", id: e.id }) } }))));
+    h("button", { cls: "fe-btn", text: owned.has(e.id) ? "+1" : "Add", data: { item: e.id }, on: { click: () => ctl.addItem(e.id) } }))));
 }
 
 const sectionName = (id: string) => { const t = id.replace(/-/g, " "); return t.charAt(0).toUpperCase() + t.slice(1); };

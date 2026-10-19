@@ -239,3 +239,9 @@
 .fe-dtype { grid-column: 1 / -1; display: flex; align-items: center; gap: 6px; }
 .fe-dtype select { flex: 1 1 auto; min-width: 0; }
 .fe-dtype-hint { grid-column: 1 / -1; margin-top: -2px; }
+
+/* inventory quantity stepper */
+.fe-qty { display: inline-flex; align-items: center; gap: 4px; }
+.fe-qty-n { min-width: 2ch; text-align: center; font-variant-numeric: tabular-nums; font-weight: var(--font-semibold); }
+.fe-sheet button.fe-qty-btn { min-width: 32px; }
+.fe-mobile button.fe-qty-btn, .fe-tablet button.fe-qty-btn { min-width: 44px; min-height: 44px; }
