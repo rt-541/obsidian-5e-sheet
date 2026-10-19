@@ -36,7 +36,7 @@ export function attacksList(ctl: SheetController, st: ActorStats, who?: number):
           hit, hit && dmg ? h("span", { cls: "fe-faint fe-attack-sep", text: "/" }) : null, dmg,
           a.critDamage ? h("button", { cls: "fe-roll fe-crit", text: "Crit", title: `Damage on a critical hit: ${a.critDamage}`, attrs: { "aria-label": `${a.name} critical hit damage` },
             on: { click: () => ctl.damage(`${a.name} critical damage`, a.critDamage!) } }) : null));
-      const asking = who === undefined && a.grip && a.item !== undefined && ctl.gripPrompt === a.item;
+      const asking = who === undefined && a.grip && a.grip.shield && a.item !== undefined && ctl.gripPrompt === a.item;
       if (!asking) return [row];
       const item = a.item!;
       const put = btn("Put away shield", () => { ctl.setHands(item, 2, true); }); put.dataset.act = "put-away-shield";

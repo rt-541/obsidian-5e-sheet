@@ -38,6 +38,15 @@ describe.each(LAYOUTS)("1H / 2H switch (%s)", layout => {
     s.click(row(s).querySelector('[data-hands="2"]')); s.click(s.q('[data-act="grip-cancel"]'));
     expect(s.q('[data-note="grip-shield"]')).toBeNull(); expect(s.saved).toHaveLength(0);
   });
+  it("the question goes away when the shield is put away by another route", () => {
+    const s = setup(layout, { inventory: [{ id: "ash-cudgel", equipped: true }, { id: "oak-buckler", equipped: true }] }, addWeapons);
+    s.click(row(s).querySelector('[data-hands="2"]'));
+    expect(s.q('[data-note="grip-shield"]')).not.toBeNull();
+    s.ctl.dispatch({ type: "equip", index: 1, on: false });
+    expect(s.q('[data-note="grip-shield"]')).toBeNull(); expect(s.ctl.gripPrompt).toBeNull();
+    s.ctl.dispatch({ type: "equip", index: 1, on: true });
+    expect(s.q('[data-note="grip-shield"]')).toBeNull();
+  });
   it("equipping a shield from the inventory flips a two-handed weapon to 1H and says so", () => {
     const s = setup(layout, { inventory: [{ id: "ash-cudgel", equipped: true, hands: 2 }, { id: "oak-buckler" }] }, addWeapons);
     s.click(s.row("Oak Buckler").querySelector(".fe-btn:not([data-act])"));

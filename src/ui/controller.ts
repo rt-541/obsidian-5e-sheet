@@ -144,6 +144,7 @@ export class SheetController {
     const st = this.stats(); if (!st) { this.host.notify("Unknown creature for this NPC"); return { ok: false }; }
     const out = this.value.type === "5e-character" ? apply(this.value, a, this.limits()) : applyNpc(this.value, a, st, n => deriveNpc(n, this.ctx()));
     if (out.error) { this.host.notify(out.error); return { ok: false }; }
+    if (a.type === "equip" || a.type === "attune" || a.type === "removeItem" || a.type === "addItem" || a.type === "addCustomItem") this.gripPrompt = null;
     this.commit(out.value);
     if ((a.type === "damage" || a.type === "equip" || a.type === "attune" || a.type === "hands") && "note" in out && out.note) this.host.notify(out.note);
     if ("concentrationCheck" in out && out.concentrationCheck) {
