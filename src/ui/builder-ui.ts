@@ -1,10 +1,10 @@
 import type { GrantsData, SubraceData } from "../content/types";
-import { STANDARD_ARRAY, POINT_BUY_BUDGET, type ScoreMethod } from "../core/builder";
+import { gearList, STANDARD_ARRAY, POINT_BUY_BUDGET, type ScoreMethod } from "../core/builder";
 import { ABILS, type Abil } from "../core/types";
 import type { BuilderController, BuilderPage } from "./builder";
 import { clear, h } from "./h";
 import { asiPage, choiceButton, optionalPage, pickPage, spellsPage, subclassPage } from "./levelup-ui";
-import { btn, titleCase } from "./widgets";
+import { btn } from "./widgets";
 import { sourceLabel } from "../content/registry";
 
 const ABIL_NAME: Record<Abil, string> = { str: "STR", dex: "DEX", con: "CON", int: "INT", wis: "WIS", cha: "CHA" };
@@ -67,7 +67,7 @@ function equipmentPage(ctl: BuilderController): HTMLElement {
   if (!c) return body("equipment", hint("Pick a class first."));
   const gold = e?.kind === "gold" ? e.gold : undefined;
   return body("equipment", hint("Starting equipment or gold."),
-    ...(c.equipment ?? []).map((items, i) => choiceButton(`Option ${i + 1}`, items.map(titleCase).join(", "), e?.kind === "option" && e.index === i, undefined, () => ctl.setEquipment({ kind: "option", index: i }), { equip: String(i) })),
+    ...(c.equipment ?? []).map((items, i) => choiceButton(`Option ${i + 1}`, gearList(items, ctl.pickers()), e?.kind === "option" && e.index === i, undefined, () => ctl.setEquipment({ kind: "option", index: i }), { equip: String(i) })),
     c.gold !== undefined ? h("div", { cls: "fe-kv" },
       choiceButton("Starting gold", `${c.gold}${gold !== undefined ? `: ${gold} gp` : ""}`, e?.kind === "gold", undefined, () => ctl.rollStartingGold(), { equip: "gold" }),
       h("input", { cls: "fe-amt", data: { field: "gold" }, attrs: { type: "number", min: "0", value: gold !== undefined ? String(gold) : "", placeholder: "gp", "aria-label": "Starting gold" },

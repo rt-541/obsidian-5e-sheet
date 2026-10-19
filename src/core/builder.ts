@@ -146,6 +146,12 @@ export function buildSteps(d: BuildDraft, r: Registry): { origin: Step[]; level:
 
 const itemEntry = (r: Registry, id: string): InventoryEntry =>
   ({ ...(r.get("item", id) ? { id } : { name: titleCase(id) }), qty: 1, equipped: false, attuned: false });
+/** Starting gear as one short line: repeats counted in first-seen order ("Crossbow Bolt x20"), named from the registry else title-cased. */
+export function gearList(ids: string[], r: Registry): string {
+  const counts = new Map<string, number>();
+  for (const id of ids) counts.set(id, (counts.get(id) ?? 0) + 1);
+  return [...counts].map(([id, n]) => { const name = r.get("item", id)?.name ?? titleCase(id); return n > 1 ? `${name} x${n}` : name; }).join(", ");
+}
 function addItems(c: Character, r: Registry, ids: string[]) {
   for (const id of ids) {
     const e = itemEntry(r, id), same = c.inventory.find(x => (e.id !== undefined ? x.id === e.id : x.name === e.name));
@@ -172,7 +178,7 @@ export function buildCharacter(d: BuildDraft, r: Registry, rng: Rng = Math.rando
   if ("error" in lv) return lv;
   const value = lv.value; summary.push(...lv.summary);
   const cls = classOf(d, r)!, e = d.equipment;
-  if (e?.kind === "option") { addItems(value, r, cls.data.equipment![e.index]); summary.push(`Equipment: ${cls.data.equipment![e.index].map(titleCase).join(", ")}`); }
+  if (e?.kind === "option") { addItems(value, r, cls.data.equipment![e.index]); summary.push(`Equipment: ${gearList(cls.data.equipment![e.index], r)}`); }
   else if (e?.kind === "gold") { value.coins.gp = e.gold; summary.push(`Starting gold: ${e.gold} gp`); }
   return { value, summary };
 }
