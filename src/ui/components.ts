@@ -17,6 +17,7 @@ import { togglesFeature } from "./toggles-ui";
 import { coinsRow } from "./coins-ui";
 import { rationsFeature } from "./rations-ui";
 import { inventoryFeature, itemRef, itemState } from "./inventory-ui";
+import { rollModeSlider } from "./roll-mode-ui";
 import { castsSpells, concentrationFeature, pinnedSpellsFeature, slotRows, spellsFeature } from "./spells-ui";
 
 export { describeEffects, pips };
@@ -245,8 +246,7 @@ export const RENDER: Record<string, Render> = {
     const n = ctl.value.type === "5e-npc" ? ctl.value : undefined;
     const traits = (n && ctl.host.registry.get<CreatureData>("creature", n.creature)?.data.traits) || [];
     return card("Traits", ...traits.map((t, ti) => h("div", { cls: "fe-note" }, h("b", { text: t.name + ". ", data: { ref: `trait:${n!.creature}:${ti}` } }), t.text))); },
-  "roll-mode": ctl => h("div", { cls: "fe-seg" }, ...(["dis", "normal", "adv"] as const).map(m =>
-    btn({ dis: "Disadvantage", normal: "Normal", adv: "Advantage" }[m], () => ctl.setMode(m), ctl.mode === m ? "is-on" : ""))),
+  "roll-mode": ctl => rollModeSlider(ctl),
   "roll-log": ctl => btn(`Roll log${ctl.host.log.length ? ` (${ctl.host.log.length})` : ""}`, () => ctl.open({ kind: "log" })),
   "play-edit": ctl => h("div", { cls: "fe-kv" }, h("div", { cls: "fe-seg" }, btn("Play", () => ctl.setEditing(false), ctl.editing ? "" : "is-on"), btn("Edit", () => ctl.setEditing(true), ctl.editing ? "is-on" : "")),
     ctl.editing ? btn("Customize sheet", () => ctl.open({ kind: "customize" })) : null,

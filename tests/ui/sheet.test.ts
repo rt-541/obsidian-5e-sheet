@@ -68,7 +68,7 @@ describe("layout parity", () => {
     const run = (mobile: boolean | "tablet") => {
       const s = setup(thalia, mobile), out: string[] = [];
       s.click('[data-feature="skills"] .fe-roll'); out.push(s.q(".fe-toast").textContent!);                         // Acrobatics, poisoned -> dis
-      s.click('[data-feature="roll-mode"] .fe-btn:last-child'); s.click('[data-feature="saves"] .fe-roll'); out.push(s.q(".fe-toast").textContent!);
+      s.click('[data-feature="roll-mode"] [data-mode="adv"]'); s.click('[data-feature="saves"] .fe-roll'); out.push(s.q(".fe-toast").textContent!);
       s.click('[data-feature="hp-controls"] .fe-btn');                                                               // Damage 5
       out.push(s.q('[data-feature="hp"]').textContent!);
       s.click('[data-feature="conditions"] .fe-chip-add'); s.click('[data-cond="paralyzed"] .fe-switch'); s.click('[data-panel] .fe-panel-head .fe-btn');

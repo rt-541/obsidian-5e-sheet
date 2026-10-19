@@ -48,6 +48,8 @@ const TERMS: Record<string, { title: string; text: string }> = {
   "passive-perception": { title: "Passive Perception", text: "How well you notice things without trying: 10 plus your Perception bonus. The GM compares it against hidden things and sneaking enemies." },
   initiative: { title: "Initiative", text: "A roll at the start of a fight that sets who acts first. It is a Dexterity check, so a higher number means you go earlier." },
   "armor-class": { title: "Armor Class", text: "How hard you are to hit. An attack has to roll this number or higher to land." },
+  advantage: { title: "Advantage", text: "Roll two d20s and keep the higher one. Set it just before the roll; the sheet goes back to Normal after one roll." },
+  disadvantage: { title: "Disadvantage", text: "Roll two d20s and keep the lower one. Set it just before the roll; the sheet goes back to Normal after one roll." },
   speed: { title: "Speed", text: "How many feet you can walk on your turn." },
   "hit-points": { title: "Hit points", text: "How much damage you can take. At 0 you fall unconscious and start making death saves; healing brings you back up, never above your maximum." },
   "temp-hp": { title: "Temporary hit points", text: "A buffer that soaks up damage first and vanishes when used up. It does not stack: if you get more, keep the bigger pile. Healing does not restore it." },
