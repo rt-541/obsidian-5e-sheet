@@ -193,9 +193,12 @@ describe("applyLevel: answers are validated and nothing half-applies", () => {
     expect(err(run(at3, "skirmisher", { "class:skirmisher:4:asi-0": { feat: "linguist" } }))).toMatch(/Choose 1 language still needs an answer/);
     expect(err(run(at3, "skirmisher", { "class:skirmisher:4:asi-0": { feat: "linguist" }, "feat:linguist:choose-1": ["klingon"] }))).toMatch(/not one of the choices/);
   });
-  it("a language already on the note (any casing) cannot be picked again", () => {
-    const at3 = { ...upTo(3), languages: ["ELVISH"] };
-    expect(err(run(at3, "skirmisher", { "class:skirmisher:4:asi-0": { feat: "linguist" }, "feat:linguist:choose-1": ["elvish"] }))).toMatch(/already/i);
+  it("a free-typed language already on the note (any casing) cannot be picked again", () => {
+    const polyglot = { type: "5e-feat", name: "Polyglot", grants: [{ op: "choose", what: "languages", count: 1 }] };
+    const r2 = homebrewRegistry([polyglot, savant, brute, { type: "5e-class", name: "Skirmisher", hitDie: 8, levels: { 1: [{ op: "asi" }] } }]);
+    const c = { ...base(), languages: ["ELVISH"], levels: [{ class: "skirmisher", level: 0 }] } as unknown as Character;
+    const r = applyLevel(c, { class: "skirmisher" }, { hp: avg, choices: { "class:skirmisher:1:asi-0": { feat: "polyglot" }, "feat:polyglot:choose-0": ["Elvish"] } }, r2, seed);
+    expect("error" in r && r.error).toMatch(/already chosen/);
   });
   it("spells: right number of cantrips and spells, on the list, not known, not above the slots", () => {
     const at4 = upTo(4), spells = (v: unknown) => run(at4, "skirmisher", { "class:skirmisher:5:spells-2": v });
