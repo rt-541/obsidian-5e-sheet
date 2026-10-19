@@ -25,6 +25,15 @@ for (const layout of LAYOUTS) describe(`pickers (${layout})`, () => {
     expect(s.q('[data-pick="banishment"]')).toBeNull(); expect(s.q('[data-pick="spiritual-weapon"]')).not.toBeNull();
     s.click(s.q('[data-act="higher-levels"]')); expect(s.q('[data-pick="banishment"]')).not.toBeNull();
   });
+  it("typing a hidden higher-level spell's name hints at higher slots instead of offering Create", () => {
+    const s = sheet(layout, thalia); s.ctl.open({ kind: "add-spell" });
+    s.type(s.q(".fe-search"), "banishment");
+    expect(s.q('[data-hidden]').textContent).toBe("1 more spell needs higher slots than you have.");
+    expect(s.q('[data-empty]')).toBeNull(); expect(s.q('[data-act="create-from-query"]')).toBeNull();
+    s.click(s.q('[data-act="show-hidden"]'));
+    expect(s.q('[data-pick="banishment"]')).not.toBeNull();
+    expect(s.q('[data-act="higher-levels"]').textContent).toBe("Hide higher levels");
+  });
   it("the class-list switch label tells the truth right after the click", () => {
     const s = sheet(layout, thalia); s.ctl.open({ kind: "add-spell" }); s.click(s.q('[data-act="show-all"]'));
     expect(s.q('[data-act="show-all"]').closest("label")!.textContent).toBe("Showing all spells");

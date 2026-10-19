@@ -240,7 +240,9 @@ export function addSpellPanel(ctl: SheetController, panel: object = fallbackPane
     const fill = () => {
       clear(list);
       const q = st.query.trim().toLowerCase();
-      const rows = matchSpells(all.filter(e => e.name.toLowerCase().includes(q) && (st.showAll || !mine.size || e.data.classes.some(k => mine.has(k))) && (st.higher || e.data.level <= top)), q);
+      const inScope = all.filter(e => e.name.toLowerCase().includes(q) && (st.showAll || !mine.size || e.data.classes.some(k => mine.has(k))));
+      const rows = matchSpells(inScope.filter(e => st.higher || e.data.level <= top), q);
+      const hidden = st.higher ? 0 : inScope.length - rows.length;
       for (const e of rows.slice(0, MAX_ROWS)) list.append(h("div", { cls: "fe-inv", data: { pick: e.id } },
         h("div", { cls: "fe-grow" }, h("span", { cls: "fe-spell-name", text: e.name, data: { ref: `spell:${e.id}`, noclick: "" } }), sourceBadge(sourceLabel(e)),
           h("div", { cls: "fe-badges" }, h("span", { cls: "fe-badge", text: e.data.level === 0 ? "Cantrip" : `Level ${e.data.level}`, data: { badge: "level" } }),
@@ -249,7 +251,10 @@ export function addSpellPanel(ctl: SheetController, panel: object = fallbackPane
         owned.has(e.id) ? h("button", { cls: "fe-btn", text: "Known", attrs: { disabled: "", "aria-label": `${e.name} is already known` }, data: { known: e.id } })
           : btn("Add", () => { ctl.dispatch({ type: "addSpell", id: e.id }); ctl.host.notify(`Added ${e.name}`); }, "", { add: e.id })));
       if (rows.length > MAX_ROWS) list.append(h("div", { cls: "fe-faint", data: { more: "" }, text: `${rows.length - MAX_ROWS} more: keep typing.` }));
-      if (!rows.length) {
+      if (!rows.length && hidden > 0 && q) {
+        list.append(h("div", { cls: "fe-faint", data: { hidden: "" }, text: `${hidden} more ${hidden === 1 ? "spell needs" : "spells need"} higher slots than you have.` }),
+          btn("Show higher levels", () => hl.click(), "", { act: "show-hidden" }));
+      } else if (!rows.length) {
         list.append(h("div", { cls: "fe-faint", data: { empty: "" }, text: st.query.trim() ? `No spell called '${st.query.trim()}'.` : "No spells match." }));
         if (canMake && st.query.trim()) list.append(btn(`Create '${st.query.trim()}' as a new spell`, startForm, "mod-cta", { act: "create-from-query" }));
       }
