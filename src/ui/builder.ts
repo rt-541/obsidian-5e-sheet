@@ -40,6 +40,9 @@ export class BuilderController {
   /** The registry the pickers list from: sources the draft's campaign switched off are left out. */
   pickers(): Registry { return this.host.registry.scoped(this.draft.campaign ? this.host.campaignSources?.(this.draft.campaign) : undefined); }
 
+  /** Open or close the About card of a race or class. */
+  toggleAbout(id: string) { if (this.view.about === id) delete this.view.about; else this.view.about = id; this.emit(); }
+
   subscribe(fn: () => void) { this.subs.add(fn); return () => { this.subs.delete(fn); }; }
   emit() { this.subs.forEach(f => f()); }
 

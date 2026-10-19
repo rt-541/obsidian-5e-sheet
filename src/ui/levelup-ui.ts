@@ -1,7 +1,7 @@
 import { sourceLabel, type Registry } from "../content/registry";
 import type { FeatData } from "../content/types";
 import type { Character } from "../core/character";
-import { levelOptions, type Step, type StepOption } from "../core/levelup";
+import { levelOptions, type LevelOption, type Step, type StepOption } from "../core/levelup";
 import { ABILS, type Abil } from "../core/types";
 import type { LevelUpState, LevelUpView, SheetController } from "./controller";
 import { plural } from "../core/words";
@@ -41,11 +41,21 @@ export const choiceButton = (name: string, detail: string | undefined, on: boole
 };
 
 function classPage(ctl: SheetController, st: LevelUpState): HTMLElement {
-  const c = ctl.character!;
+  const c = ctl.character!, opts = levelOptions(c, ctl.pickers());
+  const rowOf = (o: LevelOption) => {
+    const b = choiceButton(`${o.name} ${o.current ? `${o.level - 1} to ${o.level}` : `(new) ${o.level}`}`, undefined, st.classId === o.class, undefined, () => ctl.setLevelUp({ classId: o.class, page: st.page }), { class: o.class }, o.source);
+    if (!o.allowed) b.disabled = true;
+    return h("div", {}, b, ...(o.allowed ? [] : o.reasons.slice(0, 1).map(r => h("div", { cls: "fe-muted", text: r }))));
+  };
+  const no = opts.filter(o => !o.allowed);
+  // Reasons every ineligible class shares are said once, in the summary; each row keeps only what is its own.
+  const shared = no.length ? no[0].reasons.filter(r => no.every(o => o.reasons.includes(r))) : [];
+  const own = (o: LevelOption): LevelOption => ({ ...o, reasons: o.reasons.filter(r => !shared.includes(r)) });
   return h("div", { cls: "fe-lu-body", data: { step: "class" } }, h("div", { cls: "fe-muted", text: c.classes.length ? "Which class takes this level?" : "Pick the first class." }),
-    ...levelOptions(c, ctl.pickers()).map(o => h("div", {},
-      choiceButton(`${o.name} ${o.current ? `${o.level - 1} to ${o.level}` : `(new) ${o.level}`}`, undefined, st.classId === o.class, o.allowed ? undefined : o.reasons[0], () => ctl.setLevelUp({ classId: o.class, page: st.page }), { class: o.class }, o.source),
-      ...(o.allowed ? [] : o.reasons.slice(0, 3).map(r => h("div", { cls: "fe-warn", text: r }))))));
+    ...opts.filter(o => o.allowed).map(rowOf),
+    no.length ? h("details", { data: { ineligible: "" }, attrs: st.classId && no.some(o => o.class === st.classId) ? { open: "" } : {} },
+      h("summary", { text: ["Other classes (need higher scores)", ...shared].join(". ") }),
+      ...no.map(o => rowOf(own(o)))) : null);
 }
 
 function hpPage(ctl: SheetController, s: Pick<"hp">, st: LevelUpState): HTMLElement {
@@ -118,10 +128,16 @@ export function optionalPage(ctl: PageCtl, s: Pick<"optional">, st: PageState): 
 export function pickPage(ctl: PageCtl, s: Pick<"pick">, st: PageState): HTMLElement {
   const v = st.choices[s.key], cur = isStrs(v) ? v : [];
   const toggle = (id: string) => ctl.pick(s.key, cur.includes(id) ? cur.filter(x => x !== id) : cur.length >= s.count ? [...cur.slice(1), id] : [...cur, id]);
-  const body = s.free
+  const optionButtons = () => s.options.map(o => choiceButton(o.name, o.text, cur.includes(o.id), o.disabled, () => toggle(o.id), { opt: o.id }, o.source));
+  const body = s.free && s.options.length
+    ? [...optionButtons(),
+        ...cur.filter(x => !s.options.some(o => o.id === x)).map(x => choiceButton(x, undefined, true, undefined, () => toggle(x), { opt: x })),
+        h("input", { cls: "fe-search", data: { act: "other-language" }, attrs: { type: "text", placeholder: "Another language", "aria-label": "Another language" },
+          on: { change: (e: Event) => { const el = e.target as HTMLInputElement, name = el.value.trim(); el.value = ""; if (name && !cur.some(x => x.toLowerCase() === name.toLowerCase())) toggle(name); } } })]
+    : s.free
     ? Array.from({ length: s.count }, (_, i) => h("input", { cls: "fe-search", attrs: { placeholder: `${titleCase(s.what)} ${i + 1}`, value: cur[i] ?? "", "aria-label": `${titleCase(s.what)} ${i + 1}` },
         on: { change: (e: Event) => { const next = [...cur]; next[i] = (e.target as HTMLInputElement).value.trim(); ctl.pick(s.key, next.filter(x => x !== "" || next.length > i).slice(0, s.count)); } } }))
-    : s.options.map(o => choiceButton(o.name, o.text, cur.includes(o.id), o.disabled, () => toggle(o.id), { opt: o.id }, o.source));
+    : optionButtons();
   return h("div", { cls: "fe-lu-body", data: { step: s.key } }, h("div", { cls: "fe-muted", text: `${s.label} (${cur.length} of ${s.count})` }), ...body);
 }
 

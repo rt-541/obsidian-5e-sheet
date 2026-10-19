@@ -5,6 +5,10 @@ import type { BuilderController, BuilderPage } from "./builder";
 import { clear, h } from "./h";
 import { asiPage, choiceButton, optionalPage, pickPage, spellsPage, stepCounter, subclassPage } from "./levelup-ui";
 import { btn } from "./widgets";
+import { classPitch, originPitch } from "./builder-pitch";
+import { entryCard } from "./details";
+import type { Entry } from "../content/registry";
+import type { ClassData } from "../content/types";
 import { sourceLabel } from "../content/registry";
 
 const ABIL_NAME: Record<Abil, string> = { str: "STR", dex: "DEX", con: "CON", int: "INT", wis: "WIS", cha: "CHA" };
@@ -12,11 +16,18 @@ const sgn = (n: number) => (n >= 0 ? "+" : "") + n;
 const body = (step: string, ...kids: (Node | null)[]) => h("div", { cls: "fe-lu-body", data: { step } }, ...kids);
 const hint = (text: string) => h("div", { cls: "fe-muted", text });
 
+/** A choice with its one-line pitch and an About button that opens the full card under it. */
+function aboutRow(ctl: BuilderController, kind: string, e: Entry, pitch: string, on: boolean, pick: () => void): HTMLElement {
+  const open = ctl.view.about === e.id;
+  const about = h("button", { cls: `fe-btn fe-about ${open ? "is-on" : ""}`.trim(), text: "About", data: { act: "about", about: e.id }, attrs: { "aria-expanded": String(open), "aria-label": `About ${e.name}` }, on: { click: () => ctl.toggleAbout(e.id) } });
+  return h("div", { data: { row: kind } }, h("div", { cls: "fe-subclass" }, choiceButton(e.name, pitch || undefined, on, undefined, pick, { [kind]: e.id }, sourceLabel(e)), about), open ? entryCard(ctl.pickers(), e) : null);
+}
+
 function racePage(ctl: BuilderController): HTMLElement {
   const reg = ctl.pickers(), d = ctl.draft;
   const subs = d.race ? reg.list<SubraceData>("subrace").filter(e => e.data.race === d.race) : [];
   return body("race", hint("Pick a race."),
-    ...reg.list<GrantsData>("race").map(e => choiceButton(e.name, undefined, d.race === e.id, undefined, () => ctl.setRace(e.id), { race: e.id }, sourceLabel(e))),
+    ...reg.list<GrantsData>("race").map(e => aboutRow(ctl, "race", e, originPitch(e, reg), d.race === e.id, () => ctl.setRace(e.id))),
     subs.length ? hint("Subrace") : null,
     ...(subs.length ? [choiceButton("No subrace", undefined, !d.subrace, undefined, () => ctl.setSubrace(undefined), { subrace: "" }),
       ...subs.map(e => choiceButton(e.name, undefined, d.subrace === e.id, undefined, () => ctl.setSubrace(e.id), { subrace: e.id }, sourceLabel(e)))] : []));
@@ -59,7 +70,7 @@ function scoresPage(ctl: BuilderController): HTMLElement {
 function classPage(ctl: BuilderController): HTMLElement {
   const d = ctl.draft;
   return body("class", hint("Pick a class (level 1)."),
-    ...ctl.pickers().list<{ name: string; hitDie: number }>("class").map(e => choiceButton(e.name, `d${e.data.hitDie}`, d.classId === e.id, undefined, () => ctl.setClass(e.id), { class: e.id }, sourceLabel(e))));
+    ...ctl.pickers().list<ClassData>("class").map(e => aboutRow(ctl, "class", e, classPitch(e), d.classId === e.id, () => ctl.setClass(e.id))));
 }
 
 function equipmentPage(ctl: BuilderController): HTMLElement {

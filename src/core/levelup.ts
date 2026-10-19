@@ -121,6 +121,9 @@ function maxSpellLevel(env: Env, key: string): number {
   return levels.length ? Math.max(...levels) : 9;
 }
 
+/** The languages offered when a language choice names no list of its own. */
+export const LANGUAGE_CHOICES = ["Common", "Dwarvish", "Elvish", "Giant", "Gnomish", "Goblin", "Halfling", "Orc", "Abyssal", "Celestial", "Draconic", "Deep Speech", "Infernal", "Primordial", "Sylvan", "Undercommon"];
+
 function stepOf(p: PendingChoice, env: Env, maxScores: () => Record<Abil, number>): Step | undefined {
   const { op, key } = p, base = { key, label: p.label, source: p.source };
   const c = env.cand, prog = env.prog;
@@ -144,8 +147,8 @@ function stepOf(p: PendingChoice, env: Env, maxScores: () => Record<Abil, number
         options = defs.map(d => ({ id: d.id, name: d.name, ...(d.text !== undefined ? { text: d.text } : {}),
           ...(d.minLevel !== undefined && d.minLevel > lvl ? { disabled: `Needs level ${d.minLevel}` } : prog.options[op.list!]?.includes(d.id) ? { disabled: "Already chosen" } : {}) }));
       } else {
-        const from = op.from ?? (op.what === "skills" || op.what === "expertise" ? Object.keys(SKILLS) : undefined);
-        free = from === undefined;
+        const from = op.from ?? (op.what === "skills" || op.what === "expertise" ? Object.keys(SKILLS) : op.what === "languages" ? LANGUAGE_CHOICES.map(l => l.toLowerCase().replace(/ /g, "-")) : undefined);
+        free = op.from === undefined && op.what !== "skills" && op.what !== "expertise";
         const have = op.what === "skills" ? new Set([...c.proficiencies.skills, ...prog.proficiencies.skills]) : op.what === "expertise" ? new Set([...c.proficiencies.expertise, ...prog.proficiencies.expertise])
           : op.what === "languages" ? new Set(prog.languages) : new Set(prog.proficiencies.other);
         options = (from ?? []).map(id => ({ id, name: titleCase(id), ...(have.has(id) && env.mode.kind !== "resolve" ? { disabled: op.what === "skills" ? "Already proficient" : "Already have" } : {}) }));
