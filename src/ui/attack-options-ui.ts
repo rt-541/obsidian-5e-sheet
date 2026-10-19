@@ -28,7 +28,7 @@ export function attackOptionsFeature(ctl: SheetController, st: ActorStats): HTML
   const el = card("Attack options", ...rows.map(row => {
     const r = row.resource, empty = !!r && !r.unlimited && r.left <= 0;
     const reason = row.problem ?? (empty ? `No ${r!.name} left` : undefined);
-    const blocked = !!row.problem || (empty && !row.on);
+    const blocked = !row.on && (!!row.problem || empty);   // an option that is on can always be switched off
     const sw = h("button", { cls: `fe-opt-switch${row.on ? " is-on" : ""}`, data: { act: "attack-option" },
       attrs: { "aria-pressed": String(row.on), "aria-label": `Switch ${row.name} ${row.on ? "off" : "on"}`, ...(blocked ? { disabled: "" } : {}) },
       on: { click: () => { ctl.setAttackOption(row.id, !row.on); } } });

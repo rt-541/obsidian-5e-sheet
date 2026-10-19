@@ -42,22 +42,48 @@ describe("Attack options card and attack row buttons", () => {
     it("hides the card when there are no options", () => {
       expect(sheetWith(layout).q('[data-feature="attack-options"]').hidden).toBe(true);
     });
-    it("offers a hit-window button after a roll to hit, and rolls damage from it", () => {
+    const dmgBtn = (h: ReturnType<typeof sheetWith>, name = "Longsword") => h.row(name).querySelector<HTMLElement>(".fe-atk-dmg")!;
+    it("arms the row's own damage button after a roll to hit, and pressing it is the hit", () => {
       const h = sheetWith(layout, { feats: ["test-analysis"], optionsOn: ["test-analysis"] }, seq(0.5));
+      const plain = dmgBtn(h).textContent!;
       h.click(h.row("Longsword").querySelector('[data-act="to-hit"]'));
-      expect(h.row("Longsword").querySelector('[data-act="hit-window"]')!.textContent).toBe("Hit? Roll damage");
-      h.click(h.row("Longsword").querySelector('[data-act="hit-window"]'));
-      expect(h.host.log[0].title).toBe("Longsword damage"); expect(h.row("Longsword").querySelector('[data-act="hit-window"]')).toBeNull();
+      expect(dmgBtn(h).classList.contains("fe-hit-armed")).toBe(true);
+      expect(dmgBtn(h).textContent).toBe("Hit?");
+      expect(h.row("Longsword").querySelector('[data-act="hit-window"]')).toBeNull();
+      h.click(dmgBtn(h));
+      expect(h.host.log[0].title).toBe("Longsword damage"); expect(h.left("insight-dice").used).toBe(1);
+      expect(dmgBtn(h).classList.contains("fe-hit-armed")).toBe(false); expect(dmgBtn(h).textContent).toBe(plain);
     });
-    it("takes the hit-window button away after the window runs out", () => {
+    it("returns to normal when the window runs out, and a miss spends nothing", () => {
       const h = sheetWith(layout, { feats: ["test-analysis"], optionsOn: ["test-analysis"] }, seq(0.5));
       vi.useFakeTimers();
       try {
         h.click(h.row("Longsword").querySelector('[data-act="to-hit"]'));
-        expect(h.row("Longsword").querySelector('[data-act="hit-window"]')).not.toBeNull();
+        expect(dmgBtn(h).classList.contains("fe-hit-armed")).toBe(true);
         vi.advanceTimersByTime(HIT_WINDOW_MS);
-        expect(h.row("Longsword").querySelector('[data-act="hit-window"]')).toBeNull();
+        expect(dmgBtn(h).classList.contains("fe-hit-armed")).toBe(false); expect(h.left("insight-dice").used).toBe(0);
       } finally { vi.useRealTimers(); }
+    });
+    it("keeps the same min-width armed or not, adds no absolute or fixed element, and the next row's to-hit still rolls", () => {
+      const h = sheetWith(layout, { feats: ["test-analysis"], optionsOn: ["test-analysis"], inventory: [{ id: "longsword", equipped: true }, { id: "dagger", equipped: true }] }, seq(0.5));
+      const rows = [...h.root.querySelectorAll<HTMLElement>("[data-attack]")];
+      const before = dmgBtn(h).getAttribute("style");
+      h.click(h.row("Longsword").querySelector('[data-act="to-hit"]'));
+      expect(dmgBtn(h).getAttribute("style")).toBe(before); expect(before).toMatch(/min-width/);
+      for (const el of h.q('[data-feature="attacks"]').querySelectorAll<HTMLElement>("*")) expect(["absolute", "fixed"]).not.toContain(el.style.position);
+      const other = rows.find(e => !(e.textContent ?? "").includes("Longsword"));
+      if (other) {
+        h.click(other.querySelector('[data-act="to-hit"]'));
+        expect(h.host.log[0].title).toBe(`${other.querySelector(".fe-grow")!.textContent} to hit`);
+      }
+    });
+    it("an option that is on can always be switched off, even once it has a problem", () => {
+      const s = sheetWith(layout, { feats: ["test-lost"], optionsOn: ["test-lost"] });
+      const sw = () => s.q('[data-attack-option="test-lost"] [data-act="attack-option"]');
+      expect(sw().hasAttribute("disabled")).toBe(false);
+      s.click(sw());
+      expect(s.ctl.character!.optionsOn ?? []).toEqual([]);
+      expect(sw().hasAttribute("disabled")).toBe(true);
     });
     it("a combo's own damage step counts as a hit and spends the option's dice", () => {
       const combo = { name: "Strike", when: "", steps: [{ action: "Action", text: "", use: { attack: "Longsword" } }] };
@@ -69,26 +95,19 @@ describe("Attack options card and attack row buttons", () => {
     });
   });
 
-  it("the hit-window button is an overlay slot on the row, so the card never grows", () => {
-    for (const [name] of layouts) {
-      const h = sheetWith(name, { feats: ["test-analysis"], optionsOn: ["test-analysis"] }, seq(0.5));
-      h.click(h.row("Longsword").querySelector('[data-act="to-hit"]'));
-      const btn = h.row("Longsword").querySelector('[data-act="hit-window"]')!, slot = btn.closest(".fe-hit-slot")!;
-      expect(slot).not.toBeNull(); expect(slot.parentElement).toBe(h.row("Longsword"));
-      expect(btn.closest(".fe-attack-ctl")).toBeNull();
-    }
-    expect(css).toMatch(/\.fe-attack \{[^}]*position: relative/);
-    expect(css).toMatch(/\.fe-hit-slot \{[^}]*position: absolute/);
-    expect(css).toMatch(/\.fe-tablet \.fe-hit-slot button\.fe-hit-window, \.fe-mobile \.fe-hit-slot button\.fe-hit-window[^{]*\{[^}]*min-height: 44px/);
+  it("the armed damage button is highlighted in the row itself, with no floating slot", () => {
+    expect(css).not.toContain("fe-hit-slot");
+    expect(css).toMatch(/\.fe-sheet button\.fe-atk-dmg\.fe-hit-armed \{[^}]*background: var\(--interactive-accent\)/);
   });
   it("styles: off knob is visible, Off/On buttons are 44px wide on touch layouts", () => {
     expect(css).toMatch(/\.fe-opt-switch::after \{[^}]*background: var\(--text-muted\)/);
     expect(css).toMatch(/\.fe-opt-switch\.is-on::after \{[^}]*background: var\(--background-primary\)/);
-    expect(css).toMatch(/\.fe-mobile button\.fe-mode-opt, \.fe-tablet button\.fe-mode-opt \{[^}]*min-width: 44px/);
+    expect(css).not.toMatch(/\.fe-mobile button\.fe-mode-opt, \.fe-tablet button\.fe-mode-opt \{[^}]*min-width/);   // the 1H/2H grip switch keeps its size
+    expect(css).toMatch(/\.fe-mobile \.fe-setting button\.fe-mode-opt, \.fe-tablet \.fe-setting button\.fe-mode-opt \{[^}]*min-width: 44px/);
   });
-  it("styles: switch, 44px targets on tablet and phone, fading hit-window button", () => {
+  it("styles: switch, 44px targets on tablet and phone, fading armed damage button", () => {
     expect(css).toMatch(/\.fe-sheet button\.fe-opt-switch \{/);
     expect(css).toMatch(/\.fe-sheet\.fe-tablet button\.fe-opt-switch, \.fe-sheet\.fe-mobile button\.fe-opt-switch[^{]*\{[^}]*min-height: 44px/);
-    expect(css).toMatch(/\.fe-sheet button\.fe-hit-window \{[^}]*animation:/);
+    expect(css).toMatch(/\.fe-sheet button\.fe-atk-dmg\.fe-hit-armed \{[^}]*animation:/);
   });
 });

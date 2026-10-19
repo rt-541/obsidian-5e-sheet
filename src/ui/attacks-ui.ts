@@ -26,10 +26,15 @@ export function attacksList(ctl: SheetController, st: ActorStats, who?: number):
         ? h("button", { cls: "fe-roll fe-atk", text: `${sgn(a.toHit)} Atk`, ...refData(a.why?.hit ? `why:attack:${ai}:hit` : undefined, true, "to-hit"),
           on: { click: (e: MouseEvent) => { if (own) ctl.attackRoll(ai, e); else ctl.roll(`${a.name} to hit`, a.toHit!, a.target, e, who); } } })
         : a.save ? h("span", { cls: "fe-faint fe-atk-save", text: `DC ${a.save.dc} ${ABIL_NAME[a.save.abil]}` }) : null;
+      const armed = own && ctl.hitWindow?.ai === ai ? ctl.hitWindow : null, shown = armed?.crit && a.critDamage ? a.critDamage : a.damage;
+      // the damage button doubles as the hit prompt: same width open or closed (the short "Hit?" / "Crit!" never needs more than the dice text), so the row never reflows
+      const plain = a.damage ? compactDamage(a.damage) : "", width = Math.max(plain.length, 5);
       const dmg = a.damage
-        ? h("button", { cls: "fe-roll fe-atk-dmg", text: compactDamage(a.damage), title: `${a.name} damage: ${a.damage}`, attrs: { "aria-label": `${a.name} damage: ${a.damage}` },
+        ? h("button", { cls: `fe-roll fe-atk-dmg${armed ? " fe-hit-armed" : ""}`, text: armed ? (armed.crit ? "Crit!" : "Hit?") : plain,
+          title: armed ? `${a.name}: tap if it hit. Damage ${shown}` : `${a.name} damage: ${a.damage}`,
+          attrs: { "aria-label": armed ? `${a.name}: did it hit? Roll damage ${shown}` : `${a.name} damage: ${a.damage}`, ...(own ? { style: `min-width: ${width}ch` } : {}) },
           ...refData(a.why?.damage ? `why:attack:${ai}:damage` : undefined, true, "damage"),
-          on: { click: () => { if (own) ctl.attackDamage(ai); else ctl.damage(`${a.name} damage`, a.damage!); } } })
+          on: { click: () => { if (own) ctl.attackDamage(ai, armed?.crit ?? false); else ctl.damage(`${a.name} damage`, a.damage!); } } })
         : null;
       const row = h("div", { cls: "fe-attack", data: { attack: String(ai) } },
         h("span", { cls: "fe-grow", text: a.name, ...refData(noteRef) }),
@@ -39,10 +44,7 @@ export function attacksList(ctl: SheetController, st: ActorStats, who?: number):
           hit, hit && dmg ? h("span", { cls: "fe-faint fe-attack-sep", text: "/" }) : null, dmg,
           a.critDamage ? h("button", { cls: "fe-roll fe-crit", text: "Crit", data: { act: "crit" }, title: `Damage on a critical hit: ${a.critDamage}`, attrs: { "aria-label": `${a.name} critical hit damage` },
             on: { click: () => { if (own) ctl.attackDamage(ai, true); else ctl.damage(`${a.name} critical damage`, a.critDamage!); } } }) : null,
-          ),
-        own && ctl.hitWindow?.ai === ai
-          ? h("span", { cls: "fe-hit-slot" }, h("button", { cls: "fe-roll fe-hit-window", text: ctl.hitWindow.crit ? "Crit! Roll damage" : "Hit? Roll damage", data: { act: "hit-window" },
-            on: { click: () => { ctl.attackDamage(ai, ctl.hitWindow?.crit ?? false); } } })) : null);
+          ));
       const asking = who === undefined && a.grip && a.grip.shield && a.item !== undefined && ctl.gripPrompt === a.item;
       if (!asking) return [row];
       const item = a.item!;

@@ -307,7 +307,8 @@
 .fe-sheet button.fe-mode-opt:first-child { border-radius: var(--radius-s) 0 0 var(--radius-s); }
 .fe-sheet button.fe-mode-opt:last-child { border-radius: 0 var(--radius-s) var(--radius-s) 0; }
 .fe-sheet button.fe-mode-opt.is-on { background: var(--interactive-accent); color: var(--text-on-accent); }
-.fe-mobile button.fe-mode-opt, .fe-tablet button.fe-mode-opt { min-height: 44px; min-width: 44px; }
+.fe-mobile button.fe-mode-opt, .fe-tablet button.fe-mode-opt { min-height: 44px; }
+.fe-mobile .fe-setting button.fe-mode-opt, .fe-tablet .fe-setting button.fe-mode-opt { min-width: 44px; }
 .fe-hd-recharge { margin-top: 4px; }
 .fe-safe-haven { align-items: center; }
 .fe-tag.is-mine { border-color: var(--interactive-accent); color: var(--text-normal); }
@@ -351,12 +352,10 @@
 .fe-sheet button.fe-opt-switch:disabled { opacity: .4; cursor: not-allowed; }
 .fe-sheet.fe-tablet button.fe-opt-switch, .fe-sheet.fe-mobile button.fe-opt-switch { width: 68px; height: 44px; min-height: 44px; border: 6px solid transparent; background-clip: padding-box; margin-top: 0; }
 .fe-tablet .fe-opt-switch::after, .fe-mobile .fe-opt-switch::after { top: 4px; left: 4px; width: 24px; height: 24px; } .fe-tablet .fe-opt-switch.is-on::after, .fe-mobile .fe-opt-switch.is-on::after { left: 28px; }
-/* the hit-window button floats just under its row, so the card never grows while it is open */
-.fe-hit-slot { position: absolute; right: 0; top: 100%; z-index: 3; box-shadow: var(--shadow-s); border-radius: var(--radius-s); }
-.fe-tablet .fe-hit-slot button.fe-hit-window, .fe-mobile .fe-hit-slot button.fe-hit-window { min-height: 44px; }
-.fe-sheet button.fe-hit-window { flex: none; background: var(--interactive-accent); color: var(--text-on-accent); animation: fe-hit-fade 3s linear forwards; }
+/* during the hit window the row's own damage button is the hit prompt: highlighted, no extra element, no reflow */
+.fe-sheet button.fe-atk-dmg.fe-hit-armed { background: var(--interactive-accent); color: var(--text-on-accent); animation: fe-hit-fade 3s linear forwards; }
 @keyframes fe-hit-fade { from { opacity: 1; } to { opacity: .4; } }
-@media (prefers-reduced-motion: reduce) { .fe-sheet button.fe-hit-window { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .fe-sheet button.fe-atk-dmg.fe-hit-armed { animation: none; } }
 /* I roll my own dice: the box that says what to roll */
 .fe-sheet .fe-own-roll { position: fixed; z-index: 40; left: 50%; bottom: 20px; transform: translateX(-50%); width: min(480px, 92vw); background: var(--background-primary); border: 1px solid var(--background-modifier-border); border-left: 4px solid var(--interactive-accent); border-radius: var(--radius-m); padding: 10px 12px; box-shadow: var(--shadow-l); display: flex; flex-direction: column; gap: 8px; }
 .fe-sheet .fe-own-say { font-size: 1.05em; }
