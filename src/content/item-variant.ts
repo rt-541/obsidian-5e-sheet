@@ -27,7 +27,9 @@ function wordHolds(w: string, base: { id: string; data: ItemData }): boolean {
   const { armor, weapon } = base.data;
   if (w in DEX_OF) return armor?.dex === DEX_OF[w as keyof typeof DEX_OF];
   if (weapon && (w === weapon.range || w === weapon.type.toLowerCase())) return true;
-  return w === base.id || !!weapon?.groups?.includes(w) || base.data.name.toLowerCase().includes(w);
+  if (w === base.id || !!weapon?.groups?.includes(w)) return true;
+  // a base that lists groups is matched by them alone, so "bow" never offers a crossbow
+  return !weapon?.groups?.length && base.data.name.toLowerCase().includes(w);
 }
 const wordsHold = (spec: string, base: { id: string; data: ItemData }) => spec.split("+").every(w => wordHolds(w.trim().toLowerCase(), base));
 

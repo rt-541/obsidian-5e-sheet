@@ -383,6 +383,7 @@
 /* Add item panel: the result card, the Which armor? list and the equip choice */
 .fe-result .fe-itemcard { margin: 4px 0 8px; }
 .fe-inv-name[role="button"] { cursor: pointer; }
+.fe-mobile .fe-sheet .fe-result .fe-inv-name[role="button"], .fe-tablet .fe-sheet .fe-result .fe-inv-name[role="button"] { display: inline-flex; align-items: center; min-height: 44px; }
 .fe-base-pick { display: grid; gap: 6px; }
 .fe-sheet .fe-base-pick button.fe-btn { height: auto; min-height: 36px; text-align: left; white-space: normal; }
 .fe-sheet .fe-base-pick button.fe-btn[disabled] { opacity: 0.5; cursor: not-allowed; }

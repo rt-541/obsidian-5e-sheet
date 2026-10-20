@@ -388,7 +388,7 @@ export function apply(c0: Character, a: Action, lim: Limits): Applied {
       }
       if (a.attune && c.inventory.filter(x => x.attuned).length >= MAX_ATTUNED) return { value: c0, error: "Already attuned to 3 items" };
       let index: number;
-      if (item && isGear(item)) {
+      if (a.base || item?.variant || (item && isGear(item))) {
         // Armor, shields and weapons are each their own row.
         index = c.inventory.push({ ...plain, row: newRowId(c.inventory), ...(a.base ? { base: a.base } : {}) }) - 1;
       } else {

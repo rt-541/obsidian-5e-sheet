@@ -17,6 +17,14 @@ describe("adding gear", () => {
     expect(out.value.inventory[1]).toMatchObject({ id: "plus-one-armor", base: "slate-mail", equipped: true });
     expect(out.value.inventory[0].equipped).toBe(false); expect(out.note).toBe("Reed Vest unequipped.");
   });
+  it("a generic item that is not armor or weapon by kind still gets its own row with the chosen base", () => {
+    const r2 = mechanicsRegistry(); addVariants(r2);
+    r2.add("vault", "item", { id: "moon-pike", name: "Moon Pike", kind: "gear", attunement: false, weight: 0, variant: { base: "weapon", only: ["spear"] } }, { path: "moon-pike.md" });
+    let c = act(makeChar(), { type: "addItem", id: "moon-pike", base: "reed-spear", equip: true }, r2).value;
+    c = act(c, { type: "addItem", id: "moon-pike", base: "reed-spear" }, r2).value;
+    expect(c.inventory.map(e => [e.id, e.base, e.qty])).toEqual([["moon-pike", "reed-spear", 1], ["moon-pike", "reed-spear", 1]]);
+    expect(c.inventory.every(e => e.row)).toBe(true);
+  });
   it("refuses a base that does not fit", () => {
     expect(act(makeChar(), { type: "addItem", id: "ember-edge", base: "reed-spear" }, r).error).toBe("That base does not fit this item.");
   });

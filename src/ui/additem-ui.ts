@@ -152,11 +152,12 @@ function resultRow(ctl: SheetController, e: Entry<ItemData>): HTMLElement {
   const owned = ctl.character!.inventory.some(x => x.id === e.id), gear = isGear(e.data) || !!e.data.variant;
   const open = ctl.itemSearch.selected === e.id;
   const label = owned && !gear ? "+1" : "Add";
+  const toggle = () => { ctl.itemSearch.selected = open ? undefined : e.id; ctl.emit(); };
   return h("div", { cls: "fe-result" },
     h("div", { cls: "fe-inv" },
       h("div", { cls: "fe-grow" },
         h("span", { cls: "fe-inv-name", text: e.name, data: { ref: `item:${e.id}`, noclick: "" }, attrs: { role: "button", tabindex: "0", "aria-expanded": String(open) },
-          on: { click: () => { ctl.itemSearch.selected = open ? undefined : e.id; ctl.emit(); } } }),
+          on: { click: toggle, keydown: (ev: KeyboardEvent) => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); toggle(); } } } }),
         playBadge(sourceLabel(e)),
         h("div", { cls: "fe-faint", text: [e.data.rarity, e.data.attunement ? "attunement" : ""].filter(Boolean).join(" · ") }),
         owned && gear ? h("div", { cls: "fe-faint", text: "Owned", data: { note: "owned" } }) : null),

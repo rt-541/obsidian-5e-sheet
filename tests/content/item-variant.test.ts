@@ -64,6 +64,11 @@ describe("which bases fit", () => {
     expect(baseFits({ base: "weapon", except: ["reed-spear"] }, reedSpear)).toBe(false);
     expect(baseFits({ base: "weapon" }, slate)).toBe(false);
   });
+  it("a word is matched by a base's groups alone when it has them, so bow never offers a crossbow", () => {
+    const mk = (id: string, name: string, groups: string[]) => ({ id, data: { ...thornSword.data, name, weapon: { ...thornSword.data.weapon!, groups } } });
+    expect(baseFits({ base: "weapon", only: ["bow"] }, mk("longbow", "Longbow", ["bow"]))).toBe(true);
+    expect(baseFits({ base: "weapon", only: ["bow"] }, mk("light-crossbow", "Light Crossbow", ["crossbow"]))).toBe(false);
+  });
   it("lists only ordinary items with numbers, never another magic item or variant", () => {
     const ids = baseChoices({ base: "armor" }, entries).map(e => e.id);
     expect(ids).toContain("slate-mail"); expect(ids).not.toContain("plus-one-armor"); expect(ids).not.toContain("glow-mail");

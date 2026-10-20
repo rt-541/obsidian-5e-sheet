@@ -1,5 +1,5 @@
 import { titleCase } from "../core/words";
-import { entryItem } from "../core/item-entry";
+import { entryItem, entryRef } from "../core/item-entry";
 import type { ConditionData, CreatureData, ItemData } from "../content/types";
 import type { ActorStats } from "../core/derive";
 import { ABILS, type Abil, type Effects } from "../core/types";
@@ -96,7 +96,7 @@ function pinnedItems(ctl: SheetController): { index: number; row: HTMLElement }[
     const index = c.inventory.findIndex(e => itemRef(e) === ref); if (index < 0) return [];
     const s = itemState(ctl, index), e = s.e;
     return [{ index, row: h("div", { cls: `fe-kv fe-pinned-item ${s.usedUp ? "is-used-up" : ""}`.trim(), data: { pinnedItem: ref } },
-      h("span", { cls: "fe-grow" }, h("span", { cls: "fe-inv-name", text: s.name, ...(s.it && e.id ? { data: { ref: `item:${e.id}` } } : {}) }),
+      h("span", { cls: "fe-grow" }, h("span", { cls: "fe-inv-name", text: s.name, ...(s.it && e.id ? { data: { ref: entryRef(e) } } : {}) }),
         s.consumable || e.qty > 1 ? h("span", { cls: "fe-faint", text: ` x${e.qty}` }) : null,
         s.upWord ? h("span", { cls: "fe-faint fe-used-up", text: ` · ${s.upWord}` }) : null),
       s.charges ? pips(s.charges.max, e.charges?.used ?? 0, n => ctl.dispatch({ type: "charges", index, used: n })) : null,

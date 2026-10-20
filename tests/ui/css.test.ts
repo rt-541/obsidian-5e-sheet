@@ -69,6 +69,12 @@ describe("change item form", () => {
   });
 });
 
+describe("add item result names", () => {
+  it("are 44px tap targets on tablet and phone", () => {
+    expect(css).toContain('.fe-mobile .fe-sheet .fe-result .fe-inv-name[role="button"], .fe-tablet .fe-sheet .fe-result .fe-inv-name[role="button"] { display: inline-flex; align-items: center; min-height: 44px; }');
+  });
+});
+
 describe("add item pick view", () => {
   it("keeps 44px targets on tablet and phone", () => {
     expect(css).toContain(".fe-mobile .fe-base-pick button.fe-btn, .fe-tablet .fe-base-pick button.fe-btn { min-height: 44px; }");
