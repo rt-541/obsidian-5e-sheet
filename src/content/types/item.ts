@@ -7,6 +7,7 @@ import { findOverlay } from "../overlay";
 import { optOut } from "./ops";
 import { validateToggle, type ToggleDef } from "./toggle";
 import { validateAttackOption, type AttackOptionDef } from "./attack-option";
+import { recognizeVariant } from "../item-variant";
 
 export interface ArmorData { base: number; dex: "full" | "max2" | "none"; stealthDis?: boolean; strReq?: number; }
 export interface WeaponData { dmg: string; type: string; ab: "str" | "dex" | "finesse"; range: "melee" | "ranged"; bonus?: number; extraDamage?: string;
@@ -15,12 +16,17 @@ export interface WeaponData { dmg: string; type: string; ab: "str" | "dex" | "fi
   /** Properties that rules can aim at with weapon:<property> (light, heavy, thrown, versatile, two-handed, one-handed). */
   props?: string[];
   /** The damage dice when a versatile weapon is held in two hands. Left out: the dice in the "Versatile (1d10)" property, or the next die size up. */
-  versatile?: string; }
+  versatile?: string;
+  /** Lower-case words a generic magic item can name (sword, axe, bow); "any sword" fits a weapon whose groups include "sword". */
+  groups?: string[]; }
+/** A generic magic item ("+1 Armor", "Weapon (any sword)"): the player picks the base armor or weapon it is made from. */
+export interface ItemVariant { base: "armor" | "weapon"; only?: string[]; except?: string[]; bonusAc?: number; bonusWeapon?: number; }
 export interface GrantedSpell { id: string; cost: { kind: "charges"; amount: number } | { kind: "perDay"; uses: number } | { kind: "atWill" }; level?: number; dc?: number; attack?: number; }
 export interface ItemData { name: string; kind: "armor" | "shield" | "weapon" | "wondrous" | "gear" | "consumable"; rarity?: string; attunement: boolean; weight: number; /** Price in copper pieces. */ value?: number;
   armor?: ArmorData; weapon?: WeaponData; charges?: { max: number; reset: "dawn" | "short" | "long" | "none" }; heal?: string; effects: Effects; rules?: string; grants?: { spells: GrantedSpell[] };
   /** A switch the player turns on and off; the item's effects count only while it is on (and the item works). */ toggle?: ToggleDef;
   /** Dice this item adds to attacks while its switch is on. */ attackOption?: AttackOptionDef;
+  /** Set on a generic magic item: which kind of base it needs and what limits the choice. */ variant?: ItemVariant;
   /** false: the built-in mechanics never fill this item in. */ overlay?: false;
   /** Key of the built-in entry that filled in this item's switch or effects (the sheet shows a "built-in" badge). */ builtIn?: string; }
 
@@ -33,6 +39,24 @@ const dice = (v: unknown, at: string, e: Errs): string | undefined => {
   const s = str(v, at, e); if (!s) return undefined;
   try { parseDice(s); return s; } catch (err) { e.push(`${at}: ${(err as Error).message}`); return undefined; }
 };
+
+const words = (v: unknown, at: string, e: Errs): string[] | undefined => {
+  if (v === undefined) return undefined;
+  if (Array.isArray(v) && v.every(x => typeof x === "string")) return v.length ? (v as string[]).map(x => x.toLowerCase()) : undefined;
+  e.push(`${at}: must be a list of words`); return undefined;
+};
+function validateVariant(v: unknown, e: Errs): ItemVariant | undefined {
+  if (!isObj(v)) { e.push("variant: must be a mapping"); return undefined; }
+  if (v.base !== "armor" && v.base !== "weapon") { e.push("variant.base: must be armor or weapon"); return undefined; }
+  const out: ItemVariant = { base: v.base };
+  const only = words(v.only, "variant.only", e), except = words(v.except, "variant.except", e);
+  if (only) out.only = only;
+  if (except) out.except = except;
+  for (const k of ["bonusAc", "bonusWeapon"] as const) if (v[k] !== undefined) {
+    if (typeof v[k] === "number" && Number.isInteger(v[k])) out[k] = v[k] as number; else e.push(`variant.${k}: must be a whole number`);
+  }
+  return out;
+}
 
 export const itemType: TypeDef<ItemData> = {
   type: "item",
@@ -60,7 +84,9 @@ export const itemType: TypeDef<ItemData> = {
           range: oneOf(w.range, ["melee", "ranged"] as const, "weapon.range", e, "melee")!,
           ...(typeof w.bonus === "number" ? { bonus: w.bonus } : {}), ...(extra ? { extraDamage: extra } : {}), ...(versatile ? { versatile } : {}),
           ...(w.category === "simple" || w.category === "martial" ? { category: w.category } : {}),
-          ...(Array.isArray(w.props) && w.props.every(x => typeof x === "string") && w.props.length ? { props: w.props as string[] } : {}) };
+          ...(Array.isArray(w.props) && w.props.every(x => typeof x === "string") && w.props.length ? { props: w.props as string[] } : {}),
+          ...(Array.isArray(w.groups) && w.groups.every(x => typeof x === "string") && w.groups.length ? { groups: (w.groups as string[]).map(x => x.toLowerCase()) } : {}) };
+        if (w.groups !== undefined && !(Array.isArray(w.groups) && w.groups.every(x => typeof x === "string"))) e.push("weapon.groups: must be a list of words");
         if (w.category !== undefined && w.category !== "simple" && w.category !== "martial") e.push("weapon.category: must be simple or martial");
       }
     }
@@ -98,6 +124,8 @@ export const itemType: TypeDef<ItemData> = {
     }
     if (raw.toggle !== undefined) { const t = validateToggle(raw.toggle, "toggle", name ?? "", e); if (t) out.toggle = t; }
     if (raw.attackOption !== undefined) { const a = validateAttackOption(raw.attackOption, "attackOption", name ?? "", e); if (a) out.attackOption = a; }
+    if (raw.variant !== undefined) { const v = validateVariant(raw.variant, e); if (v) out.variant = v; }
+    else if (raw.armor === undefined && raw.weapon === undefined && name) { const v = recognizeVariant(name); if (v) out.variant = v; }
     if (raw.heal !== undefined) { const h = dice(raw.heal, "heal", e); if (h) out.heal = h; }
     const overlay = optOut(raw.overlay, "overlay", e); if (overlay === false) out.overlay = overlay;
     if (e.length || !name) return { errors: e };

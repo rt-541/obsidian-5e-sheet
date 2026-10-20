@@ -1,5 +1,6 @@
 import { parseDice } from "../core/dice";
 import { ABILS, type Abil } from "../core/types";
+import { recognizeVariant } from "./item-variant";
 
 /**
  * Library adapter: maps notes written by the dnd-compendium generator (snake_case schema 1, under compendium/5e/WotC)
@@ -57,7 +58,7 @@ export function libraryMeta(type: string, fm: Raw): LibraryMeta {
       put(raw, "rarity", text(fm.rarity)); raw.attunement = fm.attunement === true;
       if (typeof fm.weight === "number") raw.weight = fm.weight;
       if (typeof fm.value === "number") raw.value = fm.value;
-      for (const k of ["weapon", "armor", "effects", "charges", "attackOption"] as const) if (isObj(fm[k])) raw[k] = fm[k];
+      for (const k of ["weapon", "armor", "effects", "charges", "attackOption", "variant"] as const) if (isObj(fm[k])) raw[k] = fm[k];
       if (text(fm.heal)) raw.heal = text(fm.heal);
       break;
     }
@@ -170,7 +171,15 @@ export function creatureTraits(body: string): Raw[] {
 export function libraryBody(type: string, raw: Raw, body: string): Raw {
   switch (type) {
     case "spell": return spellFromBody(raw, body);
-    case "item": case "condition": case "injury": { const rules = cleanBody(body); return rules ? { ...raw, rules } : raw; }
+    case "item": {
+      const rules = cleanBody(body), withRules = rules ? { ...raw, rules } : raw;
+      if (withRules.variant !== undefined) return withRules;
+      // The italic type line ("*Armor (any medium, heavy), uncommon*") is dropped by cleanBody, so read it here.
+      const line = body.replace(/\r/g, "").split("\n").map(l => l.trim()).find(l => /^\*[^*].*\*$/.test(l));
+      const v = recognizeVariant(String(raw.name ?? ""), line?.slice(1, -1));
+      return v ? { ...withRules, variant: v } : withRules;
+    }
+    case "condition": case "injury": { const rules = cleanBody(body); return rules ? { ...raw, rules } : raw; }
     case "creature": {
       const attacks = creatureAttacks(body), traits = creatureTraits(body);
       return { ...raw, ...(attacks.length ? { attacks } : {}), ...(traits.length ? { traits } : {}) };
