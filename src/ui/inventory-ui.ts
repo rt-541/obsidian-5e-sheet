@@ -1,5 +1,5 @@
 import { itemPinRef } from "../core/actions";
-import { entryItem, entryRef, entryVariant } from "../core/item-entry";
+import { entryItem, entryRef, entryVariant, isGear } from "../core/item-entry";
 import type { ItemData } from "../content/types";
 import type { ActorStats } from "../core/derive";
 import type { SheetController } from "./controller";
@@ -76,6 +76,7 @@ function itemMenu(ctl: SheetController, index: number, s: ReturnType<typeof item
     h("label", { cls: "fe-kv" }, h("span", { text: "Consumable (used up when used)" }), sw),
     h("label", { cls: "fe-kv" }, h("span", { text: "Quantity" }), qty),
     s.it ? ((b) => { b.dataset.act = "item-change"; return b; })(btn("Change", () => ctl.openItemChange(index))) : null,
+    s.it && isGear(s.it) && e.qty >= 2 ? ((b) => { b.dataset.act = "item-split"; return b; })(btn("Split into separate rows", () => ctl.splitItem(index))) : null,
     customizeButton(ctl, { kind: "item", index }),
     ctl.confirmRemove
       ? h("div", { cls: "fe-kv fe-confirm", data: { note: "remove-confirm" } }, h("span", { text: `Remove ${s.name}?` }),

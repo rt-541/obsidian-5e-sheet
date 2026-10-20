@@ -37,6 +37,8 @@ export type Action =
   | { type: "itemQty"; index: number; qty: number }
   /** Set or clear what the player changed on one row, and optionally the armor or weapon a generic item is made from. */
   | { type: "itemChange"; index: number; change: ItemChange | null; base?: string }
+  /** Turn a stack of armor, shields or weapons (qty 2 or more) into one row per piece. Anything else is left as it is. */
+  | { type: "itemSplit"; index: number }
   /** Set one kind of coin to a whole number, 0 or more. */
   | { type: "coins"; coin: "pp" | "gp" | "ep" | "sp" | "cp"; value: number }
   /** Whether using one of this inventory entry uses it up (a potion is by default, a custom item is not). */
@@ -443,6 +445,19 @@ export function apply(c0: Character, a: Action, lim: Limits): Applied {
       }
       if (a.change) e.change = structuredClone(a.change); else delete e.change;
       if (!e.row) e.row = newRowId(c.inventory);
+      break;
+    }
+    case "itemSplit": {
+      const e = c.inventory[a.index], reg = lim.ctx?.registry, it = e && reg ? entryItem(e, reg) : undefined;
+      if (!e || !it || !isGear(it) || e.qty < 2) break;
+      const n = Math.floor(e.qty), { qty: _q, row: _r, equipped: _e, attuned: _a, charges: _c, spellUses: _s, hands: _h, ...keep } = e;
+      if (!e.row) e.row = newRowId(c.inventory);
+      e.qty = 1;
+      const copies: typeof c.inventory = [];
+      for (let i = 1; i < n; i++) {
+        copies.push({ ...structuredClone(keep), qty: 1, equipped: false, attuned: false, row: newRowId([...c.inventory, ...copies]) });
+      }
+      c.inventory.splice(a.index + 1, 0, ...copies);
       break;
     }
     case "endConcentration": delete c.concentration; break;

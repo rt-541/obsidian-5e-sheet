@@ -329,6 +329,15 @@ export class SheetController {
     if (!this.dispatch({ type: "removeCompanion", index }).ok) return false;
     this.host.notify(`Removed ${comp.name}.`); return true;
   }
+  /** Split a stack of armor or weapons into one row per piece. */
+  splitItem(index: number): boolean {
+    const e = this.character?.inventory[index]; if (!e) return false;
+    const it = entryItem(e, this.host.registry), n = Math.floor(e.qty), name = entryName(e, this.host.registry);
+    if (!it || !isGear(it) || n < 2) return false;
+    if (!this.dispatch({ type: "itemSplit", index }).ok) return false;
+    this.itemMenu = null; this.confirmRemove = false; this.emit();
+    this.host.notify(`Split ${name} into ${n} rows.`); return true;
+  }
   askRemove(on: boolean) { this.confirmRemove = on; this.emit(); }
   /** Remove the entry (after the Yes tap); its pin goes with it. */
   removeItemAt(index: number): boolean {
