@@ -96,6 +96,21 @@ for (const layout of LAYOUTS) describe(`customize form (${layout})`, () => {
     expect((s.ctl.value as Character).inventory[0].customize).toEqual({ action: { name: "Zap", heal: "1d4" } });
   });
 
+  it("a hand-made item with no charge maximum is not offered Item charges as a cost", () => {
+    const s = setup({ inventory: [{ name: "Odd Charm", qty: 1 }] }, layout);
+    s.ctl.setEditing(true); s.ctl.tab = gear; s.ctl.toggleItemMenu(0); s.click('[data-menu="0"] [data-act="customize"]');
+    s.click('[data-cz="hasUse"]');
+    expect(s.q('[data-cz="useCost"] [data-value="free"]')).not.toBeNull();
+    expect(s.q('[data-cz="useCost"] [data-value="charges"]')).toBeNull();
+  });
+
+  it("an item with a charge maximum is offered Item charges as a cost", () => {
+    const s = setup({ inventory: [{ id: "tingle-wand", qty: 1 }] }, layout);
+    s.ctl.setEditing(true); s.ctl.tab = gear; s.ctl.toggleItemMenu(0); s.click('[data-menu="0"] [data-act="customize"]');
+    s.click('[data-cz="hasUse"]');
+    expect(s.q('[data-cz="useCost"] [data-value="charges"]')).not.toBeNull();
+  });
+
   it("Close leaves no draft behind", () => {
     const s = setup({}, layout);
     s.ctl.setEditing(true); s.click(`${FURY} [data-act="customize"]`);

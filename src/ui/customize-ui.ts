@@ -61,7 +61,7 @@ export function customizePanel(ctl: SheetController, st: ActorStats): HTMLElemen
   const d = ctl.customizeDraft, c = ctl.character;
   if (!d || !c) return h("div", { cls: "fe-faint", text: "Nothing to customize." });
   const f: CustomizeForm = d.form, t = d.target;
-  const entry = t.kind === "item" ? c.inventory[t.index] : undefined, hasCharges = t.kind === "item";
+  const entry = t.kind === "item" ? c.inventory[t.index] : undefined, hasCharges = t.kind === "item" && ctl.limits().chargesMax(t.index) > 0;
   const nameOnly = !!entry && !entry.id;
   const resources = resourceChoices(st);
   const resourceList = (field: string, value: string, label: string, onPick: (v: string) => void, first: string) =>
