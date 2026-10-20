@@ -111,7 +111,7 @@ function logPanel(ctl: SheetController): HTMLElement {
   return h("div", {}, ...ctl.host.log.map(r => h("div", { cls: "fe-log" }, h("div", { text: r.title }), h("b", { text: r.own ? String(r.own.total ?? "") : String(r.total) }), " ", h("span", { cls: "fe-mono", text: r.detail }))));
 }
 
-const TITLES: Record<Panel["kind"], string> = { conditions: "Conditions", log: "Roll log", rest: "Rest", compendium: "Add item", "add-companion": "Add companion", customize: "Customize sheet", cast: "Cast spell", "add-spell": "Add spell", details: "Details", "level-up": "Level up", "combo-edit": "Combo" };
+const TITLES: Record<Panel["kind"], string> = { conditions: "Conditions", log: "Roll log", rest: "Rest", compendium: "Add item", "add-companion": "Add companion", customize: "Customize sheet", "customize-row": "Customize", cast: "Cast spell", "add-spell": "Add spell", details: "Details", "level-up": "Level up", "combo-edit": "Combo" };
 
 export function renderPanel(ctl: SheetController, p: Panel, features: readonly string[]): HTMLElement {
   const body = p.kind === "conditions" ? conditionsPanel(ctl, p.who) : p.kind === "rest" ? restPanel(ctl, p.id) : p.kind === "compendium" ? addItemPanel(ctl)

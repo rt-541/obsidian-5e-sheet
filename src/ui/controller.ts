@@ -3,9 +3,11 @@ import { slug } from "../content/registry";
 import type { Draft } from "../content/creature-note";
 import type { SpellDraft } from "../content/spell-note";
 import type { CampaignData, ItemData, LevelingMode, SpellData } from "../content/types";
-import { apply, applyNpc, customItemProblem, type Action, type Limits } from "../core/actions";
+import { apply, applyNpc, customItemProblem, itemPinRef, type Action, type Limits } from "../core/actions";
 import type { Character, Combo, Npc, Parsed } from "../core/character";
 import { blankCombo, validateCombo } from "../core/combos";
+import { customizeKey, layerRow, type Customization, type RowDefs } from "../core/customize";
+import { customizationFrom, formFrom, formProblem, type CustomizeForm } from "./customize-form";
 import { actionDc, deriveCharacter, deriveCompanion, deriveNpc, type ActorStats } from "../core/derive";
 import { critDamageOf, rollD20, rollDice, rollKeepHigher } from "../core/dice";
 import { affordable, onHitOptions, spendWords, toHitOptions, type AttackOptionRow } from "../core/attack-options";
@@ -51,8 +53,12 @@ export interface SheetHost {
 }
 export type Panel =
   | { kind: "conditions"; who?: number } | { kind: "log" } | { kind: "rest"; id: string }
-  | { kind: "compendium" } | { kind: "add-companion" } | { kind: "customize" }
+  | { kind: "compendium" } | { kind: "add-companion" } | { kind: "customize" } | { kind: "customize-row" }
   | { kind: "cast"; spell: string } | { kind: "add-spell"; edit?: { mode: "edit" | "copy"; id: string } } | { kind: "details"; ref: string } | { kind: "level-up" } | { kind: "combo-edit" };
+/** What the Customize form is changing: a feature (by key) or an inventory row (by index). */
+export type CustomizeTarget = { kind: "feature"; key: string; name: string; pinRef: string } | { kind: "item"; index: number };
+/** The Customize form: typing changes `form` without redrawing. */
+export interface CustomizeDraft { target: CustomizeTarget; form: CustomizeForm; error?: string }
 /** The combo form: `index` is the combo being changed, or null for a new one. Typing changes the draft without redrawing. */
 export interface ComboDraft { index: number | null; combo: Combo; error?: string; confirmDelete?: boolean; }
 /** The level-up wizard: `level` adds a class level, `resolve` only answers choices a note still owes. */
@@ -91,6 +97,8 @@ export class SheetController {
   /** After damage while concentrating: the save the player is asked to make. */
   concentrationCheck: { dc: number; spell: string } | null = null;
   comboDraft: ComboDraft | null = null;
+  /** The Customize form for one feature or item row. */
+  customizeDraft: CustomizeDraft | null = null;
   /** The add panel's custom item form; typing changes it without redrawing. */
   customItem: CustomItemForm = blankCustomItem();
   /** The add panel's search text and kind chip. */
@@ -391,6 +399,58 @@ export class SheetController {
   }
   dismissConcentrationCheck() { this.concentrationCheck = null; this.emit(); }
 
+  // ---- customize one feature or item row
+
+  /** A target's name, the note's own switch, attack option and Use button, the effective ones, and the player's changes. */
+  private customizeInfo(t: CustomizeTarget): { name: string; note: RowDefs; effective: RowDefs; mine?: Customization; pinRef: string; save(value?: Customization): Action; own(r: { ref: string; itemIndex?: number }): boolean } | undefined {
+    const c = this.character, st = this.stats(); if (!c || !st) return undefined;
+    if (t.kind === "feature") {
+      const row = st.progress.features.find(f => f.key === t.key); if (!row) return undefined;
+      const ref = customizeKey(t.key), mine = c.customize[ref];
+      const effective: RowDefs = { ...(row.toggle ? { toggle: row.toggle } : {}), ...(row.attackOption ? { attackOption: row.attackOption } : {}), ...(row.action ? { action: row.action } : {}) };
+      return { name: t.name, note: row.noteDefs ?? effective, effective, ...(mine ? { mine } : {}), pinRef: t.pinRef,
+        save: value => ({ type: "customize", key: ref, ...(value ? { value } : {}) }), own: r => r.ref === ref };
+    }
+    const e = c.inventory[t.index], reg = e?.id ? this.host.registry.get<ItemData>("item", e.id)?.data : undefined;
+    if (!e || !reg) return undefined;
+    const note: RowDefs = { ...(reg.toggle ? { toggle: reg.toggle } : {}), ...(reg.attackOption ? { attackOption: reg.attackOption } : {}) };
+    const l = layerRow(reg.name, note, e.customize, st.level, () => undefined);
+    return { name: reg.name, note, effective: { ...(l.toggle ? { toggle: l.toggle } : {}), ...(l.attackOption ? { attackOption: l.attackOption } : {}) },
+      ...(e.customize ? { mine: e.customize } : {}), pinRef: itemPinRef(e),
+      save: value => ({ type: "customizeItem", index: t.index, ...(value ? { value } : {}) }), own: r => r.itemIndex === t.index };
+  }
+  /** Open the Customize form on a feature or an inventory row. */
+  startCustomize(t: CustomizeTarget) {
+    if (!this.guard()) return;
+    const c = this.character, info = this.customizeInfo(t);
+    if (!c || !info) { this.host.notify("There is nothing to customize here."); return; }
+    this.customizeDraft = { target: t, form: formFrom(info.effective, info.mine, c.mainPins.includes(info.pinRef), info.name) };
+    this.open({ kind: "customize-row" });
+  }
+  /** Change the form in a way that needs it drawn again (a choice made, a row added). */
+  touchCustomize(mut: (f: CustomizeForm) => void) { const d = this.customizeDraft; if (!d) return; mut(d.form); delete d.error; this.emit(); }
+  saveCustomize(): boolean {
+    const d = this.customizeDraft, c = this.character, st = this.stats(), info = d ? this.customizeInfo(d.target) : undefined;
+    if (!d || !c || !st || !info) return false;
+    const bad = formProblem(d.form, Object.keys(st.progress.scales));
+    if (bad) { d.error = bad; this.emit(); return false; }
+    // ids other rows already use; this row's own are free to keep
+    const taken = [...st.toggles.filter(r => !info.own(r)).map(r => r.id), ...st.attackOptions.filter(r => !info.own({ ref: r.ref })).map(r => r.id)];
+    const value = customizationFrom(d.form, info.note, info.name, taken);
+    const wasPinned = c.mainPins.includes(info.pinRef);
+    if (!this.dispatch(info.save(Object.keys(value).length ? value : undefined)).ok) return false;
+    if (d.form.pin !== wasPinned && !this.dispatch({ type: "pin", ref: info.pinRef, on: d.form.pin }).ok) return false;
+    this.customizeDraft = null; this.close(); this.host.notify(`Saved your changes to ${info.name}.`); return true;
+  }
+  /** Drop every change to the row, so it is back to what its note says. Pins are kept. */
+  resetCustomize(): boolean {
+    const d = this.customizeDraft, info = d ? this.customizeInfo(d.target) : undefined;
+    if (!d || !info) return false;
+    if (!this.dispatch(info.save()).ok) return false;
+    this.customizeDraft = null; this.close(); this.host.notify(`${info.name} is back to what its note says.`); return true;
+  }
+  cancelCustomize() { this.customizeDraft = null; this.close(); }
+
   // ---- combos
 
   /** Open the combo form on combo `index`, or on a blank one when `index` is null. */
@@ -649,7 +709,7 @@ export class SheetController {
   }
 
   setMode(m: RollMode) { this.mode = m; this.emit(); }
-  setEditing(on: boolean) { this.editing = on; this.confirmUndo = false; if (!on && this.panel?.kind === "customize") this.panel = null; this.emit(); }
+  setEditing(on: boolean) { this.editing = on; this.confirmUndo = false; if (!on && (this.panel?.kind === "customize" || this.panel?.kind === "customize-row")) { this.panel = null; this.customizeDraft = null; } this.emit(); }
   /** Whether the traits card section `id` is collapsed (default: expanded). */
   isCollapsed(id: string) { return this.collapsedSet().has(id); }
   toggleCollapsed(id: string) {
@@ -659,7 +719,7 @@ export class SheetController {
   private collapsedSet() { return (this.collapsed ??= new Set(this.host.collapsedGroups?.() ?? [])); }
   setTab(t: string) { this.tab = t; this.emit(); }
   open(p: Panel) { if (p.kind === "compendium") { this.customItem = blankCustomItem(); this.itemSearch = blankItemSearch(); } this.panel = p; this.emit(); }
-  close() { this.panel = null; this.emit(); }
+  close() { if (this.panel?.kind === "customize-row") this.customizeDraft = null; this.panel = null; this.emit(); }
 
   restCtx(): RestCtx { return { c: this.character!, stats: this.stats()!, registry: this.host.registry, rules: this.rules() }; }
   /** Lines optional rules add to a rest (Hexploration: the night's meal). `c` is changed; pass a copy for a preview. */
