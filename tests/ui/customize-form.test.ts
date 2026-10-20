@@ -54,6 +54,19 @@ describe("customize form model", () => {
     f.isSwitch = true; f.switchCost = "slot"; f.switchSlot = "3";
     expect(customizationFrom(f, {}, "Gem", [])).toEqual({ toggle: { id: "gem", endsOn: "long", cost: { slot: 3 } }, action: { name: "Flash", heal: "2d4+2", cost: { charges: 2 } } });
   });
+  it("a blank or bad number box is refused in plain words", () => {
+    const f = formFrom({}, undefined, false, "Gem"); f.isSwitch = true; f.switchCost = "slot"; f.switchSlot = "";
+    expect(formProblem(f, [])).toBe("Give the spell slot level, from 1 to 9.");
+    f.switchSlot = "0"; expect(formProblem(f, [])).toBe("Give the spell slot level, from 1 to 9.");
+    f.switchSlot = "3"; expect(formProblem(f, [])).toBeUndefined();
+    f.switchCost = "charges"; f.switchCharges = " ";
+    expect(formProblem(f, [])).toBe("Give how many charges it uses, 1 or more.");
+    f.switchCharges = "2"; expect(formProblem(f, [])).toBeUndefined();
+    f.isSwitch = false; f.hasUse = true; f.useName = "Zap"; f.useCost = "charges"; f.useCharges = "";
+    expect(formProblem(f, [])).toBe("Give how many charges it uses, 1 or more.");
+    f.useCharges = "0"; expect(formProblem(f, [])).toBe("Give how many charges it uses, 1 or more.");
+    f.useCharges = "1"; expect(formProblem(f, [])).toBeUndefined();
+  });
   it("plain-words problems, in order", () => {
     const f = formFrom({}, undefined, false, "X"); f.hasUse = true; f.useEffect = "damage"; f.useDice = { ...f.useDice, dice: "a lot" };
     expect(formProblem(f, [])).toBe("Dice must look like 1d4 or 2d6+1.");
@@ -126,6 +139,22 @@ describe("customize commands", () => {
     const s = setup(); s.ctl.setEditing(true); s.ctl.startCustomize(FURY);
     s.ctl.setEditing(false);
     expect(s.ctl.panel).toBeNull(); expect(s.ctl.customizeDraft).toBeNull(); expect(s.saved.length).toBe(0);
+  });
+  it("saving an item's attack option again keeps its id and its on state", () => {
+    const s = setup({ inventory: [{ id: "glow-lamp", equipped: true }] });
+    s.host.registry.add("vault", "item", { name: "Glow Lamp", kind: "wondrous" }, { path: "glow-lamp.md" });
+    const LAMP = { kind: "item" as const, index: 0, name: "Glow Lamp", pinRef: "item:glow-lamp" };
+    s.ctl.setEditing(true); s.ctl.startCustomize(LAMP);
+    s.ctl.touchCustomize(x => { x.isOption = true; x.onHit = true; x.onHitDice = { ...x.onHitDice, mode: "dice", dice: "1d4" }; });
+    expect(s.ctl.saveCustomize()).toBe(true);
+    expect(((s.saved.at(-1) as Character).inventory[0].customize?.attackOption as { id: string }).id).toBe("glow-lamp");
+    const r = s.ctl.dispatch({ type: "attackOption", id: "glow-lamp", on: true }); expect(r.ok).toBe(true);
+    s.ctl.startCustomize(LAMP);
+    s.ctl.touchCustomize(x => { x.oncePerTurn = true; });
+    expect(s.ctl.saveCustomize()).toBe(true);
+    const c = s.saved.at(-1) as Character;
+    expect((c.inventory[0].customize?.attackOption as { id: string }).id).toBe("glow-lamp");
+    expect(c.optionsOn).toEqual(["glow-lamp"]);
   });
   it("reopening an item with a saved Use button keeps it through a save", () => {
     const s = setup({ inventory: [{ id: "glow-lamp", customize: { action: { name: "Flare", damage: "1d4" } } }] });

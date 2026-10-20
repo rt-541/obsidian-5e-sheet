@@ -437,7 +437,9 @@ export class SheetController {
     const bad = formProblem(d.form, Object.keys(st.progress.scales));
     if (bad) { d.error = bad; this.emit(); return false; }
     // ids other rows already use; this row's own are free to keep
-    const taken = [...st.toggles.filter(r => !info.own(r)).map(r => r.id), ...st.attackOptions.filter(r => !info.own({ ref: r.ref })).map(r => r.id)];
+    // (an item's attack option has no itemIndex for own() to match, so this row's current ids are left out by value)
+    const mine = new Set([info.effective.toggle?.id, info.effective.attackOption?.id].filter((x): x is string => !!x));
+    const taken = [...st.toggles.filter(r => !info.own(r)).map(r => r.id), ...st.attackOptions.filter(r => !info.own({ ref: r.ref })).map(r => r.id)].filter(id => !mine.has(id));
     const value = customizationFrom(d.form, info.note, info.name, taken);
     const wasPinned = c.mainPins.includes(info.pinRef);
     if (!this.dispatch(info.save(Object.keys(value).length ? value : undefined)).ok) return false;

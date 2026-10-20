@@ -85,6 +85,10 @@ function diceOut(d: DiceField): CustomDice | undefined {
 export function formProblem(f: CustomizeForm, scales: string[]): string | undefined {
   if (f.isSwitch && f.switchCost === "resource" && !f.switchResource.trim()) return "Pick the resource it spends.";
   if (f.hasUse && f.useCost === "resource" && !f.useResource.trim()) return "Pick the resource it spends.";
+  const wholeFrom = (s: string, min: number, max: number) => /^\d+$/.test(s.trim()) && Number(s) >= min && Number(s) <= max;
+  if (f.isSwitch && f.switchCost === "slot" && !wholeFrom(f.switchSlot, 1, 9)) return "Give the spell slot level, from 1 to 9.";
+  if (f.isSwitch && f.switchCost === "charges" && !wholeFrom(f.switchCharges, 1, Infinity)) return "Give how many charges it uses, 1 or more.";
+  if (f.hasUse && f.useCost === "charges" && !wholeFrom(f.useCharges, 1, Infinity)) return "Give how many charges it uses, 1 or more.";
   const dice: DiceField[] = [];
   if (f.isOption && f.toHit) dice.push(f.toHitDice);
   if (f.isOption && f.onHit) dice.push(f.onHitDice);
