@@ -1,10 +1,12 @@
-import { recognizeVariant } from "../../src/content/item-variant";
+import { baseChoices, baseFits, combineVariant, recognizeVariant, variantName } from "../../src/content/item-variant";
 import { libraryMeta } from "../../src/content/library";
 import { Registry } from "../../src/content/registry";
 import { registerBuiltinTypes } from "../../src/content/types";
 import { itemType, type ItemData } from "../../src/content/types/item";
 import { VaultLoader } from "../../src/content/vault-loader";
 import { fakeVault, libraryFixtures } from "../fixtures/library";
+import { addVariants, curve, emberEdge, plusOneArmor, reedSpear, slate, thornSword } from "../fixtures/item-variants";
+import { mechanicsRegistry } from "../fixtures/mechanics";
 
 describe("recognizeVariant", () => {
   it("reads +N Armor and +N Weapon from the name", () => {
@@ -46,5 +48,42 @@ describe("library notes", () => {
   });
   it("frontmatter variant data is used as written", () => {
     expect(libraryMeta("item", { name: "+1 Armor", item_type: "Armor", variant: { base: "armor", bonusAc: 1 } }).raw.variant).toEqual({ base: "armor", bonusAc: 1 });
+  });
+});
+
+describe("which bases fit", () => {
+  const r = mechanicsRegistry(); addVariants(r);
+  const entries = r.list<ItemData>("item");
+  it("armor words match the armor weight, weapon words match group, name, damage type or reach", () => {
+    expect(baseFits({ base: "armor", only: ["heavy"] }, slate)).toBe(true);
+    expect(baseFits({ base: "armor", only: ["light"] }, slate)).toBe(false);
+    expect(baseFits({ base: "weapon", only: ["sword"] }, thornSword)).toBe(true);
+    expect(baseFits({ base: "weapon", only: ["sword"] }, { id: "curve-blade", data: { ...curve.data, weapon: { ...curve.data.weapon!, groups: ["sword"] } } })).toBe(true);
+    expect(baseFits({ base: "weapon", only: ["melee+slashing"] }, reedSpear)).toBe(false);
+    expect(baseFits({ base: "weapon", only: ["melee+slashing"] }, thornSword)).toBe(true);
+    expect(baseFits({ base: "weapon", except: ["reed-spear"] }, reedSpear)).toBe(false);
+    expect(baseFits({ base: "weapon" }, slate)).toBe(false);
+  });
+  it("lists only ordinary items with numbers, never another magic item or variant", () => {
+    const ids = baseChoices({ base: "armor" }, entries).map(e => e.id);
+    expect(ids).toContain("slate-mail"); expect(ids).not.toContain("plus-one-armor"); expect(ids).not.toContain("glow-mail");
+  });
+  it("names the result", () => {
+    expect(variantName("+1 Armor", "Slate Mail")).toBe("+1 Slate Mail");
+    expect(variantName("Ember Edge", "Thorn Sword")).toBe("Ember Edge (Thorn Sword)");
+  });
+  it("combines numbers from both", () => {
+    const a = combineVariant(plusOneArmor.data, slate.data);
+    expect(a).toMatchObject({ name: "+1 Slate Mail", kind: "armor", armor: { base: 14, dex: "none", stealthDis: true, strReq: 12 }, weight: 40, rarity: "rare" });
+    expect(a.effects.modifiers).toContainEqual({ target: "ac", value: 1 });
+    expect(a.variant).toBeUndefined();
+    const w = combineVariant({ ...emberEdge.data, variant: { base: "weapon", only: ["sword"], bonusWeapon: 1 } }, thornSword.data, 2);
+    expect(w.weapon).toMatchObject({ dmg: "1d6", bonus: 2, props: ["finesse", "versatile"] });
+    expect(w.attunement).toBe(true);
+  });
+  it("the bundled list has every SRD base armor and weapon, swords grouped", () => {
+    const b = mechanicsRegistry();
+    expect(baseChoices({ base: "weapon", only: ["sword"] }, b.list<ItemData>("item")).map(e => e.id)).toEqual(expect.arrayContaining(["greatsword", "longsword", "rapier", "scimitar", "shortsword"]));
+    expect(baseChoices({ base: "armor" }, b.list<ItemData>("item"))).toHaveLength(12);
   });
 });
