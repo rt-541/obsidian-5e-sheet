@@ -5,7 +5,18 @@ import { ABILS, type Abil, type Modifier } from "./types";
 export interface ClassLevel { class: string; subclass?: string; level: number; }
 export interface InventoryEntry { id?: string; name?: string; qty: number; equipped: boolean; attuned: boolean; charges?: { used: number }; weight?: number; spellUses?: Record<string, number>; /** Used up when used. Left out: a compendium potion is, a custom item is not. */ consumable?: boolean;
   /** Held in two hands (versatile weapons). Left out for one hand. */ hands?: 2;
-  /** What the player changed about this row (its switch, attack option or Use button). Left out when nothing. */ customize?: Customization; }
+  /** What the player changed about this row (its switch, attack option or Use button). Left out when nothing. */ customize?: Customization;
+  /** A stable id for this row, so two copies of one item can differ. */ row?: string;
+  /** For a generic magic item: the id of the armor or weapon it is made from. */ base?: string;
+  /** What the player changed about this one item (its name, bonus, charges, notes). */ change?: ItemChange; }
+export interface ItemChange { name?: string; bonus?: number; charges?: { max: number; reset: "dawn" | "short" | "long" | "none" }; notes?: string; }
+
+/** The next free row id: "r" and one more than the highest number in use. */
+export function newRowId(inv: InventoryEntry[]): string {
+  let top = 0;
+  for (const e of inv) { const m = /^r(\d+)$/.exec(e.row ?? ""); if (m) top = Math.max(top, Number(m[1])); }
+  return `r${top + 1}`;
+}
 export type CompanionKind = "familiar" | "companion" | "steed" | "summon" | "sidekick";
 export interface CompanionEntry { creature: string; name: string; kind: CompanionKind; hp: { current?: number; temp: number }; conditions: Record<string, number>; }
 export interface Resource { name: string; max: number; used: number; reset: "short" | "long" | "dawn" | "none"; }
@@ -214,7 +225,21 @@ function parseCharacter(fm: R): Parsed {
     if (!isObj(x) || (typeof x.id !== "string" && typeof x.name !== "string")) { r.errors.push(`inventory[${i}]: needs an id or a name`); return []; }
     const e: InventoryEntry = { ...x, qty: r.whole(x.qty, `inventory[${i}].qty`, 1), equipped: r.bool(x.equipped, `inventory[${i}].equipped`), attuned: r.bool(x.attuned, `inventory[${i}].attuned`) };
     delete e.hands;
-    delete e.customize;
+    delete e.customize; delete e.row; delete e.base; delete e.change;
+    const rw = r.str(x.row, `inventory[${i}].row`); if (rw !== undefined) e.row = rw;
+    const bs = r.str(x.base, `inventory[${i}].base`); if (bs !== undefined) e.base = bs;
+    if (x.change !== undefined) {
+      const at = `inventory[${i}].change`, c = r.obj(x.change, at), ch: ItemChange = {};
+      const nm = r.str(c.name, `${at}.name`); if (nm !== undefined) ch.name = nm;
+      if (c.bonus !== undefined) { if (typeof c.bonus === "number" && Number.isInteger(c.bonus)) ch.bonus = c.bonus; else r.errors.push(`${at}.bonus: must be a whole number`); }
+      const nt = r.str(c.notes, `${at}.notes`); if (nt !== undefined) ch.notes = nt;
+      if (c.charges !== undefined) {
+        const cg = r.obj(c.charges, `${at}.charges`), reset = cg.reset;
+        if (typeof cg.max === "number" && Number.isInteger(cg.max) && cg.max >= 1 && (reset === "dawn" || reset === "short" || reset === "long" || reset === "none")) ch.charges = { max: cg.max, reset };
+        else r.errors.push(`${at}.charges: needs a whole number max and a reset of dawn, short, long or none`);
+      }
+      if (Object.keys(ch).length) e.change = ch;
+    }
     if (x.customize !== undefined) { const cz = readCustomization(x.customize, `inventory[${i}].customize`, r.errors); if (cz) e.customize = cz; }
     if (x.hands !== undefined) { if (x.hands === 2) e.hands = 2; else if (x.hands !== 1) r.errors.push(`inventory[${i}].hands: must be 1 or 2`); }
     if (typeof x.id === "string") e.id = x.id; if (typeof x.name === "string") e.name = x.name;

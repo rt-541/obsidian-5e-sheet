@@ -116,7 +116,10 @@ export const notes = (list: SourcedEffects[]) => list.filter(s => s.effects.note
 export function missingIds(a: { conditions: Record<string, number>; inventory?: InventoryEntry[]; injuries?: { id: string }[] }, r: Registry): string[] {
   const out: string[] = [];
   for (const id of Object.keys(a.conditions)) if (!r.get("condition", id)) out.push(`condition:${id}`);
-  for (const e of a.inventory ?? []) if (e.id && !r.get("item", e.id)) out.push(`item:${e.id}`);
+  for (const e of a.inventory ?? []) {
+    if (e.id && !r.get("item", e.id)) out.push(`item:${e.id}`);
+    if (e.base && !r.get("item", e.base)) out.push(`item:${e.base}`);
+  }
   for (const i of a.injuries ?? []) if (!r.get("injury", i.id)) out.push(`injury:${i.id}`);
   return out;
 }
