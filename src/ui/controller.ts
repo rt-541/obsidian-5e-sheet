@@ -415,7 +415,7 @@ export class SheetController {
     if (!e || !reg) return undefined;
     const note: RowDefs = { ...(reg.toggle ? { toggle: reg.toggle } : {}), ...(reg.attackOption ? { attackOption: reg.attackOption } : {}) };
     const l = layerRow(reg.name, note, e.customize, st.level, () => undefined);
-    return { name: reg.name, note, effective: { ...(l.toggle ? { toggle: l.toggle } : {}), ...(l.attackOption ? { attackOption: l.attackOption } : {}) },
+    return { name: reg.name, note, effective: { ...(l.toggle ? { toggle: l.toggle } : {}), ...(l.attackOption ? { attackOption: l.attackOption } : {}), ...(l.action ? { action: l.action } : {}) },
       ...(e.customize ? { mine: e.customize } : {}), pinRef: itemPinRef(e),
       save: value => ({ type: "customizeItem", index: t.index, ...(value ? { value } : {}) }), own: r => r.itemIndex === t.index };
   }

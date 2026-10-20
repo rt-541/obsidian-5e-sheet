@@ -127,4 +127,16 @@ describe("customize commands", () => {
     s.ctl.setEditing(false);
     expect(s.ctl.panel).toBeNull(); expect(s.ctl.customizeDraft).toBeNull(); expect(s.saved.length).toBe(0);
   });
+  it("reopening an item with a saved Use button keeps it through a save", () => {
+    const s = setup({ inventory: [{ id: "glow-lamp", customize: { action: { name: "Flare", damage: "1d4" } } }] });
+    s.host.registry.add("vault", "item", { name: "Glow Lamp", kind: "wondrous" }, { path: "glow-lamp.md" });
+    const LAMP = { kind: "item" as const, index: 0, name: "Glow Lamp", pinRef: "item:glow-lamp" };
+    s.ctl.setEditing(true); s.ctl.startCustomize(LAMP);
+    const f = s.ctl.customizeDraft!.form;
+    expect(f.hasUse).toBe(true); expect(f.useName).toBe("Flare");
+    s.ctl.touchCustomize(x => { x.pin = true; });
+    expect(s.ctl.saveCustomize()).toBe(true);
+    const c = s.saved.at(-1) as Character;
+    expect(c.inventory[0].customize?.action).toEqual({ name: "Flare", damage: "1d4" });
+  });
 });
