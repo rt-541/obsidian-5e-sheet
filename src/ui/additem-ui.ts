@@ -6,7 +6,7 @@ import { CHARGE_RESETS, ITEM_KINDS, ITEM_TEMPLATE, RARITIES, type ChargeReset, t
 import { clear, h } from "./h";
 import { playBadge } from "./widgets";
 import { baseChoices } from "../content/item-variant";
-import { itemSummary } from "../content/item-view";
+import { draftPreview, itemSummary } from "../content/item-view";
 import { MAX_ATTUNED } from "../core/actions";
 import { entryItem, isGear } from "../core/item-entry";
 import { previewAdd } from "../core/item-preview";
@@ -15,16 +15,18 @@ import { itemStatCard } from "./item-card";
 /** A labelled text box whose typing is kept in the controller's form without redrawing (so the caret stays put). */
 const field = (label: string, input: HTMLElement, cls = "") => h("label", { cls: `fe-cf-field ${cls}`.trim() }, h("span", { cls: "fe-muted", text: label }), input);
 
-const sel = (label: string, value: string, options: { id: string; label: string }[], onChange: (v: string) => void, key: string) =>
+const selField = (label: string, value: string, options: { id: string; label: string }[], onChange: (v: string) => void, key: string) =>
   field(label, h("select", { cls: "fe-cf-input", attrs: { "aria-label": label }, data: { field: key }, on: { change: (e: Event) => onChange((e.target as HTMLSelectElement).value) } },
     ...options.map(o => h("option", { text: o.label, attrs: { value: o.id, ...(o.id === value ? { selected: "" } : {}) } }))));
-const text = (label: string, value: string, onInput: (v: string) => void, key: string, o: { type?: string; placeholder?: string; mode?: string } = {}) =>
+const textField = (label: string, value: string, onInput: (v: string) => void, key: string, o: { type?: string; placeholder?: string; mode?: string } = {}) =>
   field(label, h("input", { cls: "fe-input", attrs: { type: o.type ?? "text", ...(o.mode ? { inputmode: o.mode } : {}), ...(o.placeholder ? { placeholder: o.placeholder } : {}), value, "aria-label": label }, data: { field: key, keep: `custom-${key}` },
     on: { input: (e: Event) => onInput((e.target as HTMLInputElement).value) } }));
 
 /** The extra fields behind "More details": what an item note needs beyond a name, count and weight. */
-function moreFields(ctl: SheetController): HTMLElement {
+function moreFields(ctl: SheetController, paint: () => void): HTMLElement {
   const f = ctl.customItem;
+  const sel = (label: string, value: string, options: { id: string; label: string }[], onChange: (v: string) => void, key: string) => selField(label, value, options, v => { onChange(v); paint(); }, key);
+  const text = (label: string, value: string, onInput: (v: string) => void, key: string, o: { type?: string; placeholder?: string; mode?: string } = {}) => textField(label, value, v => { onInput(v); paint(); }, key, o);
   const attune = h("button", { cls: `fe-switch ${f.attunement ? "is-on" : ""}`, data: { act: "custom-attunement" }, attrs: { type: "button", role: "switch", "aria-checked": String(f.attunement), "aria-label": "Needs attunement" },
     on: { click: () => { f.attunement = !f.attunement; ctl.emit(); } } });
   return h("div", { cls: "fe-item-more", data: { form: "item-details" } },
@@ -43,7 +45,7 @@ function moreFields(ctl: SheetController): HTMLElement {
       text("Armor Class bonus", f.acBonus, v => { f.acBonus = v; }, "ac-bonus", { type: "number", mode: "numeric" })),
     h("div", { cls: "fe-cf-row" }, text("Healing dice (optional)", f.heal, v => { f.heal = v; }, "heal", { placeholder: "2d4+2" })),
     field("Short description", h("textarea", { cls: "fe-cf-input", attrs: { rows: "4", "aria-label": "Short description" }, data: { field: "description" }, text: f.description,
-      on: { input: (e: Event) => { f.description = (e.target as HTMLTextAreaElement).value; } } }), "fe-cf-grow"));
+      on: { input: (e: Event) => { f.description = (e.target as HTMLTextAreaElement).value; paint(); } } }), "fe-cf-grow"));
 }
 
 /** The paste-an-item view: paste text, Read, check the form it fills in. */
@@ -81,21 +83,30 @@ function importView(ctl: SheetController): HTMLElement {
 export function customItemForm(ctl: SheetController): HTMLElement {
   const f = ctl.customItem;
   if (f.importing) return importView(ctl);
+  // The card the item would have, repainted in place on every input so the caret stays where it is.
+  const preview = h("div", { cls: "fe-item-preview", data: { pane: "item-preview" } });
+  const paint = () => {
+    clear(preview);
+    const p = draftPreview(ctl.itemDraftFromForm(), ctl.pickers());
+    preview.append(p ? itemStatCard(p.name, p.data) : h("div", { cls: "fe-faint", text: "Give the item a name to see its card." }));
+  };
   const name = h("input", { cls: "fe-input", attrs: { type: "text", placeholder: "For example: Rope, 50 feet", value: f.name, "aria-label": "Item name" }, data: { field: "name", keep: "custom-name" },
-    on: { input: (e: Event) => { f.name = (e.target as HTMLInputElement).value; } } });
+    on: { input: (e: Event) => { f.name = (e.target as HTMLInputElement).value; paint(); } } });
   const qty = h("input", { cls: "fe-input fe-amt", attrs: { type: "number", inputmode: "numeric", min: "1", step: "1", value: f.qty, "aria-label": "Quantity" }, data: { field: "qty", keep: "custom-qty" },
     on: { input: (e: Event) => { f.qty = (e.target as HTMLInputElement).value; } } });
   const weight = h("input", { cls: "fe-input fe-amt", attrs: { type: "number", inputmode: "decimal", min: "0", step: "any", placeholder: "optional", value: f.weight, "aria-label": "Weight in pounds" }, data: { field: "weight", keep: "custom-weight" },
-    on: { input: (e: Event) => { f.weight = (e.target as HTMLInputElement).value; } } });
+    on: { input: (e: Event) => { f.weight = (e.target as HTMLInputElement).value; paint(); } } });
   const used = h("button", { cls: `fe-switch ${f.consumable ? "is-on" : ""}`, data: { act: "custom-consumable" }, attrs: { type: "button", role: "switch", "aria-checked": String(f.consumable), "aria-label": "Used up when used (consumable)" },
     on: { click: () => { f.consumable = !f.consumable; ctl.emit(); } } });
   const btn = (label: string, act: string, onClick: () => void, cls = "") => h("button", { cls: `fe-btn ${cls}`.trim(), text: label, attrs: { type: "button" }, data: { act }, on: { click: onClick } });
   const canSave = !!ctl.host.saveItem;
+  if (f.more) paint();
   return h("div", { cls: "fe-additem-form", data: { form: "custom-item" } },
     h("div", { cls: "fe-card-title", text: "Custom item" }),
     h("div", { cls: "fe-cf-row" }, field("Name", name, "fe-cf-grow"), field("Quantity", qty), field("Weight (lb)", weight)),
     h("label", { cls: "fe-kv" }, h("span", { text: "Used up when used (consumable)" }), used),
-    f.more ? moreFields(ctl) : null,
+    f.more ? moreFields(ctl, paint) : null,
+    f.more ? preview : null,
     f.unread.length ? h("div", { cls: "fe-muted", data: { unread: "" } }, ...f.unread.map(l => h("div", { text: `Skipped: ${l}` }))) : null,
     f.error ? h("div", { cls: "fe-warn", text: f.error, data: { note: "custom-item-error" } }) : null,
     h("div", { cls: "fe-cf-row" },

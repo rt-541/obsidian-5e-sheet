@@ -1,6 +1,6 @@
-import type { ItemData } from "./types/item";
-import { isVersatile, versatileDie } from "./types/item";
-import { CHARGE_RESETS, typeLine } from "./itemblock";
+import { isVersatile, itemType, versatileDie, type ItemData } from "./types/item";
+import { CHARGE_RESETS, draftToItemNote, typeLine, type ItemDraft } from "./itemblock";
+import type { Registry } from "./registry";
 
 export interface ItemFact { label: string; value: string }
 
@@ -59,4 +59,14 @@ export function itemTypeLine(d: ItemData): string {
   const v = d.variant;
   const base = v ? (v.only?.length ? `any ${v.only.join(" or ")}` : `any ${v.base}`) : undefined;
   return typeLine({ name: d.name, kind: d.kind, attunement: d.attunement, rarity: d.rarity, base, description: "" });
+}
+
+/** The item a custom-item form would make, for the live card; undefined while the draft has no name or does not read as an item. */
+export function draftPreview(d: ItemDraft, reg: Registry): { name: string; data: ItemData } | undefined {
+  if (!d.name.trim()) return undefined;
+  try {
+    const { fm } = draftToItemNote(d, k => (reg.get("item", k)?.data as ItemData | undefined));
+    const { value, errors } = itemType.validate(fm);
+    return value && !errors.length ? { name: value.name, data: value } : undefined;
+  } catch { return undefined; }
 }
