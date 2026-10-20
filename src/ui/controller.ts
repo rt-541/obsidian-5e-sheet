@@ -5,7 +5,9 @@ import type { SpellDraft } from "../content/spell-note";
 import type { CampaignData, ItemData, LevelingMode, SpellData } from "../content/types";
 import { apply, applyNpc, customItemProblem, itemPinRef, type Action, type Limits } from "../core/actions";
 import type { Character, Combo, Npc, Parsed } from "../core/character";
-import { entryItem, entryName, isGear } from "../core/item-entry";
+import { entryItem, entryName, entryVariant, isGear } from "../core/item-entry";
+import { changeFromForm, plainBonus, type ItemChangeForm } from "./item-change-ui";
+import type { ItemVariant } from "../content/types/item";
 import { blankCombo, validateCombo } from "../core/combos";
 import { customizeKey, layerRow, type Customization, type RowDefs } from "../core/customize";
 import { customizationFrom, formFrom, formProblem, type CustomizeForm } from "./customize-form";
@@ -54,7 +56,7 @@ export interface SheetHost {
 }
 export type Panel =
   | { kind: "conditions"; who?: number } | { kind: "log" } | { kind: "rest"; id: string }
-  | { kind: "compendium" } | { kind: "add-companion" } | { kind: "customize" } | { kind: "customize-row" }
+  | { kind: "compendium" } | { kind: "add-companion" } | { kind: "customize" } | { kind: "customize-row" } | { kind: "item-change"; index: number }
   | { kind: "cast"; spell: string } | { kind: "add-spell"; edit?: { mode: "edit" | "copy"; id: string } } | { kind: "details"; ref: string } | { kind: "level-up" } | { kind: "combo-edit" };
 /** What the Customize form is changing: a feature (by key) or an inventory row (by index). */
 export type CustomizeTarget = { kind: "feature"; key: string; name: string; pinRef: string } | { kind: "item"; index: number };
@@ -106,6 +108,8 @@ export class SheetController {
   itemSearch: ItemSearch = blankItemSearch();
   /** Which inventory row has its "..." options open. */
   itemMenu: number | null = null;
+  /** The Change item form for one inventory row; typing changes it without redrawing. */
+  itemChange: ItemChangeForm | null = null;
   /** Which companion card has its "..." options open. */
   companionMenu: number | null = null;
   /** The open menu is asking "Remove <name>? Yes / No". */
@@ -123,6 +127,20 @@ export class SheetController {
 
   constructor(public host: SheetHost, parsed: Exclude<Parsed, { kind: "none" }>) {
     this.value = parsed.value; this.errors = parsed.errors; this.writable = parsed.writable;
+    void this.hydrateInventory();
+  }
+  /**
+   * Read the library items in the inventory in full, once, so a generic item whose note says "(any sword)" in its text is
+   * recognised and its row can ask "Which weapon?". Redraws only when something was read.
+   */
+  async hydrateInventory(): Promise<void> {
+    const reg = this.host.registry, ids = new Set((this.character?.inventory ?? []).map(e => e.id).filter((x): x is string => !!x));
+    let read = false;
+    for (const id of ids) {
+      const entry = reg.get("item", id); if (!entry?.library) continue;
+      try { const before = entry.data; await reg.hydrate(entry); if (entry.data !== before) read = true; } catch { /* an unreadable note keeps what it had */ }
+    }
+    if (read) this.emit();
   }
   get isNpc() { return this.value.type === "5e-npc"; }
   get character(): Character | undefined { return this.value.type === "5e-character" ? this.value : undefined; }
@@ -477,6 +495,69 @@ export class SheetController {
     if (d.form.pin !== wasPinned && !this.dispatch({ type: "pin", ref: info.pinRef, on: d.form.pin }).ok) return false;
     this.customizeDraft = null; this.close(); this.host.notify(`Saved your changes to ${info.name}.`); return true;
   }
+  // ---- change one inventory row (its name, base, bonus, charges and notes)
+
+  private static bonusText = (n: number) => (n ? String(n) : "");
+  /** The generic item's variant behind a row, base chosen or not (undefined for an ordinary item). */
+  itemVariantOf(index: number): ItemVariant | undefined {
+    const e = this.character?.inventory[index];
+    return e?.id ? entryVariant({ ...e, base: undefined }, this.host.registry) : undefined;
+  }
+  /** The row's item without its change, for the base the form has chosen. */
+  private changePlain(f: ItemChangeForm) {
+    const e = this.character?.inventory[f.index];
+    return e ? entryItem({ ...e, base: f.base || undefined, change: undefined }, this.host.registry) : undefined;
+  }
+  /** Open the Change form on an inventory row. */
+  openItemChange(index: number): void {
+    if (!this.guard()) return;
+    const e = this.character?.inventory[index], reg = this.host.registry;
+    const plain = e && entryItem({ ...e, change: undefined }, reg);
+    if (!e || !plain) { this.host.notify("There is nothing to change here."); return; }
+    const now = entryItem(e, reg) ?? plain, ch = e.change?.charges ?? plain.charges;
+    this.itemChange = { index, name: now.name, base: e.base ?? "", bonus: SheetController.bonusText(e.change?.bonus ?? plainBonus(plain, !!e.base)),
+      chargesMax: ch ? String(ch.max) : "", chargesReset: ch?.reset ?? "dawn", notes: e.change?.notes ?? "" };
+    this.itemMenu = null; this.confirmRemove = false;
+    this.open({ kind: "item-change", index });
+  }
+  /** Pick another armor or weapon. A name or bonus still showing the old base's own follows the new one. */
+  setChangeBase(base: string): void {
+    const f = this.itemChange; if (!f) return;
+    const old = this.changePlain(f), oldBased = !!f.base;
+    f.base = base; delete f.error;
+    const next = this.changePlain(f);
+    if (old && next) {
+      if (f.name.trim() === old.name) f.name = next.name;
+      if (f.bonus === SheetController.bonusText(plainBonus(old, oldBased))) f.bonus = SheetController.bonusText(plainBonus(next, !!base));
+    }
+    this.emit();
+  }
+  /** The card the row would show with the form as typed (the plain card while the form has a problem). */
+  itemChangeCard(): { name: string; data: ItemData; notes?: string } | undefined {
+    const f = this.itemChange, e = f && this.character?.inventory[f.index], plain = f && this.changePlain(f);
+    if (!f || !e || !plain) return undefined;
+    const r = changeFromForm(f, plain), change = "error" in r ? undefined : r.change ?? undefined;
+    const d = entryItem({ ...e, base: f.base || undefined, change }, this.host.registry) ?? plain;
+    return { name: d.name, data: d, ...(change?.notes ? { notes: change.notes } : {}) };
+  }
+  saveItemChange(): boolean {
+    const f = this.itemChange, e = f && this.character?.inventory[f.index], plain = f && this.changePlain(f);
+    if (!f || !e || !plain) return false;
+    const r = changeFromForm(f, plain);
+    if ("error" in r) { f.error = r.error; this.emit(); return false; }
+    const base = r.base !== undefined && r.base !== e.base ? r.base : undefined;
+    if (!this.dispatch({ type: "itemChange", index: f.index, change: r.change, ...(base ? { base } : {}) }).ok) return false;
+    const name = entryName(this.character!.inventory[f.index], this.host.registry);
+    this.itemChange = null; this.close(); this.host.notify(`Changed ${name}.`); return true;
+  }
+  /** Drop the row's changes, so it is back to the compendium item. Its base stays. */
+  resetItemChange(): boolean {
+    const f = this.itemChange, e = f && this.character?.inventory[f.index]; if (!f || !e) return false;
+    if (!this.dispatch({ type: "itemChange", index: f.index, change: null }).ok) return false;
+    const name = entryName(this.character!.inventory[f.index], this.host.registry);
+    this.itemChange = null; this.close(); this.host.notify(`${name} is back to what its note says.`); return true;
+  }
+
   /** Drop every change to the row, so it is back to what its note says. Pins are kept. */
   resetCustomize(): boolean {
     const d = this.customizeDraft, info = d ? this.customizeInfo(d.target) : undefined;
@@ -754,7 +835,7 @@ export class SheetController {
   private collapsedSet() { return (this.collapsed ??= new Set(this.host.collapsedGroups?.() ?? [])); }
   setTab(t: string) { this.tab = t; this.emit(); }
   open(p: Panel) { if (p.kind === "compendium") { this.customItem = blankCustomItem(); this.itemSearch = blankItemSearch(); this.addPick = null; } this.panel = p; this.emit(); }
-  close() { if (this.panel?.kind === "customize-row") this.customizeDraft = null; this.panel = null; this.emit(); }
+  close() { if (this.panel?.kind === "customize-row") this.customizeDraft = null; if (this.panel?.kind === "item-change") this.itemChange = null; this.panel = null; this.emit(); }
 
   restCtx(): RestCtx { return { c: this.character!, stats: this.stats()!, registry: this.host.registry, rules: this.rules() }; }
   /** Lines optional rules add to a rest (Hexploration: the night's meal). `c` is changed; pass a copy for a preview. */

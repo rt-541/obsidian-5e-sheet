@@ -1,5 +1,5 @@
 import { itemPinRef } from "../core/actions";
-import { entryItem, entryRef } from "../core/item-entry";
+import { entryItem, entryRef, entryVariant } from "../core/item-entry";
 import type { ItemData } from "../content/types";
 import type { ActorStats } from "../core/derive";
 import type { SheetController } from "./controller";
@@ -48,6 +48,12 @@ export function itemState(ctl: SheetController, index: number) {
 }
 
 
+/** "Which armor? Choose one" on a generic item that has no base yet; it opens the Change form. */
+function askBase(ctl: SheetController, index: number): HTMLElement | null {
+  const e = ctl.character!.inventory[index], v = entryVariant(e, ctl.host.registry); if (!v) return null;
+  const b = btn(`Which ${v.base === "armor" ? "armor" : "weapon"}? Choose one`, () => ctl.openItemChange(index), "fe-base-ask"); b.dataset.act = "choose-base"; return b;
+}
+
 /** The big button at the top of the Inventory card. */
 function addItemButton(ctl: SheetController): HTMLElement {
   const b = btn("+ Add item", () => ctl.open({ kind: "compendium" }), "mod-cta fe-add-item"); b.dataset.act = "add-item"; return b;
@@ -69,6 +75,7 @@ function itemMenu(ctl: SheetController, index: number, s: ReturnType<typeof item
   return h("div", { cls: "fe-item-menu", data: { menu: String(index) } },
     h("label", { cls: "fe-kv" }, h("span", { text: "Consumable (used up when used)" }), sw),
     h("label", { cls: "fe-kv" }, h("span", { text: "Quantity" }), qty),
+    s.it ? ((b) => { b.dataset.act = "item-change"; return b; })(btn("Change", () => ctl.openItemChange(index))) : null,
     customizeButton(ctl, { kind: "item", index }),
     ctl.confirmRemove
       ? h("div", { cls: "fe-kv fe-confirm", data: { note: "remove-confirm" } }, h("span", { text: `Remove ${s.name}?` }),
@@ -100,6 +107,7 @@ export function inventoryFeature(ctl: SheetController, st: ActorStats): HTMLElem
     const s = itemState(ctl, i), it = s.it, name = s.name, stack = isStackable(ctl, i);
     return h("div", { cls: `fe-inv ${it || e.name ? "" : "is-missing"} ${s.usedUp ? "is-used-up" : ""}`.replace(/\s+/g, " ").trim(), data: { item: String(i) } },
       h("div", { cls: "fe-grow" }, h("span", { cls: "fe-inv-name", text: name, ...(it && e.id ? { data: { ref: entryRef(e) } } : {}) }), (e.id && ctl.host.registry.get("item", e.id)?.source) === "vault" ? h("span", { cls: "fe-src", text: "Homebrew" }) : null,
+        askBase(ctl, i),
         h("div", { cls: "fe-faint", text: [!stack && e.qty > 1 ? `x${e.qty}` : "", s.upWord, it?.rarity ?? "", it?.attunement ? (e.attuned ? "attuned" : "requires attunement") : ""].filter(Boolean).join(" · ") })),
       stack ? qtyStepper(ctl, i, name) : null,
       s.useBtn(),

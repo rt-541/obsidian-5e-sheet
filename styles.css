@@ -387,3 +387,6 @@
 .fe-sheet .fe-base-pick button.fe-btn { height: auto; min-height: 36px; text-align: left; white-space: normal; }
 .fe-sheet .fe-base-pick button.fe-btn[disabled] { opacity: 0.5; cursor: not-allowed; }
 .fe-mobile .fe-base-pick button.fe-btn, .fe-tablet .fe-base-pick button.fe-btn { min-height: 44px; }
+.fe-sheet button.fe-base-ask { height: auto; min-height: 28px; text-align: left; white-space: normal; }
+.fe-mobile button.fe-base-ask, .fe-tablet button.fe-base-ask { min-height: 44px; }
+.fe-mobile .fe-change-form input, .fe-tablet .fe-change-form input, .fe-mobile .fe-change-form select, .fe-tablet .fe-change-form select, .fe-mobile .fe-change-form button.fe-btn, .fe-tablet .fe-change-form button.fe-btn { min-height: 44px; }

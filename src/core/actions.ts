@@ -1,5 +1,5 @@
 import type { Customization } from "./customize";
-import { newRowId, type Character, type Combo, type CompanionEntry, type Npc } from "./character";
+import { newRowId, type ItemChange, type Character, type Combo, type CompanionEntry, type Npc } from "./character";
 import { validateCombo } from "./combos";
 import type { ActorStats } from "./derive";
 import type { ConditionData, ItemData, SpellData } from "../content/types";
@@ -35,6 +35,8 @@ export type Action =
   | { type: "pinSpell"; key: string; on: boolean }
   | { type: "pin"; ref: string; on: boolean }
   | { type: "itemQty"; index: number; qty: number }
+  /** Set or clear what the player changed on one row, and optionally the armor or weapon a generic item is made from. */
+  | { type: "itemChange"; index: number; change: ItemChange | null; base?: string }
   /** Set one kind of coin to a whole number, 0 or more. */
   | { type: "coins"; coin: "pp" | "gp" | "ep" | "sp" | "cp"; value: number }
   /** Whether using one of this inventory entry uses it up (a potion is by default, a custom item is not). */
@@ -431,6 +433,17 @@ export function apply(c0: Character, a: Action, lim: Limits): Applied {
       if (a.value && Object.keys(a.value).length) e.customize = structuredClone(a.value); else delete e.customize;
       const ref = e.id ? `item:${e.id}` : undefined;
       dropGone(c, lim, t => t.itemIndex === a.index, o => !!ref && o.ref === ref); break;
+    }
+    case "itemChange": {
+      const e = c.inventory[a.index]; if (!e) return { value: c0, error: "No such item" };
+      if (a.base !== undefined) {
+        const reg = lim.ctx?.registry, v = reg && e.id ? entryVariant({ ...e, base: undefined }, reg) : undefined, b = reg ? entryItem({ id: a.base, qty: 1, equipped: false, attuned: false }, reg) : undefined;
+        if (!v || !b || !baseFits(v, { id: a.base, data: b })) return { value: c0, error: "That base does not fit this item." };
+        e.base = a.base;
+      }
+      if (a.change) e.change = structuredClone(a.change); else delete e.change;
+      if (!e.row) e.row = newRowId(c.inventory);
+      break;
     }
     case "endConcentration": delete c.concentration; break;
     case "addSpell": if (!c.spells.some(x => x.id === a.id)) c.spells.push({ id: a.id, prepared: false }); break;

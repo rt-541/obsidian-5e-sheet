@@ -62,6 +62,13 @@ describe("customize form", () => {
   });
 });
 
+describe("change item form", () => {
+  it("keeps 44px targets on tablet and phone", () => {
+    expect(css).toContain(".fe-mobile button.fe-base-ask, .fe-tablet button.fe-base-ask { min-height: 44px; }");
+    expect(css).toContain(".fe-mobile .fe-change-form input");
+  });
+});
+
 describe("add item pick view", () => {
   it("keeps 44px targets on tablet and phone", () => {
     expect(css).toContain(".fe-mobile .fe-base-pick button.fe-btn, .fe-tablet .fe-base-pick button.fe-btn { min-height: 44px; }");

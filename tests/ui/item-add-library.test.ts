@@ -32,5 +32,10 @@ for (const layout of LAYOUTS) {
       expect(s.ctl.addPick).toBeNull();
       expect(s.char().inventory.at(-1)).toMatchObject({ id: "mist-draught", qty: 1 });
     });
+    it("an owned library row is read on load, so it asks Which weapon?", async () => {
+      const s = setup(layout, { inventory: [{ id: "gale-brand" }] }, withLibrary);
+      await new Promise(res => setTimeout(res, 0));   // the controller reads owned library items as it loads
+      expect(s.row("Gale Brand").querySelector('[data-act="choose-base"]')?.textContent).toBe("Which weapon? Choose one");
+    });
   });
 }
