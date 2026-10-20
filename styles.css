@@ -379,3 +379,11 @@
 .fe-tablet .fe-sheet button.fe-btn[data-act="customize"], .fe-mobile .fe-sheet button.fe-btn[data-act="customize"], .fe-tablet button.fe-btn[data-act="customize"], .fe-mobile button.fe-btn[data-act="customize"] { min-height: 44px; }
 .fe-tablet .fe-cz-form input:not([type="checkbox"]), .fe-mobile .fe-cz-form input:not([type="checkbox"]), .fe-tablet .fe-cz-form select, .fe-mobile .fe-cz-form select { min-height: 44px; }
 .fe-tablet button.fe-cz-seg, .fe-mobile button.fe-cz-seg, .fe-tablet .fe-cz-form button.fe-btn, .fe-mobile .fe-cz-form button.fe-btn { min-height: 44px; }
+
+/* Add item panel: the result card, the Which armor? list and the equip choice */
+.fe-result .fe-itemcard { margin: 4px 0 8px; }
+.fe-inv-name[role="button"] { cursor: pointer; }
+.fe-base-pick { display: grid; gap: 6px; }
+.fe-sheet .fe-base-pick button.fe-btn { height: auto; min-height: 36px; text-align: left; white-space: normal; }
+.fe-sheet .fe-base-pick button.fe-btn[disabled] { opacity: 0.5; cursor: not-allowed; }
+.is-mobile .fe-sheet .fe-base-pick button.fe-btn, .is-tablet .fe-sheet .fe-base-pick button.fe-btn { min-height: 44px; }

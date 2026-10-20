@@ -61,3 +61,9 @@ describe("customize form", () => {
     expect(rule).toContain("min-height: 44px");
   });
 });
+
+describe("add item pick view", () => {
+  it("keeps 44px targets on tablet and phone", () => {
+    expect(css).toContain(".is-mobile .fe-sheet .fe-base-pick button.fe-btn, .is-tablet .fe-sheet .fe-base-pick button.fe-btn { min-height: 44px; }");
+  });
+});

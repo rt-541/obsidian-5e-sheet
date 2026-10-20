@@ -5,6 +5,12 @@ import type { SheetController } from "./controller";
 import { CHARGE_RESETS, ITEM_KINDS, ITEM_TEMPLATE, RARITIES, type ChargeReset, type ItemKind } from "../content/itemblock";
 import { clear, h } from "./h";
 import { playBadge } from "./widgets";
+import { baseChoices } from "../content/item-variant";
+import { itemSummary } from "../content/item-view";
+import { MAX_ATTUNED } from "../core/actions";
+import { entryItem, isGear } from "../core/item-entry";
+import { previewAdd } from "../core/item-preview";
+import { itemStatCard } from "./item-card";
 
 /** A labelled text box whose typing is kept in the controller's form without redrawing (so the caret stays put). */
 const field = (label: string, input: HTMLElement, cls = "") => h("label", { cls: `fe-cf-field ${cls}`.trim() }, h("span", { cls: "fe-muted", text: label }), input);
@@ -101,7 +107,7 @@ export function customItemForm(ctl: SheetController): HTMLElement {
 
 export type ItemChip = "all" | "consumable" | "weapon" | "armor" | "gear" | "magic";
 /** The add panel's search box and kind chip, kept in the controller so they survive redraws. */
-export interface ItemSearch { query: string; chip: ItemChip; }
+export interface ItemSearch { query: string; chip: ItemChip; /** The result whose card is open. */ selected?: string; }
 export const blankItemSearch = (): ItemSearch => ({ query: "", chip: "all" });
 const CHIPS: { id: ItemChip; label: string }[] = [
   { id: "all", label: "All" }, { id: "consumable", label: "Potions and scrolls" }, { id: "weapon", label: "Weapons" },
@@ -132,16 +138,59 @@ export function itemResults(ctl: SheetController): { hint: boolean; rows: Entry<
 }
 
 function resultRow(ctl: SheetController, e: Entry<ItemData>): HTMLElement {
-  const owned = ctl.character!.inventory.some(x => x.id === e.id);
-  return h("div", { cls: "fe-inv" },
-    h("div", { cls: "fe-grow" }, h("span", { cls: "fe-inv-name", text: e.name, data: { ref: `item:${e.id}` } }), playBadge(sourceLabel(e)),
-      h("div", { cls: "fe-faint", text: [e.data.rarity, e.data.attunement ? "attunement" : ""].filter(Boolean).join(" · ") })),
-    h("button", { cls: "fe-btn", text: owned ? "+1" : "Add", data: { item: e.id }, on: { click: () => ctl.addItem(e.id) } }));
+  const owned = ctl.character!.inventory.some(x => x.id === e.id), gear = isGear(e.data) || !!e.data.variant;
+  const open = ctl.itemSearch.selected === e.id;
+  const label = owned && !gear ? "+1" : "Add";
+  return h("div", { cls: "fe-result" },
+    h("div", { cls: "fe-inv" },
+      h("div", { cls: "fe-grow" },
+        h("span", { cls: "fe-inv-name", text: e.name, data: { ref: `item:${e.id}`, noclick: "" }, attrs: { role: "button", tabindex: "0", "aria-expanded": String(open) },
+          on: { click: () => { ctl.itemSearch.selected = open ? undefined : e.id; ctl.emit(); } } }),
+        playBadge(sourceLabel(e)),
+        h("div", { cls: "fe-faint", text: [e.data.rarity, e.data.attunement ? "attunement" : ""].filter(Boolean).join(" · ") }),
+        owned && gear ? h("div", { cls: "fe-faint", text: "Owned", data: { note: "owned" } }) : null),
+      h("button", { cls: "fe-btn", text: label, data: { item: e.id }, on: { click: () => { void ctl.startAdd(e.id); } } })),
+    open ? itemStatCard(e.name, e.data) : null);
+}
+
+/** The pick view that replaces the results: "Which armor?" while a generic item has no base, then its card and the equip choice. */
+function pickView(ctl: SheetController): HTMLElement {
+  const p = ctl.addPick!, reg = ctl.host.registry, c = ctl.character!;
+  const plain = { qty: 1, equipped: false, attuned: false };
+  const lib = entryItem({ ...plain, id: p.id }, reg);
+  const back = h("button", { cls: "fe-btn", text: "Back", attrs: { type: "button" }, data: { act: "add-back" }, on: { click: () => { ctl.addPick = null; ctl.emit(); } } });
+  if (!lib) return h("div", { cls: "fe-card", data: { pane: "add-pick" } }, back);
+  if (lib.variant && !p.base) {
+    const kind = lib.variant.base === "armor" ? "armor" : "weapon";
+    const choices = baseChoices(lib.variant, ctl.pickers().list<ItemData>("item"));
+    return h("div", { cls: "fe-card fe-base-pick", data: { pane: "base-pick" } },
+      h("div", { cls: "fe-card-title", text: `Which ${kind}?` }),
+      ...choices.map(b => {
+        const d = entryItem({ ...plain, id: p.id, base: b.id }, reg);
+        return h("button", { cls: "fe-btn fe-base-choice", text: d ? itemSummary(d.name, d) : b.name, attrs: { type: "button" }, data: { base: b.id }, on: { click: () => ctl.pickBase(b.id) } });
+      }),
+      choices.length ? null : h("div", { cls: "fe-faint", text: `No ordinary ${kind} in your compendium fits this item.`, data: { note: "no-base" } }),
+      back);
+  }
+  const d = entryItem({ ...plain, id: p.id, ...(p.base ? { base: p.base } : {}) }, reg)!;
+  const attuned = c.inventory.filter(x => x.attuned).length, full = attuned >= MAX_ATTUNED;
+  const btn = (text: string, act: string, onClick: () => void, cls = "") => h("button", { cls: `fe-btn ${cls}`.trim(), text, attrs: { type: "button" }, data: { act }, on: { click: onClick } });
+  const attune = d.attunement ? btn(`Equip and attune (${Math.min(attuned + 1, MAX_ATTUNED)} of ${MAX_ATTUNED})`, "add-attune", () => ctl.finishAdd("attune")) : null;
+  if (attune && full) attune.setAttribute("disabled", "");
+  return h("div", { cls: "fe-base-pick", data: { pane: "add-choice" } },
+    itemStatCard(d.name, d),
+    h("div", { cls: "fe-muted", text: previewAdd(c, ctl.ctx(), { id: p.id, ...(p.base ? { base: p.base } : {}) }), data: { note: "equip-preview" } }),
+    attune && full ? h("div", { cls: "fe-warn", text: `Already attuned to ${MAX_ATTUNED} items`, data: { note: "attune-full" } }) : null,
+    h("div", { cls: "fe-cf-row" },
+      btn("Equip now", "add-equip", () => ctl.finishAdd("equip"), "mod-cta"), attune,
+      btn("Just add it", "add-only", () => ctl.finishAdd("add")),
+      lib.variant ? btn("Choose another", "add-rebase", () => ctl.pickBase(undefined)) : null, back));
 }
 
 /** The results list: rebuilt in place while typing, so the search box keeps its focus and caret. */
 function fillResults(ctl: SheetController, box: HTMLElement) {
   clear(box);
+  if (ctl.addPick) { box.append(pickView(ctl)); return; }
   const res = itemResults(ctl), q = ctl.itemSearch.query.trim();
   if (res.hint) { box.append(h("div", { cls: "fe-faint", text: "Type to search", data: { note: "item-hint" } })); return; }
   box.append(...res.rows.map(e => resultRow(ctl, e)));
@@ -158,11 +207,11 @@ export function addItemPanel(ctl: SheetController): HTMLElement {
   if (ctl.customItem.importing) return h("div", { cls: "fe-additem" }, customItemForm(ctl));
   const box = h("div", { cls: "fe-additem-results", data: { pane: "item-results" } });
   const search = h("input", { cls: "fe-search", attrs: { type: "search", placeholder: "Search items by name", value: ctl.itemSearch.query, "aria-label": "Search items" }, data: { keep: "item-search", autofocus: "" },
-    on: { input: (e: Event) => { ctl.itemSearch.query = (e.target as HTMLInputElement).value; fillResults(ctl, box); } } });
+    on: { input: (e: Event) => { ctl.itemSearch.query = (e.target as HTMLInputElement).value; ctl.addPick = null; fillResults(ctl, box); } } });
   fillResults(ctl, box);
   return h("div", { cls: "fe-additem" }, search,
     h("div", { cls: "fe-filters", data: { group: "item-chips" } }, ...CHIPS.map(c =>
-      h("button", { cls: `fe-btn ${ctl.itemSearch.chip === c.id ? "is-on" : ""}`.trim(), text: c.label, data: { chip: c.id }, on: { click: () => { ctl.itemSearch.chip = c.id; ctl.emit(); } } }))),
+      h("button", { cls: `fe-btn ${ctl.itemSearch.chip === c.id ? "is-on" : ""}`.trim(), text: c.label, data: { chip: c.id }, on: { click: () => { ctl.itemSearch.chip = c.id; ctl.addPick = null; ctl.emit(); } } }))),
     box,
     h("div", { cls: "fe-card-title", text: "Not in the list? Make your own" }), customItemForm(ctl));
 }

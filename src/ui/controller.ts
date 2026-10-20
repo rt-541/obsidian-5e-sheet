@@ -5,7 +5,7 @@ import type { SpellDraft } from "../content/spell-note";
 import type { CampaignData, ItemData, LevelingMode, SpellData } from "../content/types";
 import { apply, applyNpc, customItemProblem, itemPinRef, type Action, type Limits } from "../core/actions";
 import type { Character, Combo, Npc, Parsed } from "../core/character";
-import { entryItem } from "../core/item-entry";
+import { entryItem, entryName, isGear } from "../core/item-entry";
 import { blankCombo, validateCombo } from "../core/combos";
 import { customizeKey, layerRow, type Customization, type RowDefs } from "../core/customize";
 import { customizationFrom, formFrom, formProblem, type CustomizeForm } from "./customize-form";
@@ -196,6 +196,36 @@ export class SheetController {
     if (!this.dispatch({ type: "addItem", id }).ok) return false;
     const name = this.host.registry.get("item", id)?.name ?? id;
     this.host.notify(had ? `Added ${name} (now ${had + 1})` : `Added ${name}.`);
+    return true;
+  }
+
+  /** The generic item or gear being added: which armor or weapon it is made from, if chosen. The Add item panel shows the choice. */
+  addPick: { id: string; base?: string } | null = null;
+  /**
+   * Start adding an item from the Add item panel. Potions and other plain items are added at once; armor, shields, weapons and
+   * generic items ("+1 armor") open the pick view instead. A library item is read in full first so "(any sword)" is recognised.
+   */
+  async startAdd(id: string): Promise<void> {
+    const entry = this.host.registry.get("item", id);
+    const known = () => { const d = entryItem({ id, qty: 1, equipped: false, attuned: false }, this.host.registry); return { gear: !!d && isGear(d), variant: !!d?.variant }; };
+    if (entry?.library && !known().gear && !known().variant) await this.host.registry.hydrate(entry);
+    const k = known();
+    if (!k.gear && !k.variant) { this.addItem(id); return; }
+    this.addPick = { id }; this.emit();
+  }
+  /** Choose the armor or weapon a generic item is made from (undefined goes back to the list of choices). */
+  pickBase(base: string | undefined): void {
+    if (!this.addPick) return;
+    this.addPick = base ? { id: this.addPick.id, base } : { id: this.addPick.id }; this.emit();
+  }
+  /** Add the picked item: put on, put on and attuned, or just carried. */
+  finishAdd(how: "equip" | "attune" | "add"): boolean {
+    const p = this.addPick; if (!p) return false;
+    const r = this.dispatch({ type: "addItem", id: p.id, ...(p.base ? { base: p.base } : {}), ...(how !== "add" ? { equip: true } : {}), ...(how === "attune" ? { attune: true } : {}) });
+    if (!r.ok) return false;
+    const name = entryName({ id: p.id, qty: 1, equipped: false, attuned: false, ...(p.base ? { base: p.base } : {}) }, this.host.registry);
+    this.host.notify(`Added ${name}.${r.note ? ` ${r.note}` : ""}`);
+    this.addPick = null; this.emit();
     return true;
   }
 
@@ -723,7 +753,7 @@ export class SheetController {
   }
   private collapsedSet() { return (this.collapsed ??= new Set(this.host.collapsedGroups?.() ?? [])); }
   setTab(t: string) { this.tab = t; this.emit(); }
-  open(p: Panel) { if (p.kind === "compendium") { this.customItem = blankCustomItem(); this.itemSearch = blankItemSearch(); } this.panel = p; this.emit(); }
+  open(p: Panel) { if (p.kind === "compendium") { this.customItem = blankCustomItem(); this.itemSearch = blankItemSearch(); this.addPick = null; } this.panel = p; this.emit(); }
   close() { if (this.panel?.kind === "customize-row") this.customizeDraft = null; this.panel = null; this.emit(); }
 
   restCtx(): RestCtx { return { c: this.character!, stats: this.stats()!, registry: this.host.registry, rules: this.rules() }; }
