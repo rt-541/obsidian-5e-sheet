@@ -1,11 +1,12 @@
 import type { Customization } from "./customize";
-import type { Character, Combo, CompanionEntry, Npc } from "./character";
+import { newRowId, type Character, type Combo, type CompanionEntry, type Npc } from "./character";
 import { validateCombo } from "./combos";
 import type { ActorStats } from "./derive";
 import type { ConditionData, ItemData, SpellData } from "../content/types";
 import { isVersatile } from "../content/types/item";
 import type { Registry } from "../content/registry";
-import { entryItem, entryName } from "./item-entry";
+import { entryItem, entryName, entryVariant, isGear } from "./item-entry";
+import { baseFits } from "../content/item-variant";
 import { itemWorks, type EffectContext } from "./effects";
 import { slug } from "../content/registry";
 import { evalFormula } from "./formula";
@@ -22,7 +23,7 @@ export type Action =
   | { type: "equip"; index: number; on: boolean } | { type: "attune"; index: number; on: boolean }
   | { type: "hands"; index: number; hands: 1 | 2; /** Also put away every equipped shield (the one-tap "Put away shield"). */ putAwayShield?: boolean }
   | { type: "inspiration"; on: boolean }
-  | { type: "addItem"; id: string } | { type: "removeItem"; index: number }
+  | { type: "addItem"; id: string; /** The armor or weapon a generic item is made from. */ base?: string; /** Put it on straight away. */ equip?: boolean; attune?: boolean } | { type: "removeItem"; index: number }
   /** An item that is not in the compendium: a name, how many, an optional weight per piece in pounds, and whether using one up it. */
   | { type: "addCustomItem"; name: string; qty: number; weight?: number; consumable?: boolean }
   | { type: "addCompanion"; creature: string; name: string; kind: CompanionEntry["kind"] } | { type: "removeCompanion"; index: number }
@@ -375,10 +376,26 @@ export function apply(c0: Character, a: Action, lim: Limits): Applied {
     }
     case "inspiration": c.inspiration = a.on; break;
     case "addItem": {
-      // An item already in the pack gets one more instead of a second row.
-      const have = c.inventory.find(x => x.id === a.id);
-      if (have) have.qty += 1; else c.inventory.push({ id: a.id, qty: 1, equipped: false, attuned: false });
-      break;
+      const reg = lim.ctx?.registry, plain = { id: a.id, qty: 1, equipped: false, attuned: false };
+      const item = reg ? entryItem(plain, reg) : undefined;
+      if (a.base) {
+        const v = reg ? entryVariant(plain, reg) : undefined, b = reg ? entryItem({ ...plain, id: a.base }, reg) : undefined;
+        if (!v || !b || !baseFits(v, { id: a.base, data: b })) return { value: c0, error: "That base does not fit this item." };
+      }
+      if (a.attune && c.inventory.filter(x => x.attuned).length >= MAX_ATTUNED) return { value: c0, error: "Already attuned to 3 items" };
+      let index: number;
+      if (item && isGear(item)) {
+        // Armor, shields and weapons are each their own row.
+        index = c.inventory.push({ ...plain, row: newRowId(c.inventory), ...(a.base ? { base: a.base } : {}) }) - 1;
+      } else {
+        // Potions and other plain items: one more instead of a second row.
+        index = c.inventory.findIndex(x => x.id === a.id);
+        if (index >= 0) c.inventory[index].qty += 1; else index = c.inventory.push(plain) - 1;
+      }
+      if (!a.equip && !a.attune) break;
+      const e = c.inventory[index]; e.equipped = true; if (a.attune) e.attuned = true;
+      const note = joinNotes(putAwayRivals(c, index, lim), isShield(c, index, reg) ? oneHandAll(c, reg) : undefined);
+      return { value: c, ...(note ? { note } : {}) };
     }
     case "addCustomItem": {
       const bad = customItemProblem(a); if (bad) return { value: c0, error: bad };
