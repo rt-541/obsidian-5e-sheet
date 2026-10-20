@@ -1,7 +1,9 @@
 import { sourceLabel, type Entry, type Registry } from "../content/registry";
 import type { ClassData, ConditionData, CreatureData, FeatData, GrantsData, ItemData, Op, SpellData, SubclassData, SubraceData } from "../content/types";
 import type { Effects } from "../core/types";
-import { isVersatile, versatileDie } from "../content/types/item";
+import { entryItem } from "../core/item-entry";
+import { priceText } from "../content/item-view";
+import { itemStatCard } from "./item-card";
 import { comboViews } from "../core/combos";
 import { diceAt } from "../core/spells";
 import type { SheetController } from "./controller";
@@ -33,27 +35,23 @@ function card(title: string, subtitle: string, lines: string[], rules: string | 
     path ? h("div", { cls: "fe-faint", text: `Source note: ${path}` }) : null);
 }
 
-/** Price in copper pieces as "1 gp 5 sp 3 cp" (ten cp to the sp, ten sp to the gp). */
-export function priceText(cp: number): string {
-  const gp = Math.floor(cp / 100), sp = Math.floor((cp % 100) / 10), c = cp % 10;
-  return [gp ? `${gp} gp` : "", sp ? `${sp} sp` : "", c ? `${c} cp` : ""].filter(Boolean).join(" ") || "0 cp";
-}
+export { priceText };
 
-function itemCard(reg: Registry, e: Entry<ItemData>): HTMLElement {
-  const d = e.data, lines: string[] = [];
-  if (d.armor) lines.push(`Armor: AC ${d.armor.base}${d.armor.dex === "full" ? " + Dex" : d.armor.dex === "max2" ? " + Dex (max 2)" : ""}${d.armor.stealthDis ? ", disadvantage on Stealth" : ""}`);
-  if (d.weapon) lines.push(`Weapon: ${d.weapon.dmg}${d.weapon.bonus ? sgn(d.weapon.bonus) : ""} ${d.weapon.type}${d.weapon.extraDamage ? ` + ${d.weapon.extraDamage}` : ""} (${d.weapon.range})${isVersatile(d.weapon) ? ` (two hands: ${versatileDie(d.weapon)})` : ""}`);
-  lines.push(...effectLines(d.effects));
+/** One item as a card: the usual wrapper, source badge and path line around the stat-block. `notes` are the player's own. */
+function itemCardOf(reg: Registry, name: string, d: ItemData, e?: Entry<ItemData>, notes?: string): HTMLElement {
+  const lines: string[] = [];
+  lines.push(...effectLines(d.armor ? { ...d.effects, modifiers: (d.effects.modifiers ?? []).filter(m => !(m.target === "ac" && typeof m.value === "number")) } : d.effects));
   if (d.heal) lines.push(`Healing: ${d.heal}`);
-  if (d.weight) lines.push(`Weight: ${d.weight} lb`);
-  if (d.value !== undefined) lines.push(`Value: ${priceText(d.value)}`);
-  if (d.charges) lines.push(`Charges: ${d.charges.max}, resets ${d.charges.reset === "none" ? "never" : d.charges.reset}`);
   for (const g of d.grants?.spells ?? []) {
     const sp = reg.get<SpellData>("spell", g.id), c = g.cost;
     lines.push(`Casts ${sp?.name ?? `${g.id} (missing from compendium)`}: ${c.kind === "charges" ? `${c.amount} charge${c.amount === 1 ? "" : "s"}` : c.kind === "perDay" ? `${c.uses} per day` : "at will"}`);
   }
-  return card(e.name, [cap(d.kind), d.rarity, d.attunement ? "requires attunement" : ""].filter(Boolean).join(" · "), lines, d.rules, e.source === "vault" ? e.path : undefined, sourceLabel(e));
+  return h("div", { cls: "fe-detail" },
+    e ? h("div", { cls: "fe-detail-src" }, sourceBadge(sourceLabel(e))) : null,
+    itemStatCard(name, d, { lines, notes }),
+    e?.source === "vault" ? h("div", { cls: "fe-faint", text: `Source note: ${e.path}` }) : null);
 }
+const itemCard = (reg: Registry, e: Entry<ItemData>): HTMLElement => itemCardOf(reg, e.name, e.data, e);
 
 function spellCard(_reg: Registry, e: Entry<SpellData>): HTMLElement {
   const d = e.data, lines: string[] = [];
@@ -202,6 +200,10 @@ export function detailCard(ref: string, ctl: SheetController): HTMLElement | nul
   const kind = ref.slice(0, i), rest = ref.slice(i + 1), reg = ctl.host.registry;
   switch (kind) {
     case "item": { const e = reg.get<ItemData>("item", rest); return e ? itemCard(reg, e) : null; }
+    case "inv": {
+      const row = ctl.character?.inventory.find(x => x.row === rest), d = row && entryItem(row, reg);
+      return row && d ? itemCardOf(reg, d.name, d, row.id ? reg.get<ItemData>("item", row.id) : undefined, row.change?.notes) : null;
+    }
     case "spell": { const e = reg.get<SpellData>("spell", rest); return e ? spellCard(reg, e) : null; }
     case "condition": { const e = reg.get<ConditionData>("condition", rest) ?? reg.get<ConditionData>("injury", rest); return e ? conditionCard(e, ctl.value.conditions[rest] ?? 0) : null; }
     case "why": return whyCard(rest, ctl);
