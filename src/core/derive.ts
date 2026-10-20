@@ -12,7 +12,8 @@ import { matchesTag } from "./roll-tags";
 import { slotTable } from "./slots";
 import { titleCase } from "./words";
 import { ABILS, SKILLS, type Abil, type Effects, type Modifier, type RollTarget } from "./types";
-import type { ToggleDef } from "../content/types";
+import type { ActionDef, ToggleDef } from "../content/types";
+import { layerRow } from "./customize";
 import { ABIL_LONG, abilTerm, modTerms, sgn as signed, sum, type Term } from "./why";
 
 /** How a versatile weapon is held: its main row only. */
@@ -89,6 +90,8 @@ export interface ActorStats {
   resources: ResourceRow[]; casters: CasterStat[];
   /** Attack options (declared by features and items, and extra-damage switches) for the Attack options card. */
   attackOptions: AttackOptionRow[];
+  /** Use buttons on inventory rows (from a row's customization), for items that work. `index` is the inventory position. */
+  itemActions: { index: number; name: string; action: ActionDef }[];
   /** Features, scales, class DCs, pending choices and so on, replayed from race, background, feats and class levels. */
   progress: Progress;
   /** Lowest weapon crit range from effects, if any; vs is a note only. */
@@ -137,7 +140,17 @@ export function deriveCharacter(c: Character, ctx: EffectContext): ActorStats {
   const level = c.classes.reduce((a, k) => a + k.level, 0), prof = profBonus(level);
   const classData = c.classes.map(k => ({ k, d: r.get<ClassData>("class", k.class)?.data }));
   const missing = [...missingIds(c, r), ...classData.filter(x => !x.d).map(x => `class:${x.k.class}`)];
-  const items = c.inventory.map(e => ({ e, it: e.id ? r.get<ItemData>("item", e.id)?.data : undefined }));
+  const problem = (msg: string) => { if (!prog.problems.includes(msg)) prog.problems.push(msg); };
+  // Each inventory row may carry its own switch and attack option; the registry's item data is copied, never changed.
+  const items = c.inventory.map(e => {
+    const reg = e.id ? r.get<ItemData>("item", e.id)?.data : undefined;
+    if (!reg) return { e, it: undefined };
+    const l = layerRow(reg.name, { toggle: reg.toggle, attackOption: reg.attackOption }, e.customize, level, problem);
+    const it: ItemData = { ...reg }; delete it.toggle; delete it.attackOption;
+    if (l.toggle) it.toggle = l.toggle;
+    if (l.attackOption) it.attackOption = l.attackOption;
+    return { e, it };
+  });
   // Effects blocks with a `while` gate (armor, shield, two weapons, a toggle, concentrating) count only while the gate holds.
   const gates = gateStateOf(items, c.active, !!c.concentration);
   const fx = filterGated([...collectEffects(c, ctx), ...prog.effects], gates);
@@ -149,7 +162,6 @@ export function deriveCharacter(c: Character, ctx: EffectContext): ActorStats {
   const toggles: ToggleRow[] = [...prog.toggles.map(t => toggleRow(t.id, t.name, t.source, `feature:${t.key}`, t.def, t.effects, t.text)),
     ...items.flatMap(({ e, it }, i) => it?.toggle && itemWorks(e, it) && !prog.toggles.some(t => t.id === it.toggle!.id) ? [toggleRow(it.toggle.id, it.name, "Item", `item:${e.id}`, it.toggle, it.effects, it.rules, i)] : [])];
 
-  const problem = (msg: string) => { if (!prog.problems.includes(msg)) prog.problems.push(msg); };
   const vars0 = { ...formulaVars(c, prog.scales), ...Object.fromEntries(prog.dcs.map(d => [`dc_${d.id.replace(/-/g, "_")}`, d.dc])),
     ...Object.fromEntries(Object.entries(c.active).map(([k, v]) => [`toggle_${k.replace(/-/g, "_")}`, typeof v === "number" ? v : v ? 1 : 0])) };
   const maxScores = Object.fromEntries(ABILS.map(a => [a, Math.max(20, ...fx.filter(s => s.effects.maxScore?.abil === a).map(s => s.effects.maxScore!.max))])) as Record<Abil, number>;
@@ -242,6 +254,12 @@ export function deriveCharacter(c: Character, ctx: EffectContext): ActorStats {
   const dice = new Map<string, number>();
   for (const x of classData) if (x.d) dice.set(`d${x.d.hitDie}`, (dice.get(`d${x.d.hitDie}`) ?? 0) + x.k.level);
   const hitDice = [...dice].map(([die, max]) => ({ die, max, used: Math.min(c.hitDice[die]?.used ?? 0, max) }));
+  const itemActions = c.inventory.flatMap((e, index) => {
+    const { it } = items[index], name = it?.name ?? e.name ?? "";
+    if (e.id ? !(it && itemWorks(e, it)) : e.qty <= 0) return [];
+    const action = layerRow(name, {}, e.customize, level, problem).action;
+    return action ? [{ index, name, action }] : [];
+  });
   const weight = items.reduce((a, x) => a + (x.it?.weight ?? x.e.weight ?? 0) * x.e.qty, 0);
   const carryMod = sumModifier(fx, "carry", opt());
   const passive = (skill: string) => 10 + skills.find(k => k.id === skill)!.mod + sumModifier(fx, "passive", opt({ kind: "passive", skill })).add;
@@ -294,7 +312,7 @@ export function deriveCharacter(c: Character, ctx: EffectContext): ActorStats {
     ...(spellcasting ? { spellcasting } : {}), slots, hitDice,
     carry: { weight, capacity },
     traits: damageTraits(fx), notes: notes(fx), effects: fx, missing, attunedCount: c.inventory.filter(e => e.attuned).length,
-    toggles, resources, casters, attackOptions: attackOptionRows(c, prog.attackOptions, items, fx, resources, prog.scales, level, vars), progress: prog, maxScores, ...(crits[0] ? { crit: { range: crits[0].effects.critRange!, ...(crits[0].effects.critVs ? { vs: crits[0].effects.critVs } : {}) } } : {}),
+    toggles, resources, casters, itemActions, attackOptions: attackOptionRows(c, prog.attackOptions, items, fx, resources, prog.scales, level, vars), progress: prog, maxScores, ...(crits[0] ? { crit: { range: crits[0].effects.critRange!, ...(crits[0].effects.critVs ? { vs: crits[0].effects.critVs } : {}) } } : {}),
     languages: mergeLanguages(prog.languages, c.languages),
     ...(senses.darkvision !== undefined ? { darkvision: senses.darkvision } : {}),
   };
@@ -320,7 +338,7 @@ export function deriveCreature(b: CreatureData, st: { name: string; hp: { max?: 
       ...(a.damage ? { damage: a.damage } : {}), ...(a.note ? { note: a.note } : {}), target: { kind: "attack" } })),
     slots: [], hitDice: [], carry: { weight: 0, capacity: b.abilities.str * 15 }, traits: damageTraits(fx), notes: notes(fx), effects: fx,
     missing: missingIds({ conditions: st.conditions }, ctx.registry), attunedCount: 0,
-    toggles: [], resources: [], casters: [], attackOptions: [], why: {}, progress: emptyProgress(), maxScores: { str: 20, dex: 20, con: 20, int: 20, wis: 20, cha: 20 },
+    toggles: [], resources: [], casters: [], attackOptions: [], itemActions: [], why: {}, progress: emptyProgress(), maxScores: { str: 20, dex: 20, con: 20, int: 20, wis: 20, cha: 20 },
   };
 }
 

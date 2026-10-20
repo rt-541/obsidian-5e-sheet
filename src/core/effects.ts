@@ -1,6 +1,7 @@
 import type { Registry } from "../content/registry";
 import type { CampaignData, ConditionData, ItemData, ToggleDef } from "../content/types";
 import type { InventoryEntry } from "./character";
+import { layerRow } from "./customize";
 import { evalFormula } from "./formula";
 import { matchesTag } from "./roll-tags";
 import type { Effects, Modifier, RollTarget } from "./types";
@@ -13,6 +14,9 @@ export interface EffectContext { registry: Registry; campaign?: CampaignData; }
 type ActorLike = { conditions: Record<string, number>; injuries?: { id: string; overcome: boolean }[]; inventory?: InventoryEntry[]; modifiers: Modifier[] };
 
 export const itemWorks = (e: InventoryEntry, item: ItemData | undefined) => !!item && e.equipped && (!item.attunement || e.attuned);
+
+/** An item's switch after the row's own customization (a switch can be added, changed or removed per inventory row). */
+export const itemToggle = (it: ItemData, e: InventoryEntry): ToggleDef | undefined => layerRow(it.name, { toggle: it.toggle }, e.customize, 0, () => {}).toggle;
 
 export function collectEffects(a: ActorLike, ctx: EffectContext): SourcedEffects[] {
   const out: SourcedEffects[] = [], r = ctx.registry;
@@ -28,7 +32,7 @@ export function collectEffects(a: ActorLike, ctx: EffectContext): SourcedEffects
   for (const e of a.inventory ?? []) {
     if (!e.id) continue;
     const it = r.get<ItemData>("item", e.id)?.data;
-    if (it && itemWorks(e, it) && Object.keys(it.effects).length) out.push({ source: it.name, effects: it.toggle ? gatedByToggle(it.effects, it.toggle) : it.effects });
+    if (it && itemWorks(e, it) && Object.keys(it.effects).length) { const tg = itemToggle(it, e); out.push({ source: it.name, effects: tg ? gatedByToggle(it.effects, tg) : it.effects }); }
   }
   for (const m of a.modifiers) out.push({ source: m.source ?? "Modifier", effects: { modifiers: [m] } });
   const w = ctx.campaign?.weather;
