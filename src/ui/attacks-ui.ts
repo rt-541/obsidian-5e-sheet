@@ -1,4 +1,5 @@
 import type { ItemData } from "../content/types";
+import { entryItem } from "../core/item-entry";
 import type { ActorStats, AttackStat } from "../core/derive";
 import type { Abil } from "../core/types";
 import type { SheetController } from "./controller";
@@ -62,7 +63,7 @@ export function attacksList(ctl: SheetController, st: ActorStats, who?: number):
 function gripSwitch(ctl: SheetController, a: AttackStat, who?: number): HTMLElement | null {
   if (who !== undefined || !a.grip || a.item === undefined) return null;
   const item = a.item, g = a.grip, blocked = g.shield;
-  const id = ctl.character?.inventory[item]?.id, oneHand = id ? ctl.host.registry.get<ItemData>("item", id)?.data.weapon?.dmg : undefined;
+  const row = ctl.character?.inventory[item], oneHand = row ? entryItem(row, ctl.host.registry)?.weapon?.dmg : undefined;
   const opt = (hands: 1 | 2, label: string, title: string, greyed: boolean) => h("button", { cls: `fe-mode-opt${g.hands === hands ? " is-on" : ""}${greyed ? " is-blocked" : ""}`, text: label, title,
     data: { hands: String(hands) }, attrs: { "aria-pressed": String(g.hands === hands), ...(greyed ? { "aria-disabled": "true" } : {}) },
     on: { click: () => { if (greyed) ctl.askGrip(item); else ctl.setHands(item, hands); } } });

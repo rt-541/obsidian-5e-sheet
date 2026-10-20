@@ -1,5 +1,5 @@
 import type { Registry } from "../content/registry";
-import type { ItemData } from "../content/types";
+import { entryName } from "../core/item-entry";
 import type { Character } from "../core/character";
 import type { RestCtx, RuleModule } from "./module";
 
@@ -9,7 +9,7 @@ const RATION_NAME = /\bration/i;
 
 /** Index of the inventory entry that is the character's rations, or -1. */
 export function findRations(c: Character, registry: Registry): number {
-  return c.inventory.findIndex(e => (e.id !== undefined && RATION_IDS.includes(e.id)) || RATION_NAME.test(e.name ?? (e.id ? registry.get<ItemData>("item", e.id)?.name ?? "" : "")));
+  return c.inventory.findIndex(e => (e.id !== undefined && RATION_IDS.includes(e.id)) || RATION_NAME.test(e.name ?? (e.id ? entryName(e, registry) : "")));
 }
 
 /** Days of food a Survival check finds: nothing under 10, then one day, and one more for every 5 above 10. */

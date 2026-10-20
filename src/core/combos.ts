@@ -3,6 +3,7 @@ import type { ItemData, SpellData } from "../content/types";
 import type { ActionDef } from "../content/types/ops";
 import { COMBO_ACTIONS, type Character, type Combo, type ComboStep, type ComboUse } from "./character";
 import type { ActorStats, AttackStat, ResourceRow, ToggleRow } from "./derive";
+import { entryItem, entryName } from "./item-entry";
 import { itemWorks, type EffectContext } from "./effects";
 import { fillDice } from "./formula";
 import type { FeatureRow } from "./progression";
@@ -64,7 +65,7 @@ export function comboChoices(c: Character, st: ActorStats, companions: (ActorSta
   const rows = spellRows(c, st, ctx);
   add("Your spells", [...rows.own, ...rows.fromItems].filter(x => x.known).map(x => ({ value: `spell|${x.id}`, label: x.source.kind === "item" ? `${x.name} (from ${x.source.itemName})` : x.name })));
   add("Class and race features", st.progress.features.filter(f => f.action || f.toggle).map(f => ({ value: `feature|${f.key}`, label: `${f.name} (${f.source})` })));
-  add("Items", c.inventory.flatMap(e => e.id ? [{ value: `item|${e.id}`, label: r.get<ItemData>("item", e.id)?.name ?? e.id }] : e.name ? [{ value: `item|${e.name}`, label: e.name }] : []));
+  add("Items", c.inventory.flatMap(e => e.id ? [{ value: `item|${e.id}`, label: entryName(e, r) }] : e.name ? [{ value: `item|${e.name}`, label: e.name }] : []));
   c.companions.forEach((comp, i) => add(`${comp.name}'s attacks`, (companions[i]?.attacks ?? []).map(a => ({ value: `cattack|${i}|${a.name}`, label: a.name }))));
   return groups;
 }
@@ -131,13 +132,13 @@ export function comboViews(c: Character, st: ActorStats, companions: (ActorStats
       }
       if (u.item) {
         const idx = c.inventory.findIndex(e => e.id === u.item || (e.name && same(e.name, u.item!)));
-        const e = c.inventory[idx], it = e?.id ? r.get<ItemData>("item", e.id) : undefined;
+        const e = c.inventory[idx], it = e ? entryItem(e, r) : undefined;
         if (!e) problems.push(`${u.item} is not in your inventory`);
         else {
-          const works = it ? itemWorks(e, it.data) : true, max = it?.data.charges?.max;
+          const works = it ? itemWorks(e, it) : true, max = it?.charges?.max;
           v.item = { id: e.id ?? e.name ?? u.item, name: it?.name ?? e.name ?? u.item, works, ...(max !== undefined ? { charges: { max, left: max - (e.charges?.used ?? 0) } } : {}) };
           if (e.id && it) v.ref = `item:${e.id}`;
-          if (!works) { problems.push(`${v.item.name} is not equipped${it?.data.attunement && !e.attuned ? " and attuned" : ""}`); shortages.push(`${v.item.name} (not equipped${it?.data.attunement && !e.attuned ? " and attuned" : ""})`); }
+          if (!works) { problems.push(`${v.item.name} is not equipped${it?.attunement && !e.attuned ? " and attuned" : ""}`); shortages.push(`${v.item.name} (not equipped${it?.attunement && !e.attuned ? " and attuned" : ""})`); }
         }
       }
       if (u.resource) {

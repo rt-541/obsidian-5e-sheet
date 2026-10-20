@@ -14,6 +14,7 @@ import { titleCase } from "./words";
 import { ABILS, SKILLS, type Abil, type Effects, type Modifier, type RollTarget } from "./types";
 import type { ActionDef, ToggleDef } from "../content/types";
 import { layerRow } from "./customize";
+import { entryItem } from "./item-entry";
 import { ABIL_LONG, abilTerm, modTerms, sgn as signed, sum, type Term } from "./why";
 
 /** How a versatile weapon is held: its main row only. */
@@ -143,7 +144,7 @@ export function deriveCharacter(c: Character, ctx: EffectContext): ActorStats {
   const problem = (msg: string) => { if (!prog.problems.includes(msg)) prog.problems.push(msg); };
   // Each inventory row may carry its own switch and attack option; the registry's item data is copied, never changed.
   const items = c.inventory.map(e => {
-    const reg = e.id ? r.get<ItemData>("item", e.id)?.data : undefined;
+    const reg = entryItem(e, r);
     if (!reg) return { e, it: undefined };
     const l = layerRow(reg.name, { toggle: reg.toggle, attackOption: reg.attackOption }, e.customize, level, problem);
     const it: ItemData = { ...reg }; delete it.toggle; delete it.attackOption;

@@ -5,6 +5,7 @@ import type { ActorStats } from "./derive";
 import type { ConditionData, ItemData, SpellData } from "../content/types";
 import { isVersatile } from "../content/types/item";
 import type { Registry } from "../content/registry";
+import { entryItem, entryName } from "./item-entry";
 import { itemWorks, type EffectContext } from "./effects";
 import { slug } from "../content/registry";
 import { evalFormula } from "./formula";
@@ -87,15 +88,22 @@ function hpChange(hp: Hp, a: Action, max: number): void {
   if (a.type === "temp") hp.temp = Math.max(hp.temp, Math.max(0, a.amount));
 }
 
+/** Indexes of equipped rows that equipping the row at `index` would put away: another suit of armor, another shield. */
+export function rivalsOf(c: Character, index: number, reg: Registry): number[] {
+  const mine = c.inventory[index] ? entryItem(c.inventory[index], reg) : undefined;
+  if (!mine || (!mine.armor && mine.kind !== "shield")) return [];
+  return c.inventory.flatMap((x, i) => {
+    if (i === index || !x.equipped) return [];
+    const d = entryItem(x, reg);
+    return d && ((mine.armor && d.armor) || (mine.kind === "shield" && d.kind === "shield")) ? [i] : [];
+  });
+}
+
 /** Wearing one suit of armor and carrying one shield: equipping a second of either puts the first away. Returns the words for what was unequipped. */
 function putAwayRivals(c: Character, keep: number, lim: Limits): string | undefined {
-  const reg = lim.ctx?.registry, mine = c.inventory[keep]?.id ? reg?.get<ItemData>("item", c.inventory[keep].id!)?.data : undefined;
-  if (!reg || !mine || (!mine.armor && mine.kind !== "shield")) return undefined;
-  const out: string[] = [];
-  c.inventory.forEach((x, i) => {
-    if (i === keep || !x.equipped || !x.id) return;
-    const e = reg.get<ItemData>("item", x.id), d = e?.data;
-    if (d && ((mine.armor && d.armor) || (mine.kind === "shield" && d.kind === "shield"))) { x.equipped = false; x.attuned = false; out.push(`${e!.name} unequipped.`); }
+  const reg = lim.ctx?.registry; if (!reg) return undefined;
+  const out = rivalsOf(c, keep, reg).map(i => {
+    const x = c.inventory[i], name = entryName(x, reg); x.equipped = false; x.attuned = false; return `${name} unequipped.`;
   });
   return out.length ? out.join(" ") : undefined;
 }
@@ -107,13 +115,13 @@ function oneHandAll(c: Character, reg: Registry | undefined): string | undefined
   c.inventory.forEach(x => {
     if (!x.equipped || x.hands !== 2) return;
     delete x.hands;
-    const name = (x.id ? reg.get<ItemData>("item", x.id)?.name : undefined) ?? x.name ?? "Weapon";
+    const name = entryName(x, reg) || "Weapon";
     out.push(`${name} switched to one hand (shield equipped).`);
   });
   return out.length ? out.join(" ") : undefined;
 }
 const isShield = (c: Character, i: number, reg: Registry | undefined): boolean => {
-  const id = c.inventory[i]?.id; return !!(id && reg?.get<ItemData>("item", id)?.data.kind === "shield");
+  const e = c.inventory[i]; return !!(e && reg && entryItem(e, reg)?.kind === "shield");
 };
 const joinNotes = (...n: (string | undefined)[]) => { const t = n.filter(Boolean).join(" "); return t || undefined; };
 
@@ -169,7 +177,7 @@ function cast(c0: Character, c: Character, a: Extract<Action, { type: "cast" }>,
   const reg = lim.ctx?.registry, sp = reg?.get<SpellData>("spell", a.spell)?.data;
   if (!sp) return fail("Spell missing from compendium");
   if (a.item !== undefined) {
-    const e = c.inventory[a.item], it = e?.id ? reg!.get<ItemData>("item", e.id)?.data : undefined;
+    const e = c.inventory[a.item], it = e ? entryItem(e, reg!) : undefined;
     if (!e || !it || !itemWorks(e, it)) return fail("That item isn't working");
     const g = it.grants?.spells.find(x => x.id === a.spell);
     if (!g) return fail("That item doesn't grant this spell");
@@ -345,17 +353,17 @@ export function apply(c0: Character, a: Action, lim: Limits): Applied {
     case "hands": {
       const e = c.inventory[a.index]; if (!e) break;
       if (a.hands === 1) { delete e.hands; break; }
-      const reg = lim.ctx?.registry, w = e.id ? reg?.get<ItemData>("item", e.id)?.data.weapon : undefined;
+      const reg = lim.ctx?.registry, w = reg ? entryItem(e, reg)?.weapon : undefined;
       if (!w || !isVersatile(w)) return { value: c0, error: "This weapon cannot be held in two hands." };
       const shields = c.inventory.map((_, i) => i).filter(i => c.inventory[i].equipped && isShield(c, i, reg));
       if (shields.length && !a.putAwayShield) return { value: c0, error: "Put away your shield to use two hands." };
       const notes: string[] = [];
       for (const i of shields) {
         const sh = c.inventory[i]; sh.equipped = false; sh.attuned = false;
-        notes.push(`${reg!.get<ItemData>("item", sh.id!)!.name} put away.`);
+        notes.push(`${entryName(sh, reg!)} put away.`);
       }
       e.hands = 2;
-      if (notes.length) notes.push(`${reg!.get<ItemData>("item", e.id!)!.name} in two hands.`);
+      if (notes.length) notes.push(`${entryName(e, reg!)} in two hands.`);
       return { value: c, ...(notes.length ? { note: notes.join(" ") } : {}) };
     }
     case "attune": {

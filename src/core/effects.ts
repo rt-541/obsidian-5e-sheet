@@ -1,6 +1,7 @@
 import type { Registry } from "../content/registry";
 import type { CampaignData, ConditionData, ItemData, ToggleDef } from "../content/types";
 import type { InventoryEntry } from "./character";
+import { entryItem } from "./item-entry";
 import { layerRow } from "./customize";
 import { evalFormula } from "./formula";
 import { matchesTag } from "./roll-tags";
@@ -31,7 +32,7 @@ export function collectEffects(a: ActorLike, ctx: EffectContext): SourcedEffects
   }
   for (const e of a.inventory ?? []) {
     if (!e.id) continue;
-    const it = r.get<ItemData>("item", e.id)?.data;
+    const it = entryItem(e, r);
     if (it && itemWorks(e, it) && Object.keys(it.effects).length) { const tg = itemToggle(it, e); out.push({ source: it.name, effects: tg ? gatedByToggle(it.effects, tg) : it.effects }); }
   }
   for (const m of a.modifiers) out.push({ source: m.source ?? "Modifier", effects: { modifiers: [m] } });

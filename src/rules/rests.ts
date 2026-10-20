@@ -1,10 +1,11 @@
 import type { ItemData } from "../content/types";
-import type { Character } from "../core/character";
+import type { Character, InventoryEntry } from "../core/character";
+import { entryItem } from "../core/item-entry";
 import type { RestCtx, RestDef, RestOptions, RuleModule } from "./module";
 
 const exhaustionDown = (c: Character) => { if (c.conditions.exhaustion) { c.conditions.exhaustion--; if (!c.conditions.exhaustion) delete c.conditions.exhaustion; } };
 const hpMaxAfterExhaustion = (ctx: RestCtx) => (ctx.c.conditions.exhaustion ?? 0) - 1 >= 4 ? Math.floor(ctx.stats.hpFull / 2) : ctx.stats.hpFull;
-const itemName = (ctx: RestCtx, id?: string) => (id && ctx.registry.get<ItemData>("item", id)?.data) || undefined;
+const itemName = (ctx: RestCtx, e: InventoryEntry): ItemData | undefined => entryItem(e, ctx.registry);
 
 /** Switches (Rage, stances) that end with this kind of rest; a long rest ends the short ones too. */
 function endToggles(ctx: RestCtx, c: Character | null, kinds: ("short" | "long")[]): string[] {
@@ -16,7 +17,7 @@ function endToggles(ctx: RestCtx, c: Character | null, kinds: ("short" | "long")
 function shortParts(ctx: RestCtx, c: Character | null): string[] {
   const out: string[] = endToggles(ctx, c, ["short"]);
   (c ?? ctx.c).resources.forEach(r => { if (r.reset === "short" && r.used) { out.push(`${r.name} recharges`); if (c) r.used = 0; } });
-  ctx.c.inventory.forEach((e, i) => { const it = itemName(ctx, e.id); if (it?.charges?.reset === "short" && e.charges?.used) { out.push(`${it.name}: charges restored`); if (c) c.inventory[i].charges = { used: 0 }; } });
+  ctx.c.inventory.forEach((e, i) => { const it = itemName(ctx, e); if (it?.charges?.reset === "short" && e.charges?.used) { out.push(`${it.name}: charges restored`); if (c) c.inventory[i].charges = { used: 0 }; } });
   for (const r of ctx.stats.resources) {
     if (!r.derived || !r.used) continue;
     const flag = `refill.${r.id}`;
@@ -41,7 +42,7 @@ function dawnParts(ctx: RestCtx, c: Character | null): string[] {
   const out: string[] = [];
   ctx.c.resources.forEach((r, i) => { if (r.reset === "dawn" && r.used) { out.push(`${r.name} recharges`); if (c) c.resources[i].used = 0; } });
   for (const r of ctx.stats.resources) if (r.derived && r.reset === "dawn" && r.used) { out.push(`${r.name} recharges`); if (c) delete c.uses[r.id]; }
-  ctx.c.inventory.forEach((e, i) => { const it = itemName(ctx, e.id);
+  ctx.c.inventory.forEach((e, i) => { const it = itemName(ctx, e);
     if (it?.charges?.reset === "dawn" && e.charges?.used) { out.push(`${it.name}: charges restored`); if (c) c.inventory[i].charges = { used: 0 }; } });
   return out;
 }
@@ -58,9 +59,9 @@ function bigParts(ctx: RestCtx, c: Character | null, allHitDice: boolean): strin
   const total = ctx.stats.hitDice.reduce((a, h) => a + h.max, 0), used = ctx.stats.hitDice.reduce((a, h) => a + h.used, 0);
   let regain = Math.min(used, allHitDice ? used : Math.max(1, Math.floor(total / 2)));
   if (regain) out.push(allHitDice ? "All Hit Dice" : `Regain ${regain} Hit Dice`);
-  ctx.c.inventory.forEach(e => { const it = itemName(ctx, e.id);
+  ctx.c.inventory.forEach(e => { const it = itemName(ctx, e);
     if (it && Object.values(e.spellUses ?? {}).some(n => n > 0)) out.push(`${it.name}: daily spell uses restored`); });
-  ctx.c.inventory.forEach(e => { const it = itemName(ctx, e.id);
+  ctx.c.inventory.forEach(e => { const it = itemName(ctx, e);
     if (it?.charges && e.charges?.used && (it.charges.reset === "long" || it.charges.reset === "short" || (it.charges.reset === "dawn" && !ctx.rules["holy-days"]))) out.push(`${it.name}: charges restored`); });
   if (c) {
     exhaustionDown(c);
@@ -73,7 +74,7 @@ function bigParts(ctx: RestCtx, c: Character | null, allHitDice: boolean): strin
       const back = Math.min(h.used, regain); regain -= back; c.hitDice[h.die] = { used: h.used - back };
     }
     c.inventory.forEach(e => { delete e.spellUses; });   // per-day item spells come back on any long rest
-    c.inventory.forEach((e, i) => { const it = itemName(ctx, e.id);
+    c.inventory.forEach((e, i) => { const it = itemName(ctx, e);
       if (it?.charges && e.charges && (it.charges.reset === "long" || it.charges.reset === "short" || (it.charges.reset === "dawn" && !ctx.rules["holy-days"]))) c.inventory[i].charges = { used: 0 }; });
   }
   return out;

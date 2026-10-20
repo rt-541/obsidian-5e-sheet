@@ -1,4 +1,5 @@
 import { itemPinRef } from "../core/actions";
+import { entryItem } from "../core/item-entry";
 import type { ItemData } from "../content/types";
 import type { ActorStats } from "../core/derive";
 import type { SheetController } from "./controller";
@@ -24,10 +25,10 @@ export function itemPinButton(ctl: SheetController, ref: string): HTMLElement {
  * deleted: it stays in the list, greyed out with "none left" / "no charges left", and comes back when restocked or recharged.
  */
 export function itemState(ctl: SheetController, index: number) {
-  const e = ctl.character!.inventory[index], it = e.id ? ctl.host.registry.get<ItemData>("item", e.id) : undefined;
+  const e = ctl.character!.inventory[index], it = entryItem(e, ctl.host.registry);
   const name = it?.name ?? e.name ?? `${e.id} (missing from compendium)`;
-  const charges = it?.data.charges && (!it.data.attunement || e.attuned) ? it.data.charges : undefined;
-  const consumable = e.consumable ?? (it?.data.kind === "consumable");
+  const charges = it?.charges && (!it.attunement || e.attuned) ? it.charges : undefined;
+  const consumable = e.consumable ?? (it?.kind === "consumable");
   const outOfStock = consumable && e.qty <= 0, outOfCharges = !!charges && (e.charges?.used ?? 0) >= charges.max;
   const usedUp = outOfStock || outOfCharges;
   const upWord = outOfStock ? "none left" : outOfCharges ? "no charges left" : "";
@@ -78,7 +79,7 @@ function itemMenu(ctl: SheetController, index: number, s: ReturnType<typeof item
 
 /** A stack of ordinary things (potions, rope, daggers) can be counted up and down; one-of-a-kind gear (armor, attuned or charged items) cannot. */
 export function isStackable(ctl: SheetController, index: number): boolean {
-  const e = ctl.character!.inventory[index], it = e.id ? ctl.host.registry.get<ItemData>("item", e.id)?.data : undefined;
+  const e = ctl.character!.inventory[index], it = entryItem(e, ctl.host.registry);
   if (!it) return !!e.name;
   return it.kind !== "armor" && it.kind !== "shield" && !it.armor && !it.attunement && !it.charges;
 }
@@ -98,13 +99,13 @@ export function inventoryFeature(ctl: SheetController, st: ActorStats): HTMLElem
   return card("Inventory", addItemButton(ctl), coinsRow(ctl), ...c.inventory.map((e, i) => {
     const s = itemState(ctl, i), it = s.it, name = s.name, stack = isStackable(ctl, i);
     return h("div", { cls: `fe-inv ${it || e.name ? "" : "is-missing"} ${s.usedUp ? "is-used-up" : ""}`.replace(/\s+/g, " ").trim(), data: { item: String(i) } },
-      h("div", { cls: "fe-grow" }, h("span", { cls: "fe-inv-name", text: name, ...(it && e.id ? { data: { ref: `item:${e.id}` } } : {}) }), it?.source === "vault" ? h("span", { cls: "fe-src", text: "Homebrew" }) : null,
-        h("div", { cls: "fe-faint", text: [!stack && e.qty > 1 ? `x${e.qty}` : "", s.upWord, it?.data.rarity ?? "", it?.data.attunement ? (e.attuned ? "attuned" : "requires attunement") : ""].filter(Boolean).join(" · ") })),
+      h("div", { cls: "fe-grow" }, h("span", { cls: "fe-inv-name", text: name, ...(it && e.id ? { data: { ref: `item:${e.id}` } } : {}) }), (e.id && ctl.host.registry.get("item", e.id)?.source) === "vault" ? h("span", { cls: "fe-src", text: "Homebrew" }) : null,
+        h("div", { cls: "fe-faint", text: [!stack && e.qty > 1 ? `x${e.qty}` : "", s.upWord, it?.rarity ?? "", it?.attunement ? (e.attuned ? "attuned" : "requires attunement") : ""].filter(Boolean).join(" · ") })),
       stack ? qtyStepper(ctl, i, name) : null,
       s.useBtn(),
       ...s.actionBtns(),
-      it && it.data.kind !== "gear" && it.data.kind !== "consumable" ? btn(e.equipped ? "Equipped" : "Equip", () => ctl.dispatch({ type: "equip", index: i, on: !e.equipped }), e.equipped ? "is-on" : "") : null,
-      it?.data.attunement ? btn(e.attuned ? "Attuned" : "Attune", () => ctl.dispatch({ type: "attune", index: i, on: !e.attuned }), e.attuned ? "is-on" : "") : null,
+      it && it.kind !== "gear" && it.kind !== "consumable" ? btn(e.equipped ? "Equipped" : "Equip", () => ctl.dispatch({ type: "equip", index: i, on: !e.equipped }), e.equipped ? "is-on" : "") : null,
+      it?.attunement ? btn(e.attuned ? "Attuned" : "Attune", () => ctl.dispatch({ type: "attune", index: i, on: !e.attuned }), e.attuned ? "is-on" : "") : null,
       itemPinButton(ctl, itemRef(e)),
       itemMenuButton(ctl, i, name),
       ctl.itemMenu === i ? itemMenu(ctl, i, s) : null);

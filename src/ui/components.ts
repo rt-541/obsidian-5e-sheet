@@ -1,4 +1,5 @@
 import { titleCase } from "../core/words";
+import { entryItem } from "../core/item-entry";
 import type { ConditionData, CreatureData, ItemData } from "../content/types";
 import type { ActorStats } from "../core/derive";
 import { ABILS, type Abil, type Effects } from "../core/types";
@@ -194,7 +195,7 @@ export const RENDER: Record<string, Render> = {
     : "No spell save DC"))),
   "spell-slots": (ctl, st) => hideUnless(castsSpells(ctl, st), card("Spell slots", ...slotRows(ctl, st))),
   resources: (ctl, st) => { const c = ctl.character!, r = ctl.host.registry;
-    const charged = c.inventory.map((e, i) => ({ e, i, it: e.id ? r.get<ItemData>("item", e.id)?.data : undefined })).filter(x => x.it?.charges && (!x.it.attunement || x.e.attuned));
+    const charged = c.inventory.map((e, i) => ({ e, i, it: entryItem(e, r) })).filter(x => x.it?.charges && (!x.it.attunement || x.e.attuned));
     const pinned = pinnedTraits(ctl, st), derived = st.resources.filter(x => x.derived && !pinned.covered.has(x.id));
     const derivedIds = new Set(st.resources.filter(x => x.derived).map(x => x.id));
     const items = pinnedItems(ctl), itemRows = items.map(x => x.row);

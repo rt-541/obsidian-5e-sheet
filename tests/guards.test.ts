@@ -19,6 +19,10 @@ describe("architecture guards", () => {
     for (const d of ["src/ui", "src/obsidian"].filter(exists))
       for (const f of files(d)) expect(readFileSync(f, "utf8"), f).not.toMatch(/innerHTML|outerHTML|insertAdjacentHTML/);
   });
+  it("inventory items are read through the resolver, not straight from the registry", () => {
+    const ok = ["src/core/item-entry.ts", "src/ui/details.ts", "src/obsidian/save-item.ts"];
+    for (const f of files("src")) if (!ok.includes(f.replace(/\\/g, "/"))) expect(readFileSync(f, "utf8"), f).not.toContain('get<ItemData>("item"');
+  });
   it("every text box has a type, so Obsidian styles it", () => {
     for (const f of files("src/ui")) for (const call of readFileSync(f, "utf8").split('h("input"').slice(1))
       expect(call.slice(0, Math.max(0, call.indexOf("on:")) || 300), f).toMatch(/type:/);

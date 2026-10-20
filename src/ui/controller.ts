@@ -5,6 +5,7 @@ import type { SpellDraft } from "../content/spell-note";
 import type { CampaignData, ItemData, LevelingMode, SpellData } from "../content/types";
 import { apply, applyNpc, customItemProblem, itemPinRef, type Action, type Limits } from "../core/actions";
 import type { Character, Combo, Npc, Parsed } from "../core/character";
+import { entryItem } from "../core/item-entry";
 import { blankCombo, validateCombo } from "../core/combos";
 import { customizeKey, layerRow, type Customization, type RowDefs } from "../core/customize";
 import { customizationFrom, formFrom, formProblem, type CustomizeForm } from "./customize-form";
@@ -154,7 +155,7 @@ export class SheetController {
     return { self: this.stats()!, companions: this.companionStats(),
       derive: v => deriveCharacter(v, this.ctx()), deriveCompanion: e => deriveCompanion(e, this.ctx()),
       ctx: this.ctx(),
-      chargesMax: i => { const id = c?.inventory[i]?.id; return (id && this.host.registry.get<ItemData>("item", id)?.data.charges?.max) || 0; } };
+      chargesMax: i => { const e = c?.inventory[i]; return (e && entryItem(e, this.host.registry)?.charges?.max) || 0; } };
   }
 
   private commit(v: Character | Npc) { this.value = v; this.host.save(v); this.emit(); }
@@ -193,7 +194,7 @@ export class SheetController {
   addItem(id: string): boolean {
     const had = this.character?.inventory.find(e => e.id === id)?.qty ?? 0;
     if (!this.dispatch({ type: "addItem", id }).ok) return false;
-    const name = this.host.registry.get<ItemData>("item", id)?.name ?? id;
+    const name = this.host.registry.get("item", id)?.name ?? id;
     this.host.notify(had ? `Added ${name} (now ${had + 1})` : `Added ${name}.`);
     return true;
   }
@@ -205,20 +206,20 @@ export class SheetController {
   useItem(index: number): boolean {
     const c = this.character, e = c?.inventory[index];
     if (!c || !e || e.qty <= 0) return false;
-    const it = e.id ? this.host.registry.get<ItemData>("item", e.id) : undefined, name = it?.name ?? e.name ?? "Item", left = e.qty - 1;
-    if (!it?.data.heal) {
+    const it = entryItem(e, this.host.registry), name = it?.name ?? e.name ?? "Item", left = e.qty - 1;
+    if (!it?.heal) {
       this.dispatch({ type: "itemQty", index, qty: left });
       this.host.notify(left > 0 ? `Used ${name}: ${left} left.` : `Used ${name}: none left. It stays in your inventory, greyed out.`);
       return true;
     }
     if (this.ownDice()) {
-      const expr = it.data.heal, title = `${name} healing`;
+      const expr = it.heal, title = `${name} healing`;
       this.askTotal({ title, say: damageWords({ expr }), min: 0, roll: () => Number(rollDice(title, expr, this.host.rng).total),
         apply: n => { const now = this.character?.inventory[index]; if (now && now.id === e.id && now.qty > 0) this.healWith(index, name, n); } });
       return true;
     }
     let rolled: number;
-    try { rolled = Number(this.damage(`${name} healing`, it.data.heal).total); }
+    try { rolled = Number(this.damage(`${name} healing`, it.heal).total); }
     catch (x) { this.host.notify(`${name}: ${(x as Error).message}`); return false; }
     return this.healWith(index, name, rolled);
   }
@@ -284,7 +285,7 @@ export class SheetController {
   /** Remove the entry (after the Yes tap); its pin goes with it. */
   removeItemAt(index: number): boolean {
     const e = this.character?.inventory[index]; if (!e) return false;
-    const name = this.host.registry.get<ItemData>("item", e.id ?? "")?.name ?? e.name ?? "Item";
+    const name = entryItem(e, this.host.registry)?.name ?? e.name ?? "Item";
     this.itemMenu = null; this.confirmRemove = false;
     if (!this.dispatch({ type: "removeItem", index }).ok) return false;
     this.host.notify(`Removed ${name}.`); return true;
@@ -335,7 +336,7 @@ export class SheetController {
       this.customItem = blankCustomItem();
       if (!this.dispatch({ type: "addItem", id }).ok) return false;
       if (qty > 1) { const i = this.character.inventory.findIndex(e => e.id === id); if (i >= 0) this.dispatch({ type: "itemQty", index: i, qty }); }
-      this.host.notify(`Saved ${this.host.registry.get<ItemData>("item", id)?.name ?? draft.name} to your Homebrew items and added it.`);
+      this.host.notify(`Saved ${this.host.registry.get("item", id)?.name ?? draft.name} to your Homebrew items and added it.`);
       return true;
     } catch (x) { f.error = x instanceof Error ? x.message : String(x); this.emit(); return false; }
   }
@@ -411,7 +412,7 @@ export class SheetController {
       return { name: t.name, note: row.noteDefs ?? effective, effective, ...(mine ? { mine } : {}), pinRef: t.pinRef,
         save: value => ({ type: "customize", key: ref, ...(value ? { value } : {}) }), own: r => r.ref === ref };
     }
-    const e = c.inventory[t.index], reg = e?.id ? this.host.registry.get<ItemData>("item", e.id)?.data : undefined;
+    const e = c.inventory[t.index], reg = e ? entryItem(e, this.host.registry) : undefined;
     // a hand-made item (name only) has no note: it can still get a Use button
     if (!e || (!reg && (e.id || !e.name))) return undefined;
     const note: RowDefs = reg ? { ...(reg.toggle ? { toggle: reg.toggle } : {}), ...(reg.attackOption ? { attackOption: reg.attackOption } : {}) } : {};
@@ -506,7 +507,7 @@ export class SheetController {
     const out = this.dispatch({ type: "cast", spell, ...(level !== undefined ? { level } : {}), ...(item !== undefined ? { item } : {}) });
     if (!out.ok) return false;
     const lvl = level ?? sp?.data.level ?? 0, c = this.character;
-    const g = item !== undefined && c?.inventory[item]?.id ? this.host.registry.get<ItemData>("item", c.inventory[item].id!)?.data.grants?.spells.find(x => x.id === spell) : undefined;
+    const row = item !== undefined ? c?.inventory[item] : undefined, g = row ? entryItem(row, this.host.registry)?.grants?.spells.find(x => x.id === spell) : undefined;
     const spent = item !== undefined ? (g?.cost.kind === "charges" ? "charge spent" : g?.cost.kind === "perDay" ? "daily use spent" : "at will") : lvl >= 1 ? "slot spent" : "cantrip";
     this.record({ title: `Cast ${sp?.name ?? spell} (${item === undefined && lvl >= 1 ? `level ${lvl}, ` : ""}${spent})`, total: 0, dice: [],
       detail: out.note ?? "", crit: false, fumble: false, sources: { adv: [], dis: [], fail: [] } });

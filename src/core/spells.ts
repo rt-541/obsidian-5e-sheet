@@ -2,6 +2,7 @@ import type { GrantedSpell, ItemData, SpellData } from "../content/types";
 import type { Character } from "./character";
 import type { ActorStats } from "./derive";
 import { parseDice } from "./dice";
+import { entryItem } from "./item-entry";
 import { itemWorks, type EffectContext } from "./effects";
 import { evalFormula, fillDice } from "./formula";
 
@@ -80,7 +81,7 @@ export function spellRows(c: Character, stats: ActorStats, ctx: EffectContext): 
   const fromItems: SpellRow[] = [];
   c.inventory.forEach((e, itemIndex) => {
     if (!e.id) return;
-    const it = r.get<ItemData>("item", e.id)?.data;
+    const it = entryItem(e, r);
     if (!it || !itemWorks(e, it)) return;
     for (const g of it.grants?.spells ?? []) {
       const source: SpellRow["source"] = { kind: "item", itemIndex, itemName: it.name, cost: g.cost,
