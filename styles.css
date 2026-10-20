@@ -386,4 +386,4 @@
 .fe-base-pick { display: grid; gap: 6px; }
 .fe-sheet .fe-base-pick button.fe-btn { height: auto; min-height: 36px; text-align: left; white-space: normal; }
 .fe-sheet .fe-base-pick button.fe-btn[disabled] { opacity: 0.5; cursor: not-allowed; }
-.is-mobile .fe-sheet .fe-base-pick button.fe-btn, .is-tablet .fe-sheet .fe-base-pick button.fe-btn { min-height: 44px; }
+.fe-mobile .fe-base-pick button.fe-btn, .fe-tablet .fe-base-pick button.fe-btn { min-height: 44px; }
