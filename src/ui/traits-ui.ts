@@ -5,6 +5,7 @@ import type { Character } from "../core/character";
 import type { ActorStats } from "../core/derive";
 import type { FeatureRow } from "../core/progression";
 import type { SheetController } from "./controller";
+import { customizeButton } from "./customize-ui";
 import { h } from "./h";
 import { btn, card, describeEffects, usesPips, wordsCtx, type WordsCtx } from "./widgets";
 
@@ -90,6 +91,8 @@ function traitRow(ctl: SheetController, st: ActorStats, t: TraitRow, withLevel: 
       withLevel && t.level ? h("span", { cls: "fe-faint", text: ` Lv ${t.level}` }) : null,
       t.summary ? h("div", { cls: "fe-faint", text: t.summary }) : null),
     ...usesAndActs(ctl, traitParts(st, t)),
+    t.rows.some(r => r.custom) ? h("span", { cls: "fe-chip", text: "changed" }) : null,
+    t.rows.length ? customizeButton(ctl, { kind: "feature", key: t.rows[0].key, name: t.name, pinRef: t.ref }) : null,
     ctl.character ? pinButton(ctl, t.ref) : null);
 }
 

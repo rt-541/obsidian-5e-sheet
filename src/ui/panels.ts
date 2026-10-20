@@ -11,6 +11,7 @@ import { levelUpPanel } from "./levelup-ui";
 import { addSpellPanel, castPanel } from "./spells-ui";
 import { addCompanionPanel } from "./companion-ui";
 import { addItemPanel } from "./additem-ui";
+import { customizePanel as customizeRowPanel } from "./customize-ui";
 
 let condFilter: "all" | "active" | "srd" | "vault" = "all", condQuery = "";
 
@@ -115,9 +116,9 @@ const TITLES: Record<Panel["kind"], string> = { conditions: "Conditions", log: "
 
 export function renderPanel(ctl: SheetController, p: Panel, features: readonly string[]): HTMLElement {
   const body = p.kind === "conditions" ? conditionsPanel(ctl, p.who) : p.kind === "rest" ? restPanel(ctl, p.id) : p.kind === "compendium" ? addItemPanel(ctl)
-    : p.kind === "details" ? detailsPanel(ctl, p.ref) : p.kind === "cast" ? castPanel(ctl, p.spell) : p.kind === "add-spell" ? addSpellPanel(ctl, p) : p.kind === "add-companion" ? addCompanionPanel(ctl, p) : p.kind === "customize" ? customizePanel(ctl, features) : p.kind === "level-up" ? levelUpPanel(ctl) : p.kind === "combo-edit" ? comboForm(ctl) : logPanel(ctl);
+    : p.kind === "details" ? detailsPanel(ctl, p.ref) : p.kind === "cast" ? castPanel(ctl, p.spell) : p.kind === "add-spell" ? addSpellPanel(ctl, p) : p.kind === "add-companion" ? addCompanionPanel(ctl, p) : p.kind === "customize" ? customizePanel(ctl, features) : p.kind === "level-up" ? levelUpPanel(ctl) : p.kind === "combo-edit" ? comboForm(ctl) : p.kind === "customize-row" ? customizeRowPanel(ctl, ctl.stats()!) : logPanel(ctl);
   const title = p.kind === "add-spell" && p.edit ? (p.edit.mode === "edit" ? "Edit spell" : "Make my own copy") : TITLES[p.kind];
   return h("div", { cls: "fe-panel", data: { panel: p.kind } },
-    h("div", { cls: "fe-panel-head" }, h("span", { cls: "fe-grow fe-name", text: title }), h("button", { cls: "fe-btn", text: "Close", on: { click: () => (p.kind === "combo-edit" ? ctl.cancelComboEdit() : ctl.close()) } })),
+    h("div", { cls: "fe-panel-head" }, h("span", { cls: "fe-grow fe-name", text: title }), h("button", { cls: "fe-btn", text: "Close", on: { click: () => (p.kind === "combo-edit" ? ctl.cancelComboEdit() : p.kind === "customize-row" ? ctl.cancelCustomize() : ctl.close()) } })),
     h("div", { cls: "fe-panel-body" }, body));
 }

@@ -51,3 +51,13 @@ describe("leveling styles", () => {
     expect(css).toContain(".fe-sheet button.fe-choice { display: block; width: 100%;");
   });
 });
+
+describe("customize form", () => {
+  it("has segment buttons that beat Obsidian's button rules", () => {
+    expect(css).toContain(".fe-sheet button.fe-cz-seg");
+  });
+  it("keeps 44px Customize buttons on tablet and phone", () => {
+    const rule = css.split("\n").find(l => l.includes(".fe-tablet") && l.includes('[data-act="customize"]') && l.includes(".fe-mobile")) ?? "";
+    expect(rule).toContain("min-height: 44px");
+  });
+});

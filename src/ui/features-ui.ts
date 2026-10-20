@@ -3,6 +3,7 @@ import { planResolve } from "../core/levelup";
 import type { FeatureRow } from "../core/progression";
 import type { Abil } from "../core/types";
 import type { SheetController } from "./controller";
+import { customizeButton } from "./customize-ui";
 import { h } from "./h";
 import { actionWords, btn, card, describeEffects, usesPips, wordsCtx } from "./widgets";
 import { changeList } from "./levelup-ui";
@@ -83,7 +84,9 @@ export function featuresFeature(ctl: SheetController, st: ActorStats): HTMLEleme
   const featureRow = (f: FeatureRow) => h("div", { cls: "fe-kv", data: { key: f.key } },
     h("span", { cls: "fe-inv-name", text: f.name, data: { ref: `feature:${f.key}` } }),
     f.overlay ? h("span", { cls: "fe-auto", text: "Automatic", attrs: { title: `The plugin supplied these numbers (${f.overlay}). Your note does not have any for this feature.` }, data: { builtin: f.overlay } }) : null,
-    h("span", { cls: "fe-muted", text: describeEffects(f.effects, wc) }));
+    h("span", { cls: "fe-muted", text: describeEffects(f.effects, wc) }),
+    f.custom ? h("span", { cls: "fe-chip", text: "changed" }) : null,
+    customizeButton(ctl, { kind: "feature", key: f.key, name: f.name, pinRef: `feature:${f.key}` }));
   const group = ([source, list]: [string, FeatureRow[]]) => h("div", { cls: "fe-feature-group", data: { source } }, h("div", { cls: "fe-faint", text: source }), ...list.map(featureRow));
   cards.push(card("Features", ...(groups.size ? [...groups].map(group) : [h("div", { cls: "fe-faint", text: "No class features yet." })])));
   if (p.problems.length || p.unknown.length) cards.push(card("Problems",

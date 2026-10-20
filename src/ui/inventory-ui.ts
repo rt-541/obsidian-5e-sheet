@@ -3,6 +3,7 @@ import type { ItemData } from "../content/types";
 import type { ActorStats } from "../core/derive";
 import type { SheetController } from "./controller";
 import { coinsRow } from "./coins-ui";
+import { customizeButton } from "./customize-ui";
 import { h } from "./h";
 import { btn, card, pips } from "./widgets";
 
@@ -35,7 +36,14 @@ export function itemState(ctl: SheetController, index: number) {
     const b = btn(e.qty > 0 ? "Use one" : "None left", () => ctl.useItem(index));
     b.dataset.act = "use-item"; (b as HTMLButtonElement).disabled = e.qty <= 0; return b;
   };
-  return { e, it, name, charges, consumable, usedUp, upWord, useBtn };
+  /** One Use button per Use action the row has (from its Customize form), greyed out when its charges are spent. */
+  const actionBtns = () => (ctl.stats()?.itemActions ?? []).filter(a => a.index === index).map(a => {
+    const cost = a.action.cost, spent = !!cost && "charges" in cost && (e.charges?.used ?? 0) + cost.charges > ctl.limits().chargesMax(index);
+    const b = btn(`Use ${a.action.name}`, () => ctl.useAction(a, index));
+    b.dataset.act = "use-item-action"; if (spent) { (b as HTMLButtonElement).disabled = true; b.title = "No charges left"; }
+    return b;
+  });
+  return { e, it, name, charges, consumable, usedUp, upWord, useBtn, actionBtns };
 }
 
 
@@ -60,6 +68,7 @@ function itemMenu(ctl: SheetController, index: number, s: ReturnType<typeof item
   return h("div", { cls: "fe-item-menu", data: { menu: String(index) } },
     h("label", { cls: "fe-kv" }, h("span", { text: "Consumable (used up when used)" }), sw),
     h("label", { cls: "fe-kv" }, h("span", { text: "Quantity" }), qty),
+    customizeButton(ctl, { kind: "item", index }),
     ctl.confirmRemove
       ? h("div", { cls: "fe-kv fe-confirm", data: { note: "remove-confirm" } }, h("span", { text: `Remove ${s.name}?` }),
         h("span", { cls: "fe-lvl" }, ((y) => { y.dataset.act = "remove-yes"; return y; })(btn("Yes", () => ctl.removeItemAt(index), "fe-dmg")),
@@ -93,6 +102,7 @@ export function inventoryFeature(ctl: SheetController, st: ActorStats): HTMLElem
         h("div", { cls: "fe-faint", text: [!stack && e.qty > 1 ? `x${e.qty}` : "", s.upWord, it?.data.rarity ?? "", it?.data.attunement ? (e.attuned ? "attuned" : "requires attunement") : ""].filter(Boolean).join(" · ") })),
       stack ? qtyStepper(ctl, i, name) : null,
       s.useBtn(),
+      ...s.actionBtns(),
       it && it.data.kind !== "gear" && it.data.kind !== "consumable" ? btn(e.equipped ? "Equipped" : "Equip", () => ctl.dispatch({ type: "equip", index: i, on: !e.equipped }), e.equipped ? "is-on" : "") : null,
       it?.data.attunement ? btn(e.attuned ? "Attuned" : "Attune", () => ctl.dispatch({ type: "attune", index: i, on: !e.attuned }), e.attuned ? "is-on" : "") : null,
       itemPinButton(ctl, itemRef(e)),

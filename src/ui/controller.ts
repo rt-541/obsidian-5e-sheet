@@ -412,10 +412,12 @@ export class SheetController {
         save: value => ({ type: "customize", key: ref, ...(value ? { value } : {}) }), own: r => r.ref === ref };
     }
     const e = c.inventory[t.index], reg = e?.id ? this.host.registry.get<ItemData>("item", e.id)?.data : undefined;
-    if (!e || !reg) return undefined;
-    const note: RowDefs = { ...(reg.toggle ? { toggle: reg.toggle } : {}), ...(reg.attackOption ? { attackOption: reg.attackOption } : {}) };
-    const l = layerRow(reg.name, note, e.customize, st.level, () => undefined);
-    return { name: reg.name, note, effective: { ...(l.toggle ? { toggle: l.toggle } : {}), ...(l.attackOption ? { attackOption: l.attackOption } : {}), ...(l.action ? { action: l.action } : {}) },
+    // a hand-made item (name only) has no note: it can still get a Use button
+    if (!e || (!reg && (e.id || !e.name))) return undefined;
+    const note: RowDefs = reg ? { ...(reg.toggle ? { toggle: reg.toggle } : {}), ...(reg.attackOption ? { attackOption: reg.attackOption } : {}) } : {};
+    const itemName = reg ? reg.name : e.name!;
+    const l = layerRow(itemName, note, e.customize, st.level, () => undefined);
+    return { name: itemName, note, effective: { ...(l.toggle ? { toggle: l.toggle } : {}), ...(l.attackOption ? { attackOption: l.attackOption } : {}), ...(l.action ? { action: l.action } : {}) },
       ...(e.customize ? { mine: e.customize } : {}), pinRef: itemPinRef(e),
       save: value => ({ type: "customizeItem", index: t.index, ...(value ? { value } : {}) }), own: r => r.itemIndex === t.index };
   }

@@ -99,7 +99,7 @@ function pinnedItems(ctl: SheetController): { index: number; row: HTMLElement }[
         s.consumable || e.qty > 1 ? h("span", { cls: "fe-faint", text: ` x${e.qty}` }) : null,
         s.upWord ? h("span", { cls: "fe-faint fe-used-up", text: ` · ${s.upWord}` }) : null),
       s.charges ? pips(s.charges.max, e.charges?.used ?? 0, n => ctl.dispatch({ type: "charges", index, used: n })) : null,
-      s.useBtn()) }];
+      s.useBtn(), ...s.actionBtns()) }];
   });
 }
 

@@ -368,3 +368,14 @@
 .fe-sheet .fe-own-hit button.fe-own-crit { background: transparent; color: var(--interactive-accent); border: 2px solid var(--interactive-accent); }
 .fe-mobile .fe-own-roll { left: 12px; right: 12px; bottom: 12px; width: auto; transform: none; }
 .fe-sheet.fe-tablet .fe-own-roll button.fe-btn, .fe-sheet.fe-mobile .fe-own-roll button.fe-btn, .fe-tablet .fe-own-roll input, .fe-mobile .fe-own-roll input { min-height: 44px; }
+
+/* Customize form */
+.fe-cz-form { display: grid; gap: 10px; } .fe-cz-section { display: grid; gap: 6px; padding-bottom: 8px; border-bottom: 1px solid var(--background-modifier-border); }
+.fe-cz-body { display: grid; gap: 8px; padding-left: 8px; } .fe-cz-row { display: grid; gap: 4px; }
+.fe-cz-segs { display: flex; flex-wrap: wrap; gap: 4px; } .fe-cz-level { display: flex; gap: 6px; align-items: center; }
+.fe-sheet button.fe-cz-seg { flex: 0 1 auto; } .fe-sheet button.fe-cz-seg.is-on { background: var(--interactive-accent); color: var(--text-on-accent); }
+.fe-cz-footer { display: flex; flex-wrap: wrap; gap: 8px; }
+.fe-sheet button.fe-btn[data-act="use-item-action"]:disabled { opacity: .5; }
+.fe-tablet .fe-sheet button.fe-btn[data-act="customize"], .fe-mobile .fe-sheet button.fe-btn[data-act="customize"], .fe-tablet button.fe-btn[data-act="customize"], .fe-mobile button.fe-btn[data-act="customize"] { min-height: 44px; }
+.fe-tablet .fe-cz-form input:not([type="checkbox"]), .fe-mobile .fe-cz-form input:not([type="checkbox"]), .fe-tablet .fe-cz-form select, .fe-mobile .fe-cz-form select { min-height: 44px; }
+.fe-tablet button.fe-cz-seg, .fe-mobile button.fe-cz-seg, .fe-tablet .fe-cz-form button.fe-btn, .fe-mobile .fe-cz-form button.fe-btn { min-height: 44px; }
