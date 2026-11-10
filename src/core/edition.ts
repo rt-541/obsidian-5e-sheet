@@ -12,6 +12,8 @@ export const isNewer = (a: Edition, b: Edition): boolean => EDITIONS.indexOf(a) 
 export const otherEdition = (e: Edition): Edition => (e === "2014" ? "2024" : "2014");
 /** A character with no recorded edition plays the 2014 rules. */
 export const characterEdition = (c: { edition?: Edition }): Edition => c.edition ?? "2014";
+/** The edition a new character note records: the campaign's if it names one, else the plugin setting, else the character default. */
+export const newNoteEdition = (setting: unknown, campaign?: unknown): Edition => readEdition(campaign) ?? readEdition(setting) ?? characterEdition({});
 
 /** Every rule the sheet computes that differs by edition. Nothing else in the code may branch on an edition name. */
 export interface EditionRules {

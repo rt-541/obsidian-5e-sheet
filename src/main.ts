@@ -3,7 +3,7 @@ import { Registry, type Entry } from "./content/registry";
 import type { SourceSwitches } from "./content/sources";
 import { campaignType, type CampaignData } from "./content/types/campaign";
 import type { CompanionKind } from "./core/character";
-import { characterEdition, readEdition, type Edition } from "./core/edition";
+import { characterEdition, newNoteEdition, readEdition, type Edition } from "./core/edition";
 import { loadSrd } from "./content/srd";
 import { setBuiltinMechanics } from "./content/overlay";
 import { registerBuiltinTypes } from "./content/types";
@@ -271,7 +271,7 @@ export default class FiveESheetPlugin extends Plugin {
     let path = `${folder ? folder + "/" : ""}${base}.md`, i = 1;
     while (this.app.vault.getAbstractFileByPath(path)) path = `${folder ? folder + "/" : ""}${base} ${++i}.md`;
     const fm = type === "5e-character"
-      ? `type: 5e-character\nschema: 1\nname: ${base}\nclasses: []\nabilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }\nhp: { max: 10, current: 10, temp: 0 }\n`
+      ? `type: 5e-character\nschema: 1\nedition: "${newNoteEdition(this.data.settings.defaultEdition)}"\nname: ${base}\nclasses: []\nabilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }\nhp: { max: 10, current: 10, temp: 0 }\n`
       : `type: 5e-npc\nschema: 1\nname: ${base}\ncreature: acolyte\n`;
     const f = await this.app.vault.create(path, `---\n${fm}---\n\nNotes.\n`);
     this.asMarkdown.delete(this.app.workspace.getLeaf(false));
