@@ -83,21 +83,24 @@ describe("add item pick view", () => {
 
 describe("render check fixes (edition chip, missing line, compendium tabs)", () => {
   const rule = (sel: string) => [...css.matchAll(/^([^{}\n]+)\{([^}]*)\}/gm)].filter(m => m[1].split(",").map(s => s.trim()).includes(sel)).map(m => m[2]).join(" ");
-  it("the touch-size edition chip keeps a 44 px target but draws a small pill", () => {
-    const chip = rule(".fe-sheet.fe-mobile .fe-chip.fe-edition-chip");
-    expect(chip).toContain("min-height: 44px");
-    expect(chip).toContain("background: transparent");
-    const pill = rule(".fe-sheet.fe-mobile .fe-chip.fe-edition-chip::before");
-    expect(pill).toContain("position: absolute"); expect(pill).toMatch(/inset: \d+px 0/); expect(pill).toContain("background: var(--background-modifier-hover)");
+  it("the touch-size edition chip keeps a 44 px target but draws a small pill, in both nestings", () => {
+    for (const root of [".fe-sheet.fe-mobile", ".fe-sheet.fe-tablet", ".fe-mobile .fe-sheet", ".fe-tablet .fe-sheet"]) {
+      const chip = rule(`${root} .fe-chip.fe-edition-chip`);
+      expect(chip, root).toContain("min-height: 44px"); expect(chip, root).toContain("background: transparent");
+      const pill = rule(`${root} .fe-chip.fe-edition-chip::before`);
+      expect(pill, root).toContain("position: absolute"); expect(pill, root).toMatch(/inset: \d+px 0/); expect(pill, root).toContain("background: var(--background-modifier-hover)");
+    }
   });
-  it("the phone identity line keeps the edition chip visible and lets a missing-reference line wrap", () => {
+  it("the phone identity line cuts the label, never the chip: the chip is a flex child that does not shrink or wrap", () => {
     expect(rule(".fe-mobile .fe-pinned .fe-identity")).toContain("display: flex");
-    expect(rule(".fe-mobile .fe-pinned .fe-identity .fe-edition-chip")).toContain("flex: none");
+    const chip = rule(".fe-mobile .fe-pinned .fe-identity .fe-edition-chip");
+    expect(chip).toContain("flex: none"); expect(chip).toContain("white-space: nowrap");
+    expect(rule(".fe-mobile .fe-pinned .fe-identity .fe-name")).toContain("flex: 0 1 auto"); expect(rule(".fe-mobile .fe-pinned .fe-identity-label")).toContain("flex: 0 100 auto");
+    expect(rule(".fe-mobile .fe-pinned .fe-identity-label")).toContain("text-overflow: ellipsis");
     expect(rule(".fe-mobile .fe-pinned .fe-identity-label:has(.fe-missing-line)")).toContain("white-space: normal");
-    expect(rule(".fe-sheet .fe-identity-label .fe-missing-line")).toContain("margin-left: 8px");
   });
-  it("the compendium's source and type tabs scroll sideways on a phone instead of stacking", () => {
+  it("the compendium's source and type tabs scroll sideways on a phone instead of stacking, with a fade cue", () => {
     const r = rule(".fe-mobile.fe-compendium .fe-tabs:not(.fe-ed-tabs)");
-    expect(r).toContain("display: flex"); expect(r).toContain("overflow-x: auto");
+    expect(r).toContain("display: flex"); expect(r).toContain("overflow-x: auto"); expect(r).toContain("mask-image");
   });
 });

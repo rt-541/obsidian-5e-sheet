@@ -43,6 +43,13 @@ for (const layout of LAYOUTS) {
       for (const [i, n] of notes.entries()) { expect(items[i].textContent).toContain(n.title); expect(items[i].textContent).toContain(`2014 (yours): ${n["2014"]}`); expect(items[i].textContent).toContain(`2024: ${n["2024"]}`); expect(items[i].querySelectorAll(".is-yours")).toHaveLength(1); }
       expect(p.querySelector(".fe-panel-head .fe-name")!.textContent).toBe("What would change under 2024");
     });
+    it("the chip is a sibling of the identity label, so the label can be cut without cutting the chip", () => {
+      const s = sheet(layout, note("2024"));
+      const chip = s.q('[data-feature="identity"] .fe-edition-chip');
+      expect(chip.parentElement!.classList.contains("fe-identity")).toBe(true);
+      expect(chip.closest(".fe-identity-label")).toBeNull();
+      expect(chip.previousElementSibling!.classList.contains("fe-identity-label")).toBe(true);
+    });
     it("a non-character sheet has no chip", () => {
       const s = sheet(layout, { type: "5e-npc", name: "Snag", hp: 5, ac: 10 });
       expect(s.all(".fe-edition-chip")).toHaveLength(0);

@@ -112,7 +112,7 @@ function pinnedItems(ctl: SheetController): { index: number; row: HTMLElement }[
  * "cleric 5 (Life Domain) / rogue 2 · Hill Dwarf · Acolyte": each class, subclass, race, subrace and background is its own hover/tap target
  * for a card of what it gives you. Class text stays the class id and level, as the plain label always was.
  */
-function identityParts(ctl: SheetController): HTMLElement {
+function identityParts(ctl: SheetController): HTMLElement[] {
   const c = ctl.character!, r = ctl.host.registry;
   // a pick that is missing from the compendium stays plain text, marked so it is not mistaken for a name; when the other edition has it, one line and a button follow
   const part = (text: string, ref: string) => { const [type, id] = ref.split(":"); return h("span", { cls: "fe-id-part", text, ...(r.get(type, id ?? (type === "race" ? c.race! : type === "subrace" ? c.subrace! : c.background!)) ? { data: { ref: `identity:${ref}` } } : {}) }); };
@@ -132,8 +132,8 @@ function identityParts(ctl: SheetController): HTMLElement {
   const one = (type: "race" | "subrace" | "background", id: string | undefined) => { if (!id) return; const e = r.get<{ name: string }>(type, id); origin.push([...(e ? [part(e.name, type)] : gone(id, type, { field: type })), chip(id)]); };
   one("race", c.race); one("subrace", c.subrace); one("background", c.background);
   origin.forEach(o => out.push(" · ", ...o));
-  out.push(" ", editionChip(ctl));
-  return h("span", { cls: "fe-muted fe-identity-label" }, ...out);
+  // the edition chip is a sibling of the label, not inside it, so a long label can be cut with an ellipsis without cutting the chip off
+  return [h("span", { cls: "fe-muted fe-identity-label" }, ...out), editionChip(ctl)];
 }
 
 /** Keeps the element present (layouts count it) but hidden unless `show`. */
@@ -161,7 +161,7 @@ function companionMenu(ctl: SheetController, index: number, name: string): HTMLE
 
 export const RENDER: Record<string, Render> = {
   identity: (ctl, st) => h("div", { cls: "fe-identity" }, h("span", { cls: "fe-name", text: st.name }),
-    ctl.character && st.kind === "character" ? identityParts(ctl) : h("span", { cls: "fe-muted", text: st.label })),
+    ...(ctl.character && st.kind === "character" ? identityParts(ctl) : [h("span", { cls: "fe-muted", text: st.label })])),
   inspiration: ctl => btn(editionRules(ctl.character ? characterEdition(ctl.character) : undefined).inspiration.name, () => ctl.dispatch({ type: "inspiration", on: !ctl.character!.inspiration }), ctl.character?.inspiration ? "is-on" : ""),
   prof: (ctl, st) => h("span", { cls: "fe-kv" }, h("span", { cls: "fe-muted", text: "Proficiency bonus ", ...gl("proficiency-bonus") }), sgn(st.prof)),
   xp: ctl => xpFeature(ctl),

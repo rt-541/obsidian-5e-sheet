@@ -188,14 +188,15 @@
 /* tablet: a header that stays put, two columns, and 44px touch targets */
 .fe-tablet .fe-pinned { position: sticky; top: 0; z-index: 5; background: var(--background-primary); padding-top: 6px; }
 .fe-mobile .fe-pinned { position: sticky; top: 0; z-index: 5; background: var(--background-primary); padding-top: 4px; gap: 4px 10px; }
-.fe-mobile .fe-pinned .fe-identity { display: flex; flex-wrap: nowrap; align-items: center; min-width: 0; max-width: 100%; }
-.fe-mobile .fe-pinned .fe-identity:has(.fe-missing-line) { flex-wrap: wrap; }
-.fe-mobile .fe-pinned .fe-identity .fe-name, .fe-mobile .fe-pinned .fe-identity-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; max-width: 100%; flex: 0 1 auto; }
+.fe-mobile .fe-pinned .fe-identity { display: flex; flex-wrap: wrap; align-items: center; min-width: 0; max-width: 100%; }
+.fe-mobile .fe-pinned .fe-identity .fe-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; max-width: 100%; flex: 0 1 auto; }
+.fe-mobile .fe-pinned .fe-identity-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 0 100 auto; }
 .fe-mobile .fe-pinned .fe-identity-label:has(.fe-missing-line) { white-space: normal; overflow: visible; }
-.fe-mobile .fe-pinned .fe-identity .fe-edition-chip { flex: none; }
+.fe-mobile .fe-pinned .fe-identity .fe-edition-chip { flex: none; white-space: nowrap; }
+.fe-mobile .fe-pinned .fe-identity-label:has(.fe-missing-line) .fe-missing-line { margin-left: 0; }
 /* the sheet pane pads 10px; this shadow paints over that gap so scrolled content never shows above the header */
 .fe-tablet .fe-pinned, .fe-mobile .fe-pinned { box-shadow: 0 -10px 0 var(--background-primary); }
-.fe-mobile.fe-compendium .fe-tabs:not(.fe-ed-tabs) { display: flex; overflow-x: auto; }
+.fe-mobile.fe-compendium .fe-tabs:not(.fe-ed-tabs) { display: flex; overflow-x: auto; mask-image: linear-gradient(to right, black calc(100% - 28px), transparent); }
 .fe-mobile.fe-compendium .fe-tabs:not(.fe-ed-tabs) button.fe-tab { flex: none; padding: 0 12px; }
 .fe-mobile .fe-tabs { display: grid; grid-template-columns: repeat(var(--fe-tabs), minmax(0, 1fr)); gap: 0; overflow-x: visible; }
 .fe-mobile button.fe-tab { min-width: 0; padding: 0 2px; font-size: var(--font-ui-smaller, 12px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -423,8 +424,8 @@
 .fe-sheet.fe-mobile .fe-chip.fe-edition-chip, .fe-sheet.fe-tablet .fe-chip.fe-edition-chip, .fe-mobile .fe-sheet .fe-chip.fe-edition-chip, .fe-tablet .fe-sheet .fe-chip.fe-edition-chip { display: inline-flex; align-items: center; min-height: 44px; }
 .fe-sheet .fe-chip.fe-edition-chip { display: inline-block; flex: none; margin: 0 0 0 6px; padding: 0 8px; border-radius: 10px; font-size: var(--font-ui-smaller); line-height: 1.5; background: var(--background-modifier-hover); color: var(--text-muted); cursor: pointer; }
 /* the 44 px chip target is transparent padding; only a small pill is drawn so the identity line stays light */
-.fe-sheet.fe-mobile .fe-chip.fe-edition-chip, .fe-sheet.fe-tablet .fe-chip.fe-edition-chip { position: relative; isolation: isolate; background: transparent; }
-.fe-sheet.fe-mobile .fe-chip.fe-edition-chip::before, .fe-sheet.fe-tablet .fe-chip.fe-edition-chip::before { content: ""; position: absolute; inset: 10px 0; z-index: -1; border-radius: 10px; background: var(--background-modifier-hover); }
+.fe-sheet.fe-mobile .fe-chip.fe-edition-chip, .fe-sheet.fe-tablet .fe-chip.fe-edition-chip, .fe-mobile .fe-sheet .fe-chip.fe-edition-chip, .fe-tablet .fe-sheet .fe-chip.fe-edition-chip { position: relative; isolation: isolate; background: transparent; }
+.fe-sheet.fe-mobile .fe-chip.fe-edition-chip::before, .fe-sheet.fe-tablet .fe-chip.fe-edition-chip::before, .fe-mobile .fe-sheet .fe-chip.fe-edition-chip::before, .fe-tablet .fe-sheet .fe-chip.fe-edition-chip::before { content: ""; position: absolute; inset: 10px 0; z-index: -1; border-radius: 10px; background: var(--background-modifier-hover); }
 .fe-edition-changes .fe-change { margin-bottom: 10px; }
 .fe-edition-changes .fe-detail-line.is-yours { font-weight: var(--font-semibold); }
 .fe-setting-edition { align-items: center; gap: 8px; }
