@@ -28,6 +28,7 @@ export class CompendiumView extends ItemView {
       registry: this.plugin.registry,
       switches: () => this.plugin.targetCampaign()?.sources,
       target: () => this.plugin.targetSheetName(),
+      targetEdition: () => this.plugin.targetEdition(),
       add: (e, o) => this.plugin.addToSheet(e, o.companionKind),
       openNote: path => { void this.plugin.openNote(path); },
     });

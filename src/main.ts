@@ -3,7 +3,7 @@ import { Registry, type Entry } from "./content/registry";
 import type { SourceSwitches } from "./content/sources";
 import { campaignType, type CampaignData } from "./content/types/campaign";
 import type { CompanionKind } from "./core/character";
-import { readEdition, type Edition } from "./core/edition";
+import { characterEdition, readEdition, type Edition } from "./core/edition";
 import { loadSrd } from "./content/srd";
 import { setBuiltinMechanics } from "./content/overlay";
 import { registerBuiltinTypes } from "./content/types";
@@ -149,6 +149,8 @@ export default class FiveESheetPlugin extends Plugin {
     return ok(this.lastSheet) ?? this.app.workspace.getLeavesOfType(VIEW_TYPE).map(l => ok(l)).find(Boolean);
   }
   targetSheetName(): string | undefined { return this.targetSheet()?.file?.basename; }
+  /** The rules edition of the target sheet's character. */
+  targetEdition(): Edition | undefined { const c = this.targetSheet()?.sheet?.character; return c ? characterEdition(c) : undefined; }
   /** The target sheet's campaign (its source switches dim sources in the browser). */
   targetCampaign(): CampaignData | undefined { return this.targetSheet()?.sheet?.host.campaign; }
   addToSheet(e: Entry, kind: CompanionKind): string {

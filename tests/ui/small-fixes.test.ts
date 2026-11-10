@@ -19,7 +19,7 @@ it("the compendium detail clears when the selection leaves the list", () => {
   const r = new Registry(); registerBuiltinTypes(r);
   r.add("vault", "creature", owl, { path: "hb/Lamp Owl.md", sourceName: "Homebrew" });
   r.add("vault", "item", { name: "Calm Draught", kind: "potion" }, { path: "hb/Calm Draught.md", sourceName: "Homebrew" });
-  const host: CompendiumHost = { registry: r, switches: () => undefined, target: () => undefined, add: () => "", openNote: () => {} };
+  const host: CompendiumHost = { registry: r, switches: () => undefined, target: () => undefined, targetEdition: () => undefined, add: () => "", openNote: () => {} };
   const ctl = new CompendiumController(host), root = document.createElement("div");
   document.body.append(root); mountCompendium(root, ctl, false);
   ctl.setType("creature");

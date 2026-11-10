@@ -53,7 +53,7 @@ describe("library extras: cards, browser and sheet", () => {
   });
   it("the browser lists a disease with a disease badge and a plain condition without one", async () => {
     const r = await world();
-    const ctl = new CompendiumController({ registry: r, switches: () => undefined, target: () => undefined, add: () => "", openNote: () => {} });
+    const ctl = new CompendiumController({ registry: r, switches: () => undefined, target: () => undefined, targetEdition: () => undefined, add: () => "", openNote: () => {} });
     const root = document.createElement("div"); document.body.append(root); mountCompendium(root, ctl, false);
     ctl.setType("condition"); ctl.setSource("WotC");
     const row = (id: string) => root.querySelector(`.fe-comp-list [data-id="${id}"]`) as HTMLElement;

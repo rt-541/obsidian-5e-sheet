@@ -32,7 +32,7 @@ function world() {
 function setup(mobile: boolean, opts: { target?: string; switches?: Record<string, boolean>; registry?: Registry } = {}) {
   const w = world(), r = opts.registry ?? w.r;
   const opened: string[] = [], added: string[] = [];
-  const host: CompendiumHost = { registry: r, switches: () => opts.switches, target: () => opts.target,
+  const host: CompendiumHost = { registry: r, switches: () => opts.switches, target: () => opts.target, targetEdition: () => undefined,
     add: (e: Entry, o) => { added.push(`${e.type}:${e.id}:${e.sourceName}:${o.companionKind}`); return `Added ${e.name}`; }, openNote: p => { opened.push(p); } };
   const ctl = new CompendiumController(host), root = document.createElement("div");
   document.body.append(root); const mounted = mountCompendium(root, ctl, mobile);

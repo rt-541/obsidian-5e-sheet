@@ -134,6 +134,9 @@
 .fe-src.fe-reference { background: transparent; border: 1px dashed var(--text-faint); }
 .fe-detail-src { margin-bottom: 2px; } .fe-detail-src .fe-src { margin-left: 0; }
 .fe-comp-actions { justify-content: flex-start; }
+.fe-compendium .fe-ed-tabs { margin-top: 0; }
+.fe-compendium .fe-crow-btn .fe-chip.fe-edition { margin: 0 0 0 6px; }
+.fe-mobile button.fe-ed-btn, .fe-tablet button.fe-ed-btn, .fe-compendium.fe-mobile button.fe-ed-btn { min-height: 44px; }
 .fe-mobile .fe-compendium select, .fe-compendium.fe-mobile select { min-height: 44px; }
 .fe-trait-group { margin-bottom: 6px; }
 .fe-sheet button.fe-trait-head { display: flex; align-items: center; gap: 6px; width: 100%; text-align: left; background: transparent; box-shadow: none; font-weight: 600; padding: 4px 0; }

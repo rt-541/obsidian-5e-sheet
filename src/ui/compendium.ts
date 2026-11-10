@@ -3,6 +3,8 @@ import { cleanBody } from "../content/library";
 import { LIBRARY_SOURCE, SRD_SOURCE, sourceOn, type SourceSwitches } from "../content/sources";
 import type { Action } from "../core/actions";
 import type { CompanionKind } from "../core/character";
+import { characterEdition, EDITIONS, type Edition } from "../core/edition";
+import { entryEdition, refFor } from "../content/edition";
 import type { SheetController } from "./controller";
 import { entryCard } from "./details";
 import { clear, h } from "./h";
@@ -15,6 +17,8 @@ export interface CompendiumHost {
   switches(): SourceSwitches;
   /** The sheet "Add to character" targets (the most recently active character sheet), if any. */
   target(): string | undefined;
+  /** The rules edition of the character on that sheet, if any (an entry from the other edition is added qualified). */
+  targetEdition(): Edition | undefined;
   /** Add the entry to that sheet; returns the message to show. */
   add(entry: Entry, opts: { companionKind: CompanionKind }): string;
   openNote(path: string): void;
@@ -52,7 +56,7 @@ interface Ref { type: string; id: string; sourceName: string; path?: string; }
 
 /** Browser state and queries. UI-free so tests (and both layouts) drive the same logic. */
 export class CompendiumController {
-  source = "all"; type = "class"; query = ""; selected?: Ref; kind: CompanionKind = "familiar"; status = "";
+  source = "all"; edition: "all" | Edition = "all"; type = "class"; query = ""; selected?: Ref; kind: CompanionKind = "familiar"; status = "";
   private subs = new Set<() => void>();
   constructor(public host: CompendiumHost) {}
   subscribe(fn: () => void) { this.subs.add(fn); return () => { this.subs.delete(fn); }; }
@@ -65,9 +69,9 @@ export class CompendiumController {
     return ["all", ...first, ...have.filter(s => !first.includes(s))];
   }
   private tab(): { types: string[] } { return BROWSER_TYPES.find(t => t.id === this.type) ?? BROWSER_TYPES[0]; }
-  /** Entries of every type, filtered by the source tab only (for the type tab counts). */
+  /** Entries of every type, filtered by the source tab and the edition filter (for the type tab counts). */
   private bySource(): Entry[] {
-    return this.host.registry.listAll().filter(e => this.source === "all" || e.sourceName === this.source);
+    return this.host.registry.listAll().filter(e => (this.source === "all" || e.sourceName === this.source) && (this.edition === "all" || entryEdition(e) === this.edition));
   }
   counts(): Record<string, number> {
     const out: Record<string, number> = {};
@@ -82,6 +86,7 @@ export class CompendiumController {
   off(e: Entry): boolean { return !sourceOn(this.host.switches(), e.sourceName); }
 
   setSource(s: string) { this.source = s; this.emit(); }
+  setEdition(e: "all" | Edition) { this.edition = e; this.emit(); }
   setType(t: string) { this.type = t; this.emit(); }
   setQuery(q: string) { this.query = q; this.emit(); }
   select(e: Entry | undefined) { this.selected = e && { type: e.type, id: e.id, sourceName: e.sourceName, ...(e.path ? { path: e.path } : {}) }; this.status = ""; this.emit(); }
@@ -114,6 +119,7 @@ function rowFor(ctl: CompendiumController, e: Entry): HTMLElement {
   const b = h("button", { cls: `fe-btn fe-choice fe-crow-btn ${on ? "is-on" : ""} ${off ? "is-off" : ""}`.replace(/\s+/g, " ").trim(),
     data: { id: e.id, type: e.type, source: e.sourceName }, on: { click: () => ctl.select(e) } },
     h("span", { cls: "fe-name", text: e.name }), sourceBadge(sourceLabel(e)),
+    entryEdition(e) ? h("span", { cls: "fe-chip fe-edition", text: entryEdition(e)!, data: { badge: "edition" } }) : null,
     (e.data as { kind?: string }).kind === "disease" ? h("span", { cls: "fe-src fe-disease", text: "disease", data: { badge: "disease" } }) : null,
     e.needsReview?.length ? h("span", { cls: "fe-src fe-review", text: "needs review", title: e.needsReview.join("\n"), data: { badge: "review" } }) : null,
     e.referenceOnly ? h("span", { cls: "fe-src fe-reference", text: "reference only", title: e.referenceOnly, data: { badge: "reference" } }) : null,
@@ -127,12 +133,14 @@ function rowFor(ctl: CompendiumController, e: Entry): HTMLElement {
 export function mountCompendium(root: HTMLElement, ctl: CompendiumController, mobile: boolean): { destroy(): void; render(): void } {
   const reg = ctl.host.registry;
   const sourceTabs = h("nav", { cls: "fe-tabs fe-src-tabs", data: { feature: "source-tabs" } });
+  const editionTabs = h("nav", { cls: "fe-tabs fe-ed-tabs", data: { feature: "edition-filter" } });
+  editionTabs.style.setProperty("--fe-tabs", String(EDITIONS.length + 1));
   const typeTabs = h("nav", { cls: "fe-tabs fe-type-tabs", data: { feature: "type-tabs" } });
   const search = h("input", { cls: "fe-search", data: { field: "search" }, attrs: { type: "search", placeholder: "Search by name", "aria-label": "Search the compendium", value: ctl.query },
     on: { input: (e: Event) => ctl.setQuery((e.target as HTMLInputElement).value) } });
   const body = h("div", { cls: "fe-comp-body" });
   root.classList.add("fe-sheet", "fe-compendium", mobile ? "fe-mobile" : "fe-desktop");   // keep Obsidian's .view-content (it scrolls)
-  clear(root); root.append(sourceTabs, typeTabs, search, body);
+  clear(root); root.append(sourceTabs, editionTabs, typeTabs, search, body);
   let token = 0;
 
   const tab = (label: string, on: boolean, data: Record<string, string>, click: () => void) => {
@@ -173,8 +181,12 @@ export function mountCompendium(root: HTMLElement, ctl: CompendiumController, mo
 
   const render = () => {
     const counts = ctl.counts();
-    clear(sourceTabs); clear(typeTabs); clear(body);
+    clear(sourceTabs); clear(editionTabs); clear(typeTabs); clear(body);
     for (const s of ctl.sources()) sourceTabs.append(tab(s === "all" ? "All" : s, ctl.source === s, { source: s }, () => ctl.setSource(s)));
+    for (const ed of ["all", ...EDITIONS] as const) {
+      const b = h("button", { cls: `fe-tab fe-ed-btn ${ctl.edition === ed ? "is-on" : ""}`.trim(), text: ed === "all" ? "All editions" : `${ed} rules`, data: { edition: ed }, attrs: { type: "button" }, on: { click: () => ctl.setEdition(ed) } });
+      b.setAttribute("aria-pressed", String(ctl.edition === ed)); editionTabs.append(b);
+    }
     for (const t of BROWSER_TYPES) typeTabs.append(tab(`${t.label} (${counts[t.id] ?? 0})`, ctl.type === t.id, { type: t.id }, () => ctl.setType(t.id)));
     if (search.value !== ctl.query) search.value = ctl.query;
     const rows = ctl.matches(), picked = ctl.visibleSelection();
@@ -198,10 +210,12 @@ export function mountCompendium(root: HTMLElement, ctl: CompendiumController, mo
 /** Add `e` to the character on `ctl` (item to the inventory, spell to the spell list, creature as a companion). Returns the message to show. */
 export function addToSheet(ctl: SheetController, e: Entry, kind: CompanionKind, who: string): string {
   if (!ctl.character) return "Open a character sheet first";
-  const action: Action | null = e.type === "item" ? { type: "addItem", id: e.id } : e.type === "spell" ? { type: "addSpell", id: e.id }
-    : e.type === "creature" ? { type: "addCompanion", creature: e.id, name: e.name, kind } : null;
+  const own = characterEdition(ctl.character), ref = refFor(e, own), from = entryEdition(e);
+  const action: Action | null = e.type === "item" ? { type: "addItem", id: ref } : e.type === "spell" ? { type: "addSpell", id: ref }
+    : e.type === "creature" ? { type: "addCompanion", creature: ref, name: e.name, kind } : null;
   if (!action) return "Only items, spells and creatures can be added";
   if (!ctl.dispatch(action).ok) return `Could not add ${e.name} to ${who}.`;
-  const used = ctl.host.registry.get(e.type, e.id);
-  return `Added ${e.name} to ${who}.${used && used.sourceName !== e.sourceName ? ` The sheet uses the ${sourceLabel(used)} version of it.` : ""}`;
+  const used = ctl.host.registry.get(e.type, ref);
+  const other = from && from !== own ? ` It came from the ${from} books, so it is saved as the ${from} version.` : "";
+  return `Added ${e.name} to ${who}.${other}${used && used.sourceName !== e.sourceName ? ` The sheet uses the ${sourceLabel(used)} version of it.` : ""}`;
 }
