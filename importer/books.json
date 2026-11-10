@@ -1,0 +1,201 @@
+{
+  "source_root": "/docker/plex/media/downloads/5E Books",
+  "books": [
+    {
+      "slug": "phb",
+      "abbr": "PHB",
+      "kind": "rules",
+      "title": "Player's Handbook",
+      "file": "Player's Handbook.pdf",
+      "skip": "WotC: built from the 5e.tools data (dndc/ft_notes.py)"
+    },
+    {
+      "slug": "dmg",
+      "abbr": "DMG",
+      "kind": "rules",
+      "title": "Dungeon Master's Guide",
+      "file": "Dungeon Master's Guide.pdf",
+      "skip": "WotC: built from the 5e.tools data (dndc/ft_notes.py)"
+    },
+    {
+      "slug": "mm",
+      "abbr": "MM",
+      "kind": "bestiary",
+      "title": "Monster Manual",
+      "file": "Monster Manual.pdf",
+      "skip": "WotC: built from the 5e.tools data (dndc/ft_notes.py)"
+    },
+    {
+      "slug": "xgte",
+      "abbr": "XGtE",
+      "kind": "rules",
+      "title": "Xanathar's Guide to Everything",
+      "file": "Xanathar's Guide to Everything.pdf",
+      "skip": "WotC: built from the 5e.tools data (dndc/ft_notes.py)"
+    },
+    {
+      "slug": "tcoe",
+      "abbr": "TCoE",
+      "kind": "rules",
+      "title": "Tasha's Cauldron of Everything",
+      "file": "Tasha's Cauldron of Everything (Reduced Size).pdf",
+      "skip": "WotC: built from the 5e.tools data (dndc/ft_notes.py)"
+    },
+    {
+      "slug": "mtof",
+      "abbr": "MToF",
+      "kind": "bestiary",
+      "title": "Mordenkainen's Tome of Foes",
+      "file": "Mordenkainen's Tome of Foes.pdf",
+      "skip": "WotC: built from the 5e.tools data (dndc/ft_notes.py)"
+    },
+    {
+      "slug": "scag",
+      "abbr": "SCAG",
+      "kind": "setting",
+      "title": "Sword Coast Adventurer's Guide",
+      "file": "Settings/Sword Coast Adventurer's Guide.pdf",
+      "skip": "WotC: built from the 5e.tools data (dndc/ft_notes.py)"
+    },
+    {
+      "slug": "ggr",
+      "abbr": "GGR",
+      "kind": "setting",
+      "title": "Guildmasters' Guide to Ravnica",
+      "file": "Settings/Guildmasters' Guide to Ravnica.pdf",
+      "skip": "WotC: built from the 5e.tools data (dndc/ft_notes.py)"
+    },
+    {
+      "slug": "wge",
+      "abbr": "WGE",
+      "kind": "setting",
+      "title": "Wayfinder's Guide to Eberron",
+      "file": "Settings/Wayfinder's Guide to Eberron.pdf",
+      "skip": "WotC: built from the 5e.tools data (dndc/ft_notes.py)"
+    },
+    {
+      "slug": "mot",
+      "abbr": "MOoT",
+      "kind": "setting",
+      "title": "Mythic Odysseys of Theros",
+      "file": "3rd Party/Mythic Odysseys of Theros [+Deluxe Cover].pdf",
+      "skip": "WotC: built from the 5e.tools data (dndc/ft_notes.py)"
+    },
+    {
+      "slug": "cos",
+      "abbr": "CoS",
+      "kind": "adventure",
+      "title": "Curse of Strahd",
+      "file": "Campaigns/Curse of Strahd.pdf",
+      "skip": "WotC: built from the 5e.tools data (dndc/ft_notes.py)"
+    },
+    {
+      "slug": "lmop",
+      "abbr": "LMoP",
+      "kind": "adventure",
+      "title": "Lost Mine of Phandelver",
+      "file": "Campaigns/Lost Mine of Phandelver.pdf",
+      "skip": "WotC: built from the 5e.tools data (dndc/ft_notes.py)"
+    },
+    {
+      "slug": "toa",
+      "abbr": "ToA",
+      "kind": "adventure",
+      "title": "Tomb of Annihilation",
+      "file": "Campaigns/Tomb of Annihilation.pdf",
+      "skip": "WotC: built from the 5e.tools data (dndc/ft_notes.py)"
+    },
+    {
+      "slug": "gos",
+      "abbr": "GoS",
+      "kind": "adventure",
+      "title": "Ghosts of Saltmarsh",
+      "file": "Campaigns/Ghosts of Saltmarsh.pdf",
+      "skip": "WotC: built from the 5e.tools data (dndc/ft_notes.py)"
+    },
+    {
+      "slug": "tftyp",
+      "abbr": "TftYP",
+      "kind": "adventure",
+      "title": "Tales from the Yawning Portal",
+      "file": "Campaigns/Tales from the Yawning Portal.pdf",
+      "skip": "WotC: built from the 5e.tools data (dndc/ft_notes.py)"
+    },
+    {
+      "slug": "wdh",
+      "abbr": "WDH",
+      "kind": "adventure",
+      "title": "Waterdeep: Dragon Heist",
+      "file": "Campaigns/Waterdeep -  Dragon Heist.pdf",
+      "skip": "WotC: built from the 5e.tools data (dndc/ft_notes.py)"
+    },
+    {
+      "slug": "wdmm",
+      "abbr": "WDMM",
+      "kind": "adventure",
+      "title": "Waterdeep: Dungeon of the Mad Mage",
+      "file": "Campaigns/Waterdeep - Dungeon of the Mad Mage.pdf",
+      "skip": "WotC: built from the 5e.tools data (dndc/ft_notes.py)"
+    },
+    {
+      "slug": "bgdia",
+      "abbr": "BGDiA",
+      "kind": "adventure",
+      "title": "Baldur's Gate: Descent into Avernus",
+      "file": "Campaigns/Baldur's Gate - Descent into Avernus.pdf",
+      "skip": "WotC: built from the 5e.tools data (dndc/ft_notes.py)"
+    },
+    {
+      "slug": "tob",
+      "abbr": "ToB",
+      "kind": "bestiary",
+      "title": "Tome of Beasts",
+      "file": "3rd Party/Tome of Beasts.pdf",
+      "publisher": "Kobold Press"
+    },
+    {
+      "slug": "tob2",
+      "abbr": "ToB2",
+      "kind": "bestiary",
+      "title": "Tome of Beasts 2",
+      "file": "3rd Party/Tome of Beasts 2.pdf",
+      "publisher": "Kobold Press"
+    },
+    {
+      "slug": "fef",
+      "abbr": "FEF",
+      "kind": "bestiary",
+      "title": "Fifth Edition Foes",
+      "file": "3rd Party/5E - Necromancer Games - Fifth Edition Foes.pdf",
+      "publisher": "Necromancer Games"
+    },
+    {
+      "slug": "saf",
+      "abbr": "S&F",
+      "kind": "rules",
+      "title": "Strongholds & Followers",
+      "file": "3rd Party/Strongholds & Followers.pdf",
+      "publisher": "Kobold Press"
+    },
+    {
+      "slug": "gos-deluxe",
+      "skip": "duplicate of Ghosts of Saltmarsh",
+      "file": "Campaigns/Ghosts of Saltmarsh Deluxe.pdf"
+    },
+    {
+      "slug": "bgdia-misc",
+      "skip": "image-only, needs OCR",
+      "file": "Campaigns/Baldur's Gate - Descent into Avernus - Miscellany Set.pdf"
+    },
+    {
+      "slug": "cos-intro",
+      "skip": "image-only, needs OCR",
+      "file": "Campaigns/Curse of Strahd - Introductory Adventure.pdf"
+    },
+    {
+      "slug": "prepared2",
+      "skip": "image-only, needs OCR",
+      "file": "3rd Party/Prepared 2!.pdf"
+    }
+  ]
+}

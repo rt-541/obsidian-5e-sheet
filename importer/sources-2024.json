@@ -1,0 +1,258 @@
+{
+ "edition": "2024",
+ "published_from": "2024-09-17",
+ "sources": [
+  {
+   "id": "XPHB",
+   "kind": "book",
+   "published": "2024-09-17",
+   "enabled": true
+  },
+  {
+   "id": "UtHftLH",
+   "kind": "adventure",
+   "published": "2024-09-24",
+   "enabled": true
+  },
+  {
+   "id": "ScoEE",
+   "kind": "adventure",
+   "published": "2024-10-24",
+   "enabled": true
+  },
+  {
+   "id": "XDMG",
+   "kind": "book",
+   "published": "2024-11-12",
+   "enabled": true
+  },
+  {
+   "id": "XScreen",
+   "kind": "book",
+   "published": "2024-11-12",
+   "enabled": true
+  },
+  {
+   "id": "HBTD",
+   "kind": "adventure",
+   "published": "2025-02-07",
+   "enabled": true
+  },
+  {
+   "id": "XMM",
+   "kind": "book",
+   "published": "2025-02-18",
+   "enabled": true
+  },
+  {
+   "id": "XSAC",
+   "kind": "book",
+   "published": "2025-04-30",
+   "enabled": true
+  },
+  {
+   "id": "BQGT",
+   "kind": "adventure",
+   "published": "2025-06-04",
+   "enabled": true
+  },
+  {
+   "id": "DrDe-ACfaS",
+   "kind": "adventure",
+   "published": "2025-07-08",
+   "enabled": true
+  },
+  {
+   "id": "DrDe-BD",
+   "kind": "adventure",
+   "published": "2025-07-08",
+   "enabled": true
+  },
+  {
+   "id": "DrDe-BtS",
+   "kind": "adventure",
+   "published": "2025-07-08",
+   "enabled": true
+  },
+  {
+   "id": "DrDe-DaS",
+   "kind": "adventure",
+   "published": "2025-07-08",
+   "enabled": true
+  },
+  {
+   "id": "DrDe-DotSC",
+   "kind": "adventure",
+   "published": "2025-07-08",
+   "enabled": true
+  },
+  {
+   "id": "DrDe-FWtVC",
+   "kind": "adventure",
+   "published": "2025-07-08",
+   "enabled": true
+  },
+  {
+   "id": "DrDe-SD",
+   "kind": "adventure",
+   "published": "2025-07-08",
+   "enabled": true
+  },
+  {
+   "id": "DrDe-TDoN",
+   "kind": "adventure",
+   "published": "2025-07-08",
+   "enabled": true
+  },
+  {
+   "id": "DrDe-TFV",
+   "kind": "adventure",
+   "published": "2025-07-08",
+   "enabled": true
+  },
+  {
+   "id": "DrDe-TWoO",
+   "kind": "adventure",
+   "published": "2025-07-08",
+   "enabled": true
+  },
+  {
+   "id": "HotB",
+   "kind": "adventure",
+   "published": "2025-09-16",
+   "enabled": true
+  },
+  {
+   "id": "WttHC",
+   "kind": "adventure",
+   "published": "2025-10-07",
+   "enabled": true
+  },
+  {
+   "id": "ABH",
+   "kind": "book",
+   "published": "2025-11-11",
+   "enabled": true
+  },
+  {
+   "id": "FRAiF",
+   "kind": "book",
+   "published": "2025-11-11",
+   "enabled": true
+  },
+  {
+   "id": "FRAiF-TLLoL",
+   "kind": "adventure",
+   "published": "2025-11-11",
+   "enabled": true
+  },
+  {
+   "id": "FRHoF",
+   "kind": "book",
+   "published": "2025-11-11",
+   "enabled": true
+  },
+  {
+   "id": "NF",
+   "kind": "book",
+   "published": "2025-11-11",
+   "enabled": true
+  },
+  {
+   "id": "LFL",
+   "kind": "book",
+   "published": "2025-11-18",
+   "enabled": true
+  },
+  {
+   "id": "EFA",
+   "kind": "book",
+   "published": "2025-12-09",
+   "enabled": true
+  },
+  {
+   "id": "FFotR",
+   "kind": "adventure",
+   "published": "2025-12-09",
+   "enabled": true
+  },
+  {
+   "id": "CaBoMP",
+   "kind": "book",
+   "published": "2026-03-31",
+   "enabled": true
+  },
+  {
+   "id": "BQDD",
+   "kind": "adventure",
+   "published": "2026-05-28",
+   "enabled": true
+  },
+  {
+   "id": "SoS",
+   "kind": "adventure",
+   "published": "2026-05-29",
+   "enabled": true
+  },
+  {
+   "id": "RHW",
+   "kind": "book",
+   "published": "2026-06-16",
+   "enabled": true
+  },
+  {
+   "id": "XScreenRHW",
+   "kind": "book",
+   "published": "2026-06-16",
+   "enabled": true
+  },
+  {
+   "id": "AU",
+   "kind": "book",
+   "published": "2026-09-15",
+   "enabled": true
+  },
+  {
+   "id": "AUD",
+   "kind": "adventure",
+   "published": "2026-09-15",
+   "enabled": true
+  },
+  {
+   "id": "HFLotT",
+   "kind": "book",
+   "published": "2026-09-15",
+   "enabled": true
+  },
+  {
+   "id": "RWG",
+   "kind": "adventure",
+   "published": "2026-09-15",
+   "enabled": true
+  },
+  {
+   "id": "PL",
+   "kind": "book",
+   "published": "2026-10-13",
+   "enabled": true
+  },
+  {
+   "id": "DDE",
+   "kind": "adventure",
+   "published": "2026-11-03",
+   "enabled": true
+  },
+  {
+   "id": "ICC",
+   "kind": "adventure",
+   "published": "2026-11-17",
+   "enabled": false
+  },
+  {
+   "id": "WoW",
+   "kind": "book",
+   "published": "2026-11-17",
+   "enabled": false
+  }
+ ]
+}

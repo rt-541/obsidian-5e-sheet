@@ -4,3 +4,4 @@ main.js
 .DS_Store
 work
 .superpowers/
+importer/**/__pycache__/
