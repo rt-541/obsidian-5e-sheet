@@ -76,7 +76,7 @@ export default class FiveESheetPlugin extends Plugin {
       if (this.registry.problems().length) this.notice(`5e sheet: ${this.registry.problems().length} compendium note(s) have errors. Run "Show compendium problems".`);
       console.debug(`5e sheet: indexed ${n} compendium notes (${this.registry.libraryCount()} from the WotC library, ${this.registry.referenceOnlyCount()} library notes not usable on the sheet)`);
       this.registerEvent(this.app.metadataCache.on("changed", file => { void this.loader.changed(file.path); this.forViews(v => v.file?.path === file.path, v => v.externalChange()); }));
-      this.registerEvent(this.app.vault.on("delete", f => { this.loader.deleted(f.path); }));
+      this.registerEvent(this.app.vault.on("delete", f => { void this.loader.deleted(f.path); }));
       this.registerEvent(this.app.vault.on("rename", (f, old) => { void this.loader.renamed(f.path, old); this.store.rename(old, f.path); }));
       this.registerEvent(this.app.workspace.on("file-open", file => this.sheetifyLeaves(file)));
       // Tabs restored at startup never fire file-open; switch them once the metadata cache knows their frontmatter.

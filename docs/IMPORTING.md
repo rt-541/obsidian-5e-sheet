@@ -133,6 +133,11 @@ target folder that is not empty and does not hold the `.dnd-compendium-generated
 replaced, and nothing else in the vault is touched: the marker is what tells the importer a folder
 is its own. Keep hand-written notes outside the generated folders.
 
+A generated library also carries a root note, `5e Library.md`, whose frontmatter says
+`type: "5e-library"`. This note is what lets a library that reached another device through Obsidian
+Sync be recognised there as generated, because Obsidian Sync does not carry dot-files and the
+`.dnd-compendium-generated` marker alone never arrives. The plugin accepts either one.
+
 Release order matters. The plugin has to read the `edition` stamp and the 2024 fields before it
 sees 2024 notes. The restamped older libraries may sync first: preview, then sync.
 

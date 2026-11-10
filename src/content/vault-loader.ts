@@ -2,7 +2,7 @@ import { readEdition, type Edition } from "../core/edition";
 import { entryEdition } from "./edition";
 import { adaptUserNote, libraryMeta } from "./library";
 import { slug, type Registry } from "./registry";
-import { classFolder, isLibrarySkip, LIBRARY_MARKER, LIBRARY_SOURCE, locate, type Located } from "./sources";
+import { classFolder, isLibrarySkip, LIBRARY_MARKER, LIBRARY_NOTE_TYPE, LIBRARY_SOURCE, locate, type Located } from "./sources";
 
 export interface VaultNote { path: string; frontmatter: Record<string, unknown> | undefined; body: string; }
 export interface VaultAdapter {
@@ -14,7 +14,7 @@ export interface VaultAdapter {
   exists?(path: string): Promise<boolean> | boolean;
 }
 
-const NOT_CONTENT = new Set(["character", "npc"]);
+const NOT_CONTENT = new Set(["character", "npc", LIBRARY_NOTE_TYPE.slice(3)]);
 /** Types whose generated library notes carry the full op structure in frontmatter (the importer writes it), so they load like user notes. */
 const OP_TYPES = new Set(["class", "subclass", "race", "subrace", "feat", "background"]);
 type LibMeta = { library?: true; book?: string };
@@ -63,15 +63,49 @@ export class VaultLoader {
     });
   }
 
-  /** A first-level folder is generated library content when it holds the marker (the WotC folder always counts). */
+  /** Paths of `5e-library` notes seen directly in a source folder, so a later change or removal re-classifies that source. */
+  private libNotes = new Set<string>();
+
+  /** A first-level folder is generated library content when it holds the dot-file marker, a `5e-library` root note, or is the WotC folder. */
   private isLibrary(source: string): Promise<boolean> {
     let p = this.libFolders.get(source);
     if (!p) {
-      p = source === LIBRARY_SOURCE || !this.adapter.exists ? Promise.resolve(source === LIBRARY_SOURCE)
-        : Promise.resolve(this.adapter.exists(`${this.folder}/${source}/${LIBRARY_MARKER}`)).catch(() => false);
+      p = source === LIBRARY_SOURCE ? Promise.resolve(true) : this.detectLibrary(source);
       this.libFolders.set(source, p);
     }
     return p;
+  }
+  private async detectLibrary(source: string): Promise<boolean> {
+    const dir = `${this.folder}/${source}`;
+    try { if (this.adapter.exists && await this.adapter.exists(`${dir}/${LIBRARY_MARKER}`)) return true; } catch { /* fall through to the note */ }
+    let found = false;
+    for (const p of this.adapter.listMarkdown(dir)) {
+      if (!this.inside(p) || locate(this.folder, p)?.rest.length !== 1) continue;
+      if (await this.isLibraryNote(p)) { this.libNotes.add(p); found = true; }
+    }
+    return found;
+  }
+  private async isLibraryNote(path: string): Promise<boolean> {
+    try {
+      const fm = this.adapter.frontmatter ? this.adapter.frontmatter(path) : (await this.adapter.read(path)).frontmatter;
+      return fm?.type === LIBRARY_NOTE_TYPE;
+    } catch { return false; }
+  }
+  /** A `5e-library` note directly in a source folder came, changed or went: drop the cached answer and re-load that source's notes. */
+  private async reclassify(source: string): Promise<void> {
+    await this.registry.batch(async () => {
+      this.libFolders.delete(source);
+      const dir = `${this.folder}/${source}/`;
+      const paths = new Set([...this.known].filter(p => p.startsWith(dir)));
+      for (const p of this.adapter.listMarkdown(dir.slice(0, -1))) if (this.inside(p) && p.startsWith(dir)) paths.add(p);
+      let seen = 0;
+      for (const p of paths) { if (this.inside(p)) await this.load(p); if (++seen % YIELD_EVERY === 0) await yieldToUi(); }
+    });
+  }
+  /** The source whose library note this path is (or was), when it sits directly in a source folder. */
+  private rootNoteSource(path: string): string | null {
+    const loc = this.inside(path) ? locate(this.folder, path) : null;
+    return loc && loc.rest.length === 1 ? loc.source : null;
   }
 
   private async load(path: string): Promise<boolean> {
@@ -148,9 +182,23 @@ export class VaultLoader {
     if (cls) this.reattach(cls.folder);
   }
 
-  async changed(path: string): Promise<void> { if (this.inside(path)) await this.load(path); else this.forget(path); }
-  deleted(path: string): void { this.forget(path); }
-  async renamed(path: string, oldPath: string): Promise<void> { this.forget(oldPath); await this.changed(path); }
+  async changed(path: string): Promise<void> {
+    if (!this.inside(path)) { this.forget(path); return; }
+    const src = this.rootNoteSource(path);
+    if (src !== null) {
+      const now = await this.isLibraryNote(path), was = this.libNotes.has(path);
+      if (now) this.libNotes.add(path); else this.libNotes.delete(path);
+      if (now || was) { this.forget(path); await this.reclassify(src); return; }
+    }
+    await this.load(path);
+  }
+  /** Synchronous unless the removed note was a `5e-library` note; then the returned promise settles when its source is re-loaded. */
+  deleted(path: string): Promise<void> | void {
+    const src = this.libNotes.delete(path) ? this.rootNoteSource(path) : null;
+    this.forget(path);
+    if (src !== null) return this.reclassify(src);
+  }
+  async renamed(path: string, oldPath: string): Promise<void> { await this.deleted(oldPath); await this.changed(path); }
   async setFolder(folder: string): Promise<void> {
     await this.registry.batch(async () => {
       for (const p of [...this.known]) this.forget(p);

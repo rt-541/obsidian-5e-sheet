@@ -11,6 +11,8 @@ export const sourceOn = (sw: SourceSwitches, source: string): boolean => sw?.[so
 
 /** Name of the marker file inside a generated library folder (written by the dnd-compendium sync). */
 export const LIBRARY_MARKER = ".dnd-compendium-generated";
+/** Frontmatter type of the root note of a generated library. Unlike the dot-file marker it travels with Obsidian Sync. */
+export const LIBRARY_NOTE_TYPE = "5e-library";
 
 /**
  * Precedence group: user sources win over generated library sources (WotC and any folder with the marker), which win over
