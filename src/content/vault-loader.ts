@@ -1,3 +1,4 @@
+import { readEdition, type Edition } from "../core/edition";
 import { adaptUserNote, libraryMeta } from "./library";
 import { slug, type Registry } from "./registry";
 import { classFolder, isLibrarySkip, LIBRARY_MARKER, LIBRARY_SOURCE, locate, type Located } from "./sources";
@@ -16,11 +17,17 @@ const NOT_CONTENT = new Set(["character", "npc"]);
 /** Types whose generated library notes carry the full op structure in frontmatter (the importer writes it), so they load like user notes. */
 const OP_TYPES = new Set(["class", "subclass", "race", "subrace", "feat", "background"]);
 type LibMeta = { library?: true; book?: string };
+type EdMeta = { edition?: Edition; replaces?: string[] };
+/** The `edition` and `replaces` a note declares (library and hand-made alike); `replaces` keeps strings only. */
+function edMeta(fm: Record<string, unknown> | undefined): EdMeta {
+  const edition = readEdition(fm?.edition), rep = Array.isArray(fm?.replaces) ? (fm!.replaces as unknown[]).filter((x): x is string => typeof x === "string") : [];
+  return { ...(edition ? { edition } : {}), ...(rep.length ? { replaces: rep } : {}) };
+}
 const norm = (f: string) => f.replace(/^\/+|\/+$/g, "");
 const YIELD_EVERY = 200;
 const yieldToUi = () => new Promise<void>(r => setTimeout(r, 0));
 
-interface SubNote { fm: Record<string, unknown>; body: string; loc: Located; folder: string; lib: LibMeta }
+interface SubNote { fm: Record<string, unknown>; body: string; loc: Located; folder: string; lib: LibMeta & EdMeta }
 
 /**
  * Reads the compendium folder into the registry. The first folder under the root is the source (notes in the root are
@@ -80,7 +87,7 @@ export class VaultLoader {
     if (lib && !OP_TYPES.has(type)) return this.loadLibrary(path, type, fm!, loc.source);
     // An op-format library note: usable as is; if it fails validation it becomes reference-only, never a user problem.
     // Not `mapped`: a bundled entry of the same id keeps precedence, so characters built on it keep their recorded choices.
-    const lm: LibMeta = lib ? { library: true, ...(typeof fm!.source === "string" ? { book: fm!.source } : {}) } : {};
+    const lm: LibMeta & EdMeta = { ...(lib ? { library: true as const, ...(typeof fm!.source === "string" ? { book: fm!.source } : {}) } : {}), ...edMeta(fm) };
     const cf = classFolder(loc);
     if (cf?.kind === "class" && type === "class") this.noteClass(path, cf.folder, loc.source, fm!);
     if (cf?.kind === "subclass" && type === "subclass") {
@@ -99,7 +106,7 @@ export class VaultLoader {
       if (srd) { mapped = true; for (const k of ["effects", "levels", "levelEffects"] as const) if (srd.data[k] !== undefined) m.raw[k] = srd.data[k]; }
     }
     return this.registry.add("vault", type, m.raw, { path, sourceName, library: true, ...(mapped ? { mapped } : {}),
-      ...(m.book ? { book: m.book } : {}), ...(m.needsReview ? { needsReview: m.needsReview } : {}) }) === null;
+      ...(m.book ? { book: m.book } : {}), ...(m.needsReview ? { needsReview: m.needsReview } : {}), ...edMeta(fm) }) === null;
   }
 
   // Class / subclass folder resolution. The folder decides the parent class; a `class:` in the note only matters outside a Classes folder.

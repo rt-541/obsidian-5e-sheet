@@ -1,3 +1,5 @@
+import type { Edition } from "../core/edition";
+import { entryEdition } from "./edition";
 import { libraryBody, type Raw as LibRaw } from "./library";
 import { compareSources, HOMEBREW_SOURCE, LIBRARY_SOURCE, SRD_SOURCE, sourceOn, type SourceSwitches } from "./sources";
 
@@ -17,11 +19,15 @@ export interface Entry<T = unknown> {
   referenceOnly?: string;
   /** Library creature flagged by the generator for review: usable, but show a badge. */
   needsReview?: string[];
+  /** Rules edition: the note's `edition`, else 2014 for bundled and library content; none for hand-made notes that do not say. */
+  edition?: Edition;
+  /** Ids of the same type this entry supersedes (frontmatter `replaces`, strings only). */
+  replaces?: string[];
   path?: string; body?: string; data: T;
 }
 export interface Problem { path: string; errors: string[]; }
 export interface TypeDef<T> { type: string; validate(raw: Record<string, unknown>): { value?: T; errors: string[] }; }
-export interface AddMeta { path?: string; body?: string; sourceName?: string; library?: boolean; book?: string; needsReview?: string[]; mapped?: boolean; }
+export interface AddMeta { path?: string; body?: string; sourceName?: string; library?: boolean; book?: string; needsReview?: string[]; mapped?: boolean; edition?: Edition; replaces?: string[]; }
 export interface ListOpts { /** Campaign source switches: entries of sources set to false are left out. */ sources?: SourceSwitches; }
 
 /** User-facing source badge text: `WotC · PHB` for a library note with a book, else the source name. */
@@ -75,7 +81,8 @@ export class Registry {
     if (!value || errors.length) return fail(errors.length ? errors : ["invalid"]);
     const name = String((value as { name: string }).name);
     const id = typeof raw.id === "string" && raw.id ? raw.id : slug(name);
-    const entry: Entry = { type, id, name, source, sourceName, data: value, ...(meta.path ? { path: meta.path } : {}), ...(meta.body ? { body: meta.body } : {}),
+    const edition = meta.edition ?? entryEdition({ source, library });
+    const entry: Entry = { type, id, name, source, sourceName, data: value, ...(edition ? { edition } : {}), ...(meta.replaces?.length ? { replaces: meta.replaces } : {}), ...(meta.path ? { path: meta.path } : {}), ...(meta.body ? { body: meta.body } : {}),
       ...(library ? { library: true } : {}), ...(meta.mapped ? { mapped: true } : {}), ...(meta.book ? { book: meta.book } : {}), ...(meta.needsReview ? { needsReview: meta.needsReview } : {}) };
     if (library) this.raws.set(entry, raw);
     this.put(entry, meta.path);
@@ -87,7 +94,9 @@ export class Registry {
     const nm = typeof raw.name === "string" ? raw.name.trim() : "";
     if (!nm) return;
     const id = typeof raw.id === "string" && raw.id ? raw.id : slug(nm);
+    const edition = meta.edition ?? entryEdition({ source: "vault", library: true });
     this.put({ type, id, name: nm, source: "vault", sourceName, library: true, referenceOnly: reason, path, data: { name: nm },
+      ...(edition ? { edition } : {}), ...(meta.replaces?.length ? { replaces: meta.replaces } : {}),
       ...(meta.book ? { book: meta.book } : {}), ...(meta.needsReview ? { needsReview: meta.needsReview } : {}) }, path);
   }
 
