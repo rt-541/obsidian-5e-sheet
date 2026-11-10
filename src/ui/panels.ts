@@ -13,6 +13,7 @@ import { addCompanionPanel } from "./companion-ui";
 import { addItemPanel } from "./additem-ui";
 import { customizePanel as customizeRowPanel } from "./customize-ui";
 import { itemChangePanel } from "./item-change-ui";
+import { editionChangesPanel, editionPanelTitle } from "./edition-ui";
 
 let condFilter: "all" | "active" | "srd" | "vault" = "all", condQuery = "";
 
@@ -113,12 +114,12 @@ function logPanel(ctl: SheetController): HTMLElement {
   return h("div", {}, ...ctl.host.log.map(r => h("div", { cls: "fe-log" }, h("div", { text: r.title }), h("b", { text: r.own ? String(r.own.total ?? "") : String(r.total) }), " ", h("span", { cls: "fe-mono", text: r.detail }))));
 }
 
-const TITLES: Record<Panel["kind"], string> = { conditions: "Conditions", log: "Roll log", rest: "Rest", compendium: "Add item", "add-companion": "Add companion", customize: "Customize sheet", "customize-row": "Customize", "item-change": "Change item", cast: "Cast spell", "add-spell": "Add spell", details: "Details", "level-up": "Level up", "combo-edit": "Combo" };
+const TITLES: Record<Panel["kind"], string> = { conditions: "Conditions", log: "Roll log", rest: "Rest", compendium: "Add item", "add-companion": "Add companion", customize: "Customize sheet", "customize-row": "Customize", "item-change": "Change item", cast: "Cast spell", "add-spell": "Add spell", details: "Details", "level-up": "Level up", "combo-edit": "Combo", "edition-changes": "What changed" };
 
 export function renderPanel(ctl: SheetController, p: Panel, features: readonly string[]): HTMLElement {
   const body = p.kind === "conditions" ? conditionsPanel(ctl, p.who) : p.kind === "rest" ? restPanel(ctl, p.id) : p.kind === "compendium" ? addItemPanel(ctl)
-    : p.kind === "details" ? detailsPanel(ctl, p.ref) : p.kind === "cast" ? castPanel(ctl, p.spell) : p.kind === "add-spell" ? addSpellPanel(ctl, p) : p.kind === "add-companion" ? addCompanionPanel(ctl, p) : p.kind === "customize" ? customizePanel(ctl, features) : p.kind === "level-up" ? levelUpPanel(ctl) : p.kind === "combo-edit" ? comboForm(ctl) : p.kind === "customize-row" ? customizeRowPanel(ctl, ctl.stats()!) : p.kind === "item-change" ? itemChangePanel(ctl) : logPanel(ctl);
-  const title = p.kind === "add-spell" && p.edit ? (p.edit.mode === "edit" ? "Edit spell" : "Make my own copy") : TITLES[p.kind];
+    : p.kind === "details" ? detailsPanel(ctl, p.ref) : p.kind === "cast" ? castPanel(ctl, p.spell) : p.kind === "add-spell" ? addSpellPanel(ctl, p) : p.kind === "add-companion" ? addCompanionPanel(ctl, p) : p.kind === "customize" ? customizePanel(ctl, features) : p.kind === "level-up" ? levelUpPanel(ctl) : p.kind === "combo-edit" ? comboForm(ctl) : p.kind === "customize-row" ? customizeRowPanel(ctl, ctl.stats()!) : p.kind === "item-change" ? itemChangePanel(ctl) : p.kind === "edition-changes" ? editionChangesPanel(ctl) : logPanel(ctl);
+  const title = p.kind === "add-spell" && p.edit ? (p.edit.mode === "edit" ? "Edit spell" : "Make my own copy") : p.kind === "edition-changes" ? editionPanelTitle(ctl) : TITLES[p.kind];
   return h("div", { cls: "fe-panel", data: { panel: p.kind } },
     h("div", { cls: "fe-panel-head" }, h("span", { cls: "fe-grow fe-name", text: title }), h("button", { cls: "fe-btn", text: "Close", on: { click: () => (p.kind === "combo-edit" ? ctl.cancelComboEdit() : p.kind === "customize-row" ? ctl.cancelCustomize() : ctl.close()) } })),
     h("div", { cls: "fe-panel-body" }, body));

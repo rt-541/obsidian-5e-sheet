@@ -1,6 +1,6 @@
 import { parseNote, type Character } from "../../src/core/character";
 import { deriveCharacter } from "../../src/core/derive";
-import { EDITION_RULES, editionRules } from "../../src/core/edition";
+import { EDITION_RULES, editionRules, isNewer } from "../../src/core/edition";
 import { planLevel } from "../../src/core/levelup";
 import { newCharacter } from "../../src/core/character";
 import { slotTable } from "../../src/core/slots";
@@ -68,5 +68,13 @@ describe("the edition table", () => {
     };
     expect(cap("2024")).toBe(1);
     expect(cap("2014")).not.toBe(1);
+  });
+});
+
+describe("isNewer", () => {
+  it("orders editions by the oldest-first list", () => {
+    expect(isNewer("2024", "2014")).toBe(true);
+    expect(isNewer("2014", "2024")).toBe(false);
+    expect(isNewer("2014", "2014")).toBe(false);
   });
 });

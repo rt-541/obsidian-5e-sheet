@@ -13,6 +13,7 @@ import { actionWords, describeEffects, effectParts, sourceBadge, wordsCtx, type 
 import { h, sgn } from "./h";
 import { identityCard } from "./identity-cards";
 import { withProvenance } from "./bring-in";
+import { editionCard } from "./edition-ui";
 import { ABIL_FULL, glossaryEntry } from "../content/glossary";
 import type { Abil } from "../core/types";
 
@@ -215,6 +216,7 @@ export function detailCard(ref: string, ctl: SheetController): HTMLElement | nul
     case "attack-note": return attackNoteCard(rest, ctl);
     case "glossary": return glossaryCard(rest, ctl);
     case "identity": return identityCard(rest, ctl);
+    case "edition": return editionCard(rest, ctl);
     case "effect": return effectCard(rest, ctl);
     case "feature": return featureCard(rest, ctl);
     case "combo": return comboCard(Number(rest), ctl);

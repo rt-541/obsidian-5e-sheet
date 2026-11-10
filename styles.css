@@ -409,3 +409,12 @@
 .fe-sheet .fe-missing-line { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; font-size: var(--font-ui-smaller); }
 .fe-sheet .fe-identity-label .fe-missing-line { display: inline-flex; vertical-align: middle; }
 .fe-sheet .fe-missing-line button.fe-bring-in { margin-top: 0; }
+
+/* edition chip (identity line) and the what-changed panel */
+.fe-sheet.fe-mobile .fe-chip.fe-edition-chip, .fe-sheet.fe-tablet .fe-chip.fe-edition-chip, .fe-mobile .fe-sheet .fe-chip.fe-edition-chip, .fe-tablet .fe-sheet .fe-chip.fe-edition-chip { display: inline-flex; align-items: center; min-height: 44px; }
+.fe-sheet .fe-chip.fe-edition-chip { display: inline-block; flex: none; margin: 0 0 0 6px; padding: 0 8px; border-radius: 10px; font-size: var(--font-ui-smaller); line-height: 1.5; background: var(--background-modifier-hover); color: var(--text-muted); cursor: pointer; }
+.fe-edition-changes .fe-change { margin-bottom: 10px; }
+.fe-edition-changes .fe-detail-line.is-yours { font-weight: var(--font-semibold); }
+.fe-setting-edition { align-items: center; gap: 8px; }
+.fe-sheet button.fe-edition-open { margin-top: 4px; }
+.fe-mobile button.fe-edition-open, .fe-tablet button.fe-edition-open { min-height: 44px; }

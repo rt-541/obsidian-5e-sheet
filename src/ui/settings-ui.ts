@@ -2,6 +2,7 @@ import type { SheetController } from "./controller";
 import { h } from "./h";
 import { card } from "./widgets";
 import { OWN_DICE } from "../rules";
+import { editionRow } from "./edition-ui";
 
 interface SettingOpt { text: string; on: boolean; attrs: Record<string, string>; click: () => void; }
 
@@ -26,5 +27,6 @@ export function settingsFeature(ctl: SheetController): HTMLElement {
       { text: "Trad (no rations)", on: !hex, attrs: { opt: "off" }, click: () => ctl.setRule("hexploration", false) }),
     row("own-dice", "I roll my own dice",
       { text: "Off", on: !own, attrs: { opt: "off" }, click: () => ctl.setRule(OWN_DICE, false) },
-      { text: "On", on: own, attrs: { opt: "on" }, click: () => ctl.setRule(OWN_DICE, true) }));
+      { text: "On", on: own, attrs: { opt: "on" }, click: () => ctl.setRule(OWN_DICE, true) }),
+    editionRow(ctl));
 }

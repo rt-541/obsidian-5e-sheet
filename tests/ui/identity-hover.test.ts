@@ -35,7 +35,7 @@ describe.each(["desktop", "tablet", "mobile"] as const)("identity line hover and
     const s = setup(layout), id = s.q('[data-feature="identity"]');
     expect(id.textContent).toContain("cleric 5"); expect(id.textContent).toContain("Dwarf"); expect(id.textContent).toContain("Hill Dwarf"); expect(id.textContent).toContain("Acolyte");
     expect([...id.querySelectorAll<HTMLElement>("[data-ref]")].map(e => e.dataset.ref)).toEqual(
-      ["identity:class:cleric", "identity:subclass:life", "identity:race", "identity:subrace", "identity:background"]);
+      ["identity:class:cleric", "identity:subclass:life", "identity:race", "identity:subrace", "identity:background", "edition:2014"]);
   });
   it("the class card shows hit die, saves, proficiencies and one line per feature so far", () => {
     const s = setup(layout), t = open(s, "identity:class:cleric");

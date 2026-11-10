@@ -59,7 +59,7 @@ export interface SheetHost {
 export type Panel =
   | { kind: "conditions"; who?: number } | { kind: "log" } | { kind: "rest"; id: string }
   | { kind: "compendium" } | { kind: "add-companion" } | { kind: "customize" } | { kind: "customize-row" } | { kind: "item-change"; index: number }
-  | { kind: "cast"; spell: string } | { kind: "add-spell"; edit?: { mode: "edit" | "copy"; id: string } } | { kind: "details"; ref: string } | { kind: "level-up" } | { kind: "combo-edit" };
+  | { kind: "cast"; spell: string } | { kind: "add-spell"; edit?: { mode: "edit" | "copy"; id: string } } | { kind: "details"; ref: string } | { kind: "level-up" } | { kind: "combo-edit" } | { kind: "edition-changes" };
 /** What the Customize form is changing: a feature (by key) or an inventory row (by index). */
 export type CustomizeTarget = { kind: "feature"; key: string; name: string; pinRef: string } | { kind: "item"; index: number };
 /** The Customize form: typing changes `form` without redrawing. */

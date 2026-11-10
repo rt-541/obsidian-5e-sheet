@@ -13,6 +13,7 @@ import { h, sgn } from "./h";
 import { slug } from "../content/registry";
 import { btn, card, describeEffects, pips, bar, usesPips } from "./widgets";
 import { settingsFeature } from "./settings-ui";
+import { editionChip } from "./edition-ui";
 import { featuresFeature, levelUpFeature, xpFeature } from "./features-ui";
 import { combosFeature, pinnedCombosFeature } from "./combos-ui";
 import { pinnedTraits, traitsFeature } from "./traits-ui";
@@ -131,6 +132,7 @@ function identityParts(ctl: SheetController): HTMLElement {
   const one = (type: "race" | "subrace" | "background", id: string | undefined) => { if (!id) return; const e = r.get<{ name: string }>(type, id); origin.push([...(e ? [part(e.name, type)] : gone(id, type, { field: type })), chip(id)]); };
   one("race", c.race); one("subrace", c.subrace); one("background", c.background);
   origin.forEach(o => out.push(" · ", ...o));
+  out.push(" ", editionChip(ctl));
   return h("span", { cls: "fe-muted fe-identity-label" }, ...out);
 }
 

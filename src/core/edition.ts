@@ -7,6 +7,8 @@ export function readEdition(v: unknown): Edition | undefined {
   const s = typeof v === "number" ? String(v) : v;
   return s === "2014" || s === "2024" ? s : undefined;
 }
+/** True when `a` is a later edition than `b` (EDITIONS is listed oldest first). */
+export const isNewer = (a: Edition, b: Edition): boolean => EDITIONS.indexOf(a) > EDITIONS.indexOf(b);
 export const otherEdition = (e: Edition): Edition => (e === "2014" ? "2024" : "2014");
 /** A character with no recorded edition plays the 2014 rules. */
 export const characterEdition = (c: { edition?: Edition }): Edition => c.edition ?? "2014";
