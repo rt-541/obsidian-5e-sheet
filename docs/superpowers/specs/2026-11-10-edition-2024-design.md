@@ -153,6 +153,8 @@ Reached from the edition chip, from the Settings card, and from the builder's ed
 - **Two titles dated 2026-11-17 are held back** (a setting book and its adventure, not on sale yet). The library is for books the owner has; they are one line each to add on release.
 - **The campaign's edition** is an optional `edition` key the sheet only reads from the campaign note, beside the `rules` and `sources` keys the GM already keeps there by hand. The sheet never writes campaign notes. Players are not asked to add it; without it the plugin setting decides the builder's default.
 - **If "unstamped means 2014" ever proves wrong** for a library, the fix is a rebuild of that library with the stamp, and that waits for the owner's go like any re-import.
+- **The plugin carries the 2024 condition effects** as data (which rolls a condition changes, no rules text), beside the 2014 ones it already carries. Library condition notes hold only text and take their sheet effects from the bundled entry of the same name, so without this a 2024 character's conditions would do nothing. This is the one piece of 2024 data the plugin ships; classes, species, feats, spells and items still come only from the library.
+- **A brought-in thing is stored as its id with the edition after it** (`<id>@2014`) wherever the character note holds an id. Existing notes need no change, and two rows that differ only by that ending are the two versions of one thing.
 - **Branch**: `feat/edition-2024`, cut from `project-home` so it carries `CLAUDE.md` and `docs/STATE.md`; one PR against `main`.
 
 ## Open for the owner
