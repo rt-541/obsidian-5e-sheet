@@ -11,12 +11,12 @@ This guide is for players. You do not need to know the rules: the sheet explains
 
 ## Create a character
 
-1. Run the command to build a new character. A guided builder opens.
+1. Run the command "New character (builder)". A guided builder opens. (The plain "New character" command makes a blank sheet instead, using the default edition.)
 2. The first page asks which rules your table uses. Read "Pick an edition" below before you tap.
-3. Then choose a species (called a race in 2014), a background and a class, set your ability scores, and pick your spells and gear. Every page says what the choice does in plain words, and every number can be tapped or hovered to see where it came from.
+3. Then choose a species (called a race in 2014), a background, your ability scores and a class, work through the steps your class asks for (spells, a subclass and so on), and pick your gear and a name. Every page says what the choice does in plain words, and every number can be tapped or hovered to see where it came from.
 4. Finish, and the builder writes a character note. Open that note and it shows as the sheet.
 
-Pip, for example, might be a halfling rogue with a background that gives a skill and a feat. Nothing here needs you to type a formula.
+Pip, for example, might be a "lantern-keeper" with a "wanderer" background that gives a skill and a feat. Nothing here needs you to type a formula.
 
 ## Pick an edition
 
@@ -25,9 +25,9 @@ The builder's first page, "Rules", asks whether the character plays by the 2014 
 - The edition decides which compendium notes the sheet reads. A 2024 character sees 2024 classes, species, backgrounds, feats and spells. A 2014 character sees the 2014 ones.
 - The edition is part of the character from then on. You cannot change it after the builder is finished (see Common questions).
 - If you change your mind while you are still in the builder, tap the other edition. If you have already made picks, the sheet tells you what would be cleared and asks you to tap again. Nothing is thrown away on the first tap.
-- Your table's settings can set a default for new characters. Existing characters stay as they are.
+- The plugin setting "Default rules edition" picks which edition is highlighted for a new character. A campaign note that names an edition wins over that setting, and the player can still pick the other edition on the Rules page. Existing characters stay as they are.
 
-Once a character exists, a small chip near the name says which edition it uses. Tap or hover the name next to it to see where that thing comes from.
+Once a character exists, a small chip on the identity line says which edition it uses, "2014 rules" or "2024 rules". The chip itself is the target: tap or hover the chip to see what that edition means, with a button to the what-changed panel.
 
 ## Bring something in from the other edition
 
@@ -57,16 +57,16 @@ The panel only explains. It never changes the character.
 The sheet only lists spells from the character's own edition, so the list stays short and correct. If you want an old spell anyway, use the "Bring in" button at the end of the spell picker.
 
 **What does the chip next to a name mean?**
-It is a small year, 2014 or 2024. On the identity line it says which rules the character uses. Next to a spell, weapon, feat or other item it says that thing was brought in from the other edition.
+On the identity line the chip reads "2014 rules" or "2024 rules" and says which rules the character uses. On a brought-in row (a spell, weapon, feat or other item) the chip is the bare year, 2014 or 2024, and says that thing came from the other edition.
 
 **Why can't I change the edition afterwards?**
 Classes, species, spell lists and many numbers differ between editions, so a switch would quietly break the character's choices. Start a new character instead. The what-changed panel shows what would differ before you decide.
 
 **No 2024 classes show up. What now?**
-Your vault probably has no 2024 data yet. The plugin does not ship any game content. See `docs/IMPORTING.md` for how to bring in the books you own.
+Your vault probably has no 2024 data yet. The plugin does not ship any 2024 content (the small free rules it carries are 2014). In the compendium, the "All editions / 2014 rules / 2024 rules" buttons filter the list to one edition. See `docs/IMPORTING.md` for how to bring in the books you own.
 
 **What is Heroic Inspiration?**
-In 2024 the Inspiration rule was reworked. It is a single reward from your game master that you can spend to reroll a die. The sheet shows it as a tracker, and its card explains how it works.
+In 2024 the Inspiration rule was reworked. It is a single reward that you can spend to reroll a die. The sheet shows it as a button that lights up when you hold it, and its card explains how it works.
 
 **What is a Species?**
 It is the 2024 word for what 2014 called a Race. Same idea: where your character comes from. The sheet uses whichever word fits the character's edition.
