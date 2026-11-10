@@ -12,7 +12,7 @@ const ABIL_NAME: Record<Abil, string> = { str: "STR", dex: "DEX", con: "CON", in
 // ---------------------------------------------------------------- ability scores
 
 export const POINT_BUY_BUDGET = 27;
-/** 2014 point buy: score -> points it costs. */
+/** Point buy (the same in both editions): score -> points it costs. */
 export const POINT_BUY_COST: Record<number, number> = { 8: 0, 9: 1, 10: 2, 11: 3, 12: 4, 13: 5, 14: 7, 15: 9 };
 export const STANDARD_ARRAY = [15, 14, 13, 12, 10, 8];
 export type ScoreMethod = "point-buy" | "standard-array" | "manual";

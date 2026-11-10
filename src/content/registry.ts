@@ -1,4 +1,4 @@
-import type { Edition } from "../core/edition";
+import { otherEdition, type Edition } from "../core/edition";
 import { entryEdition, splitRef } from "./edition";
 import { libraryBody, type Raw as LibRaw } from "./library";
 import { compareSources, HOMEBREW_SOURCE, LIBRARY_SOURCE, SRD_SOURCE, sourceOn, type SourceSwitches } from "./sources";
@@ -161,7 +161,7 @@ export class Registry {
   /** The other edition's winner for an id, when this view's lens has none. */
   otherEditionHas(type: string, id: string): Edition | undefined {
     if (!this.lens) return undefined;
-    const other: Edition = this.lens === "2024" ? "2014" : "2024";
+    const other: Edition = otherEdition(this.lens);
     if (this.get(type, id)) return undefined;
     return this.winner(this.all.get(`${type}/${id}`), { edition: other, exact: true } as Pick) ? other : undefined;
   }

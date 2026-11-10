@@ -9,6 +9,7 @@ import { evalFormula } from "./formula";
 import { emptyProgress, formulaVars, progress, type Progress, type DerivedResource } from "./progression";
 import { slug } from "../content/registry";
 import { matchesTag } from "./roll-tags";
+import { editionRules, characterEdition } from "./edition";
 import { slotTable } from "./slots";
 import { titleCase } from "./words";
 import { ABILS, SKILLS, type Abil, type Effects, type Modifier, type RollTarget } from "./types";
@@ -250,7 +251,7 @@ export function deriveCharacter(c: Character, ctx: EffectContext): ActorStats {
   }
   for (const d of prog.dcs) why[`dc:${d.id}`] = sum(`${d.name} save DC`, d.dc, [{ n: 8 }, { label: "Proficiency", n: prof }, abilTerm(d.abil, d.dc - 8 - prof)]);
   const spellcasting = casters[0] ? { abil: casters[0].abil, dc: casters[0].dc, attack: casters[0].attack } : undefined;
-  const slots = slotTable(prog.spellcasting.map(e => ({ level: e.level, progression: e.progression, ...(e.table ? { table: e.table } : {}) })))
+  const slots = slotTable(prog.spellcasting.map(e => ({ level: e.level, progression: e.progression, ...(e.table ? { table: e.table } : {}) })), editionRules(characterEdition(c)))
     .map(s => ({ ...s, used: Math.min(c.spellSlots[s.level]?.used ?? 0, s.max) }));
   const dice = new Map<string, number>();
   for (const x of classData) if (x.d) dice.set(`d${x.d.hitDie}`, (dice.get(`d${x.d.hitDie}`) ?? 0) + x.k.level);

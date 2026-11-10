@@ -5,11 +5,12 @@ import { abilityKey, describeDelta, increaseDelta } from "./ability-increase";
 import type { Character, HpMethod, LevelEntry } from "./character";
 import { deriveCharacter } from "./derive";
 import { progress, resolveOptionList, type PendingChoice, type Progress } from "./progression";
+import { editionRules, characterEdition } from "./edition";
 import { slotTable } from "./slots";
 import { titleCase } from "./words";
 import { ABILS, SKILLS, type Abil, type Rng } from "./types";
 
-/** Experience needed to reach level n + 1 (index 0 = level 1), 2014 rules. */
+/** Experience needed to reach level n + 1 (index 0 = level 1); the same in both editions. */
 export const XP_THRESHOLDS = [0, 300, 900, 2700, 6500, 14000, 23000, 34000, 48000, 64000, 85000, 100000, 120000, 140000, 165000, 195000, 225000, 265000, 305000, 355000];
 export const MAX_TOTAL_LEVEL = 20;
 export function levelFromXp(xp: number): number {
@@ -47,7 +48,7 @@ function requirementProblems(d: ClassData, c: Character, verb: string): string[]
 
 /**
  * Classes the character can take a level in: the ones it has, plus others whose multiclass prerequisite is met.
- * As in the 2014 rules, both the class being left and the class being taken must be satisfied.
+ * Both the class being left and the class being taken must be satisfied.
  */
 export function levelOptions(c: Character, registry: Registry): LevelOption[] {
   const all = registry.list<ClassData>("class"), mine = c.classes.map(k => k.class);
@@ -109,14 +110,14 @@ function spellOptions(env: Env, op: Extract<Op, { op: "spells" }>, maxLevel: num
     .map(e => ({ id: e.id, name: e.name, source: sourceLabel(e), level: e.data.level, school: e.data.school, text: e.data.level === 0 ? `${e.data.school} cantrip` : `Level ${e.data.level} ${e.data.school}`,
       ...(owned.has(e.id) ? { disabled: "Already known" } : e.data.level > maxLevel ? { disabled: `Needs a level ${e.data.level} slot` } : {}) }));
 }
-/** 2014 (PHB p.164): spells known and prepared are worked out per class as if single-classed, so the cap comes from the leveling class's own entry. */
+/** Spells known and prepared are worked out per class as if single-classed, so the cap comes from the leveling class's own entry. */
 function maxSpellLevel(env: Env, key: string): number {
   const prog = env.prog, m = /^(class|subclass):([^:]+):/.exec(key);
   const owner = m ? (m[1] === "class" ? m[2] : env.cand.classes.find(k => k.subclass === m[2])?.class) : undefined;
   const mine = prog.spellcasting.filter(e => e.class === owner);
   const own = mine.filter(e => e.from === (m?.[1] === "subclass" ? "subclass" : "class"));
   const entries = own.length ? own : mine.length ? mine : prog.spellcasting;
-  const rows = slotTable(entries.map(e => ({ level: e.level, progression: e.progression, ...(e.table ? { table: e.table } : {}) })));
+  const rows = slotTable(entries.map(e => ({ level: e.level, progression: e.progression, ...(e.table ? { table: e.table } : {}) })), editionRules(characterEdition(env.cand)));
   const levels = rows.filter(r => r.max > 0).map(r => r.level === "pact" ? r.pactLevel ?? 0 : Number(r.level));
   return levels.length ? Math.max(...levels) : 9;
 }

@@ -18,20 +18,25 @@ export function tableRow(table: Record<number, SlotTableRow> | undefined, level:
   return best ? table![best] : undefined;
 }
 
+/** The two edition rules the slot table reads (see EDITION_RULES); absent means the 2014 values. */
+export type SlotRules = { halfCasterRounding: "down" | "up"; halfCasterFromLevel: 1 | 2 };
+const SLOT_RULES_2014: SlotRules = { halfCasterRounding: "down", halfCasterFromLevel: 2 };
+
 /**
- * 2014 multiclass slots: full + half/2 + third/3 (rounded down; a single caster rounds up) index the full-caster table.
+ * Multiclass slots: full + half/2 + third/3 index the full-caster table. Third-casters always round down; half-casters
+ * round as the edition says. A single caster rounds up, and a lone half-caster has slots from the edition's first level.
  * Custom `table` casters (Scholar, Profane Soul) add their listed slots on top, and pact slots add to Warlock pact slots
  * (more slots, higher level of the two).
  */
-export function slotTable(classes: CasterInput[]) {
+export function slotTable(classes: CasterInput[], rules: SlotRules = SLOT_RULES_2014) {
   const out: { level: string; max: number; pactLevel?: number }[] = [];
   const casters = classes.filter(c => c.progression && c.progression !== "pact" && c.progression !== "table");
   let casterLevel = 0;
   if (casters.length === 1) {
     const c = casters[0];
-    casterLevel = c.progression === "full" ? c.level : c.progression === "half" ? (c.level >= 2 ? Math.ceil(c.level / 2) : 0) : (c.level >= 3 ? Math.ceil(c.level / 3) : 0);
+    casterLevel = c.progression === "full" ? c.level : c.progression === "half" ? (c.level >= rules.halfCasterFromLevel ? Math.ceil(c.level / 2) : 0) : (c.level >= 3 ? Math.ceil(c.level / 3) : 0);
   } else {
-    for (const c of casters) casterLevel += c.progression === "full" ? c.level : c.progression === "half" ? Math.floor(c.level / 2) : Math.floor(c.level / 3);
+    for (const c of casters) casterLevel += c.progression === "full" ? c.level : c.progression === "half" ? (rules.halfCasterRounding === "up" ? Math.ceil(c.level / 2) : Math.floor(c.level / 2)) : Math.floor(c.level / 3);
   }
   const counts = [...FULL_CASTER[Math.min(casterLevel, 20)]];
   let pactSlots = 0, pactLevel = 0;

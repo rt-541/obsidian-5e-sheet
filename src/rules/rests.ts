@@ -1,10 +1,13 @@
 import type { ItemData } from "../content/types";
 import type { Character, InventoryEntry } from "../core/character";
+import { characterEdition, editionRules } from "../core/edition";
 import { entryItem } from "../core/item-entry";
 import type { RestCtx, RestDef, RestOptions, RuleModule } from "./module";
 
 const exhaustionDown = (c: Character) => { if (c.conditions.exhaustion) { c.conditions.exhaustion--; if (!c.conditions.exhaustion) delete c.conditions.exhaustion; } };
-const hpMaxAfterExhaustion = (ctx: RestCtx) => (ctx.c.conditions.exhaustion ?? 0) - 1 >= 4 ? Math.floor(ctx.stats.hpFull / 2) : ctx.stats.hpFull;
+const rulesOf = (ctx: RestCtx) => editionRules(characterEdition(ctx.c));
+const hpMaxAfterExhaustion = (ctx: RestCtx) => { const at = rulesOf(ctx).exhaustionHalvesHpAt; return at !== null && (ctx.c.conditions.exhaustion ?? 0) - 1 >= at; };
+const hpAfterRest = (ctx: RestCtx) => hpMaxAfterExhaustion(ctx) ? Math.floor(ctx.stats.hpFull / 2) : ctx.stats.hpFull;
 const itemName = (ctx: RestCtx, e: InventoryEntry): ItemData | undefined => entryItem(e, ctx.registry);
 
 /** Switches (Rage, stances) that end with this kind of rest; a long rest ends the short ones too. */
@@ -47,11 +50,12 @@ function dawnParts(ctx: RestCtx, c: Character | null): string[] {
   return out;
 }
 
-/** Long rest (allHitDice=false) and Good Rest (allHitDice=true). Pass c=null for a preview. */
-function bigParts(ctx: RestCtx, c: Character | null, allHitDice: boolean): string[] {
+/** Long rest (Hit Dice per the edition) and Good Rest (allHitDice=true). Pass c=null for a preview. */
+function bigParts(ctx: RestCtx, c: Character | null, goodRest: boolean): string[] {
+  const allHitDice = goodRest || rulesOf(ctx).longRestHitDice === "all";
   const out: string[] = endToggles(ctx, c, ["short", "long"]), ex = ctx.c.conditions.exhaustion ?? 0;
   if (ex) out.push(`Exhaustion ${ex} → ${ex - 1}`);
-  out.push(`HP to ${hpMaxAfterExhaustion(ctx)}`);
+  out.push(`HP to ${hpAfterRest(ctx)}`);
   if (ctx.stats.slots.length) out.push("All spell slots");
   const dawn = dawnOnLongRest(ctx);
   ctx.c.resources.forEach(r => { if (r.used && r.reset !== "none" && (r.reset !== "dawn" || dawn)) out.push(`${r.name} recharges`); });
@@ -65,7 +69,7 @@ function bigParts(ctx: RestCtx, c: Character | null, allHitDice: boolean): strin
     if (it?.charges && e.charges?.used && (it.charges.reset === "long" || it.charges.reset === "short" || (it.charges.reset === "dawn" && !ctx.rules["holy-days"]))) out.push(`${it.name}: charges restored`); });
   if (c) {
     exhaustionDown(c);
-    c.hp = { max: c.hp.max, current: hpMaxAfterExhaustion(ctx), temp: 0 };
+    c.hp = { max: c.hp.max, current: hpAfterRest(ctx), temp: 0 };
     c.deathSaves = { successes: 0, failures: 0 }; c.spellSlots = {};
     c.resources.forEach(r => { if (resetsOn(r.reset, dawn)) r.used = 0; });
     for (const r of ctx.stats.resources) if (r.derived && resetsOn(r.reset, dawn)) delete c.uses[r.id];
