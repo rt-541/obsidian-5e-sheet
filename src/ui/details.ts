@@ -1,6 +1,7 @@
+import { provenanceLine } from "../content/edition";
 import { characterEdition, editionRules } from "../core/edition";
 import { sourceLabel, type Entry, type Registry } from "../content/registry";
-import type { ClassData, ConditionData, CreatureData, FeatData, GrantsData, ItemData, Op, SpellData, SubclassData, SubraceData } from "../content/types";
+import type { ClassData, ConditionData, CreatureData, FeatData, GrantsData, ItemData, MasteryData, Op, SpellData, SubclassData, SubraceData } from "../content/types";
 import type { Effects } from "../core/types";
 import { entryItem } from "../core/item-entry";
 import { priceText } from "../content/item-view";
@@ -216,6 +217,7 @@ export function detailCard(ref: string, ctl: SheetController): HTMLElement | nul
     case "combo": return comboCard(Number(rest), ctl);
     case "subclass": { const e = reg.get<SubclassData>("subclass", rest); return e ? subclassCard(reg, e) : null; }
     case "feat": { const e = reg.get<FeatData>("feat", rest); return e ? featCard(e) : null; }
+    case "mastery": { const e = reg.get<MasteryData>("mastery", rest); return e ? card(e.name, "Weapon mastery", [provenanceLine(e)], e.data.rules, e.source === "vault" ? e.path : undefined, sourceLabel(e)) : null; }
     case "trait": { const j = rest.lastIndexOf(":"); return j < 0 ? null : traitCard(rest.slice(0, j), Number(rest.slice(j + 1)), ctl); }
     default: return null;
   }

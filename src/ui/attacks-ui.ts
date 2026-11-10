@@ -1,4 +1,6 @@
-import type { ItemData } from "../content/types";
+import type { Entry } from "../content/registry";
+import type { ItemData, MasteryData } from "../content/types";
+import { masteryOptions } from "../core/levelup";
 import { entryItem } from "../core/item-entry";
 import type { ActorStats, AttackStat } from "../core/derive";
 import type { Abil } from "../core/types";
@@ -43,6 +45,7 @@ export function attacksList(ctl: SheetController, st: ActorStats, who?: number):
         : null;
       const row = h("div", { cls: "fe-attack", data: { attack: String(ai) } },
         h("span", { cls: "fe-grow", text: a.name, ...refData(noteRef) }),
+        a.mastery ? h("button", { cls: "fe-mastery-chip", text: a.mastery.name, attrs: { type: "button", "aria-label": `${a.name}: weapon mastery ${a.mastery.name}` }, data: { ref: `mastery:${a.mastery.id}` } }) : null,
         a.note ? h("span", { cls: "fe-faint fe-attack-note-mark", text: "notes", ...refData(noteRef) }) : null,
         h("span", { cls: "fe-attack-ctl" },
           gripSwitch(ctl, a, who),
@@ -70,4 +73,28 @@ function gripSwitch(ctl: SheetController, a: AttackStat, who?: number): HTMLElem
   return h("div", { cls: "fe-seg fe-grip", attrs: { role: "group", "aria-label": `${a.name}: one or two hands` } },
     opt(1, "1H", `One hand: ${oneHand ?? a.damage ?? ""}`, false),
     opt(2, "2H", blocked ? "Put away your shield to use two hands" : `Two hands: ${g.twoHanded}`, blocked));
+}
+
+/** Edit mode, inside the Attacks card: the mastered weapons, each with a Change button that offers the same weapons the level-up does (minus the ones already mastered). */
+export function masteryEdit(ctl: SheetController): HTMLElement | null {
+  const c = ctl.character; if (!ctl.editing || !c?.mastery?.length) return null;
+  const reg = ctl.host.registry;
+  return h("div", { cls: "fe-mastery-edit", data: { block: "weapon-mastery" } },
+    h("div", { cls: "fe-muted", text: "Weapon mastery" }),
+    ...c.mastery.flatMap(id => {
+      // untyped on purpose: c.mastery names library weapons, not inventory rows
+      const item = reg.get("item", id) as Entry<ItemData> | undefined, prop = item?.data.weapon?.mastery, note = prop ? reg.get<MasteryData>("mastery", prop) : undefined;
+      const open = ctl.masteryChanging === id;
+      const row = h("div", { cls: "fe-kv", data: { masteryRow: id } },
+        h("span", { cls: "fe-grow", text: item?.name ?? id }),
+        note ? h("span", { cls: "fe-faint", text: note.data.name }) : null,
+        h("button", { cls: "fe-mastery-change", text: open ? "Cancel" : "Change", attrs: { type: "button", "aria-label": `Change mastery of ${item?.name ?? id}` },
+          on: { click: () => ctl.changeMastery(open ? null : id) } }));
+      if (!open) return [row];
+      const opts = masteryOptions(ctl.pickers(), c).filter(o => !o.disabled);
+      return [row, h("div", { cls: "fe-mastery-options", data: { masteryPick: id } },
+        ...(opts.length ? opts.map(o => h("button", { cls: "fe-mastery-option", text: o.text ? `${o.name} (${o.text})` : o.name, attrs: { type: "button" }, data: { id: o.id },
+          on: { click: () => ctl.dispatch({ type: "mastery", out: id, in: o.id }) } })) : [h("div", { cls: "fe-faint", text: "No other weapon to choose." })]))];
+    }),
+    h("div", { cls: "fe-faint", text: "You can change these after a long rest." }));
 }

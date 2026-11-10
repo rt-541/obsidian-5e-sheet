@@ -20,7 +20,7 @@ import { togglesFeature } from "./toggles-ui";
 import { coinsRow } from "./coins-ui";
 import { rationsFeature } from "./rations-ui";
 import { inventoryFeature, itemRef, itemState } from "./inventory-ui";
-import { attacksList } from "./attacks-ui";
+import { attacksList, masteryEdit } from "./attacks-ui";
 import { attackOptionsFeature } from "./attack-options-ui";
 import { rollModeSlider } from "./roll-mode-ui";
 import { castsSpells, concentrationFeature, pinnedSpellsFeature, slotRows, spellsFeature } from "./spells-ui";
@@ -189,7 +189,7 @@ export const RENDER: Record<string, Render> = {
   abilities: (ctl, st) => card("Abilities", checks(ctl, st).abilities),
   saves: (ctl, st) => card("Saving throws", checks(ctl, st).saves, legend("Filled dot: trained (add your proficiency bonus).")),
   skills: (ctl, st) => card("Skills", checks(ctl, st).skills, legend("Filled dot: trained (add your proficiency bonus).")),
-  attacks: (ctl, st) => card("Attacks", attacksList(ctl, st)),
+  attacks: (ctl, st) => card("Attacks", attacksList(ctl, st), masteryEdit(ctl)),
   "attack-options": (ctl, st) => attackOptionsFeature(ctl, st),
   "spell-dc": (ctl, st) => hideUnless(castsSpells(ctl, st), card("Spellcasting", h("div", { cls: "fe-kv" }, st.spellcasting
     ? h("span", {}, h("span", { text: `Spell save DC ${st.spellcasting.dc}`, ...whyData(whyOf(st, "spell-dc")) }), " · ", h("span", { text: `spell attack ${sgn(st.spellcasting.attack)}`, ...whyData(whyOf(st, "spell-attack")) }))

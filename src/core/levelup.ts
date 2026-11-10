@@ -150,6 +150,18 @@ export const LANGUAGE_CHOICES = ["Common", "Dwarvish", "Elvish", "Giant", "Gnomi
 /** A language compared the way mergeLanguages does: case-insensitive, spaces as hyphens ("Deep Speech" and "deep-speech" are one language). */
 const langKey = (l: string): string => l.trim().toLowerCase().replace(/\s+/g, "-");
 
+/**
+ * The weapons a mastery pick offers: the ordinary weapons in the (lensed) registry that name a mastery property, or the ones `from` lists (an id that is not an item is skipped).
+ * Weapons already mastered are marked disabled when `markHave` is set. The level-up and the Edit-mode Change button both use this.
+ */
+export function masteryOptions(registry: Registry, c: Character, from?: string[], markHave = true): StepOption[] {
+  const all = registry.list<ItemData>("item");
+  const items = from ? from.flatMap(id => all.filter(e => e.id === id).slice(0, 1)) : all.filter(e => !!e.data.weapon?.mastery && isOrdinaryItem(e)).sort((a, b) => a.name.localeCompare(b.name));
+  const have = new Set(c.mastery ?? []);
+  return items.map(e => { const m = e.data.weapon?.mastery, prop = m ? registry.get<MasteryData>("mastery", m)?.name ?? titleCase(m) : undefined;
+    return { id: e.id, name: e.name, ...(prop ? { text: prop } : {}), source: sourceLabel(e), ...(have.has(e.id) && markHave ? { disabled: "Already mastered" } : {}) }; });
+}
+
 function stepOf(p: PendingChoice, env: Env, maxScores: () => Record<Abil, number>): Step | undefined {
   const { op, key } = p, base = { key, label: p.label, source: p.source };
   const c = env.cand, prog = env.prog;
@@ -174,12 +186,7 @@ function stepOf(p: PendingChoice, env: Env, maxScores: () => Record<Abil, number
         options = defs.map(d => ({ id: d.id, name: d.name, ...(d.text !== undefined ? { text: d.text } : {}),
           ...(d.minLevel !== undefined && d.minLevel > lvl ? { disabled: `Needs level ${d.minLevel}` } : prog.options[op.list!]?.includes(d.id) ? { disabled: "Already chosen" } : {}) }));
       } else if (op.what === "mastery") {
-        // the ordinary weapons in the (lensed) registry that name a mastery property, or the ones the op lists; an id that is not an item is skipped
-        const all = env.registry.list<ItemData>("item");
-        const items = op.from ? op.from.flatMap(id => all.filter(e => e.id === id).slice(0, 1)) : all.filter(e => !!e.data.weapon?.mastery && isOrdinaryItem(e)).sort((a, b) => a.name.localeCompare(b.name));
-        const have = new Set(c.mastery ?? []);
-        options = items.map(e => { const m = e.data.weapon?.mastery, prop = m ? env.registry.get<MasteryData>("mastery", m)?.name ?? titleCase(m) : undefined;
-          return { id: e.id, name: e.name, ...(prop ? { text: prop } : {}), source: sourceLabel(e), ...(have.has(e.id) && env.mode.kind !== "resolve" ? { disabled: "Already mastered" } : {}) }; });
+        options = masteryOptions(env.registry, c, op.from, env.mode.kind !== "resolve");
       } else {
         const from = op.from ?? (op.what === "skills" || op.what === "expertise" ? Object.keys(SKILLS) : op.what === "languages" ? LANGUAGE_CHOICES.map(l => l.toLowerCase().replace(/ /g, "-")) : undefined);
         free = op.from === undefined && op.what !== "skills" && op.what !== "expertise";

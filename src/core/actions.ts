@@ -23,6 +23,8 @@ export type Action =
   | { type: "equip"; index: number; on: boolean } | { type: "attune"; index: number; on: boolean }
   | { type: "hands"; index: number; hands: 1 | 2; /** Also put away every equipped shield (the one-tap "Put away shield"). */ putAwayShield?: boolean }
   | { type: "inspiration"; on: boolean }
+  /** Swap one mastered weapon for another (Edit mode, after a long rest): `out` leaves the list and `in` takes its place. Display only; no roll changes. */
+  | { type: "mastery"; out: string; in: string }
   | { type: "addItem"; id: string; /** The armor or weapon a generic item is made from. */ base?: string; /** Put it on straight away. */ equip?: boolean; attune?: boolean } | { type: "removeItem"; index: number }
   /** An item that is not in the compendium: a name, how many, an optional weight per piece in pounds, and whether using one up it. */
   | { type: "addCustomItem"; name: string; qty: number; weight?: number; consumable?: boolean }
@@ -348,6 +350,14 @@ export function apply(c0: Character, a: Action, lim: Limits): Applied {
     case "resource": { const r = c.resources[a.index]; if (r) r.used = clamp(a.used, 0, r.max); break; }
     case "charges": { const e = c.inventory[a.index]; if (e) e.charges = { used: clamp(a.used, 0, lim.chargesMax(a.index)) }; break; }
     case "hitDie": { const h = lim.self.hitDice.find(x => x.die === a.die); c.hitDice[a.die] = { used: clamp(a.used, 0, h?.max ?? 0) }; break; }
+    case "mastery": {
+      const at = (c.mastery ?? []).indexOf(a.out);
+      if (at < 0) return { value: c0, error: "That weapon is not one of your mastered weapons." };
+      if ((c.mastery ?? []).includes(a.in)) return { value: c0, error: "You already have mastery of that weapon." };
+      const name = (id: string) => lim.ctx?.registry.get("item", id)?.name ?? id;
+      c.mastery![at] = a.in;
+      return { value: c, note: `Mastery moved from ${name(a.out)} to ${name(a.in)}.` };
+    }
     case "deathSave": c.deathSaves[a.which] = clamp(a.value, 0, 3); break;
     case "equip": {
       const e = c.inventory[a.index]; if (!e) break;

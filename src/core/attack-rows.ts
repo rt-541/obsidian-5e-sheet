@@ -18,6 +18,8 @@ export interface AttackInputs {
   items: { e: InventoryEntry; it: ItemData | undefined }[];
   weaponProf: (name: string, id: string | undefined, category: "simple" | "martial" | undefined) => boolean;
   opt: (t?: RollTarget) => ModOpts; problem: (msg: string) => void;
+  /** The mastery property to show for an inventory row's weapon, if the character has mastered it. Display only. */
+  masteryOf?: (e: InventoryEntry, it: ItemData | undefined) => { id: string; name: string } | undefined;
   /** Ids of extra-damage switches the player turned off (`extra:<source>`). */ extraOff?: ReadonlySet<string>;
 }
 
@@ -25,7 +27,7 @@ export interface AttackInputs {
 interface Row {
   name: string; /** Base damage dice; `1` means the flat 1 damage of an unarmed strike. */ dmg: string; type: string; abils: Abil[]; range: "melee" | "ranged";
   bonus: number; trained: boolean; tags: string[]; itemExtra?: string; offhand?: boolean; addMod?: boolean; dieRules: string[]; notes: string[];
-  /** Inventory index of the weapon. */ item?: number; grip?: AttackGrip; twoHands?: boolean;
+  /** Inventory index of the weapon. */ item?: number; grip?: AttackGrip; twoHands?: boolean; /** Mastery property to show, main row only. */ mastery?: { id: string; name: string };
 }
 
 /** The better ability of the list for this character (the first one wins a tie, so finesse prefers Dex). */
@@ -43,21 +45,21 @@ export function buildAttacks(i: AttackInputs): AttackStat[] {
   // "one-handed": the only melee weapon in hand and not a two-handed one (Dueling). A versatile weapon counts, since the player chooses the grip.
   const meleeInHand = equipped.filter(x => x.it!.weapon!.range === "melee").length;
   for (const { e, it, index } of equipped) {
-    const w = it!.weapon!, works = itemWorks(e, it), bonus = works ? (w.bonus ?? 0) : 0;
+    const w = it!.weapon!, works = itemWorks(e, it), mastery = i.masteryOf?.(e, it), bonus = works ? (w.bonus ?? 0) : 0;
     const oneHanded = w.range === "melee" && meleeInHand === 1 && !(w.props ?? []).includes("two-handed");
     const versatile = isVersatile(w), twoHands = versatile && e.hands === 2 && !i.shield, twoHanded = versatileDie(w);
     const props = w.props ?? [], handTags = twoHands ? (props.includes("two-handed") ? [] : ["two-handed"]) : oneHanded && !props.includes("one-handed") ? ["one-handed"] : [];
     rows.push({ name: it!.name, dmg: twoHands ? twoHanded : w.dmg, type: w.type, abils: w.ab === "finesse" ? ["dex", "str"] : [w.ab], range: w.range, bonus, trained: i.weaponProf(it!.name, e.id, w.category),
       tags: [...(e.id ? [e.id] : []), ...(w.props ?? []), ...handTags, ...(isMonkWeapon(e.id, w) ? ["monk"] : []), ...(bonus > 0 || (it!.rarity && !/^(mundane|none)$/i.test(it!.rarity)) ? ["magic"] : [])],
       ...(works && w.extraDamage ? { itemExtra: w.extraDamage } : {}), dieRules: [], notes: [],
-      item: index, twoHands, ...(versatile ? { grip: { hands: twoHands ? 2 : 1, twoHanded, shield: i.shield } } : {}) });
+      item: index, twoHands, ...(mastery ? { mastery } : {}), ...(versatile ? { grip: { hands: twoHands ? 2 : 1, twoHanded, shield: i.shield } } : {}) });
   }
   rows.push({ name: "Unarmed Strike", dmg: "1", type: "bludgeoning", abils: ["str"], range: "melee", bonus: 0, trained: true, tags: ["unarmed"], dieRules: [], notes: [] });
   // Two light melee weapons in hand: the second one also gets an off-hand attack, which has no positive ability modifier.
   const melee = rows.filter(r => r.range === "melee" && !r.tags.includes("unarmed"));
   if (melee.length >= 2 && melee[0].tags.includes("light") && melee[1].tags.includes("light")) {
     const o = melee[1];
-    rows.push({ ...o, name: `${o.name} (off-hand)`, tags: [...o.tags, "offhand"], offhand: true, grip: undefined, twoHands: false, dieRules: [], notes: ["Bonus action, when you attack with a light weapon in your main hand."] });
+    rows.push({ ...o, name: `${o.name} (off-hand)`, tags: [...o.tags, "offhand"], offhand: true, grip: undefined, mastery: undefined, twoHands: false, dieRules: [], notes: ["Bonus action, when you attack with a light weapon in your main hand."] });
   }
   const seen = new Set(rows.map(r => r.name));
   for (const s of i.fx) for (const nw of s.effects.weapons ?? []) {
@@ -117,7 +119,7 @@ export function buildAttacks(i: AttackInputs): AttackStat[] {
         [...(mod ? [abilTerm(abil, mod, row.offhand && !row.addMod ? "off-hand: only a penalty counts" : undefined)] : []), ...(row.bonus ? [{ n: row.bonus, from: "weapon bonus" }] : []), ...dmgMods.terms],
         { lead: row.twoHands && dmg === row.dmg ? `${dmg} (two hands)` : dmg, tail, notes: dmgMods.notes }),
     };
-    return { name: row.name, toHit, why, damage, ...(row.item !== undefined ? { item: row.item } : {}), ...(row.grip ? { grip: row.grip } : {}),
+    return { name: row.name, toHit, why, damage, ...(row.item !== undefined ? { item: row.item } : {}), ...(row.grip ? { grip: row.grip } : {}), ...(row.mastery ? { mastery: row.mastery } : {}),
       ...(crit ? { critDamage: crit } : {}), target, ...(row.trained ? {} : { proficient: false as const }), ...(notes.length ? { note: notes.join(" ") } : {}) };
   });
 }

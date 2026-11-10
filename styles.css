@@ -392,3 +392,10 @@
 .fe-sheet button.fe-base-ask { height: auto; min-height: 28px; text-align: left; white-space: normal; }
 .fe-mobile button.fe-base-ask, .fe-tablet button.fe-base-ask { min-height: 44px; }
 .fe-mobile .fe-change-form input, .fe-tablet .fe-change-form input, .fe-mobile .fe-change-form select, .fe-tablet .fe-change-form select, .fe-mobile .fe-change-form button.fe-btn, .fe-tablet .fe-change-form button.fe-btn { min-height: 44px; }
+
+/* Weapon mastery: the chip on an attack row and the Edit-mode block. Display only. */
+.fe-sheet button.fe-mastery-chip { flex: none; font-size: var(--font-ui-smaller); padding: 0 8px; height: auto; min-height: 0; border-radius: 10px; background: var(--background-modifier-hover); color: var(--text-muted); box-shadow: none; cursor: help; }
+.fe-sheet button.fe-mastery-change, .fe-sheet button.fe-mastery-option { font-size: var(--font-ui-smaller); }
+.fe-mastery-edit { margin-top: 8px; padding-top: 6px; border-top: 1px solid var(--background-modifier-border); }
+.fe-mastery-options { display: flex; flex-direction: column; gap: 4px; padding: 4px 0 6px; }
+.fe-mobile button.fe-mastery-chip, .fe-tablet button.fe-mastery-chip, .fe-mobile button.fe-mastery-change, .fe-tablet button.fe-mastery-change, .fe-mobile button.fe-mastery-option, .fe-tablet button.fe-mastery-option { min-height: 44px; }

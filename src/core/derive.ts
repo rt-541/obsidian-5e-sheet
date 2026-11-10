@@ -16,6 +16,7 @@ import { ABILS, SKILLS, type Abil, type Effects, type Modifier, type RollTarget 
 import type { ActionDef, ToggleDef } from "../content/types";
 import { layerRow } from "./customize";
 import { entryItem } from "./item-entry";
+import { masteryOfRow } from "./mastery";
 import { ABIL_LONG, abilTerm, modTerms, sgn as signed, sum, type Term } from "./why";
 
 /** How a versatile weapon is held: its main row only. */
@@ -30,7 +31,9 @@ export interface AttackStat { name: string; toHit?: number; save?: { abil: Abil;
   /** The inventory index of the weapon behind this row (its off-hand row too). */
   item?: number;
   /** Only on a versatile weapon's main row. */
-  grip?: AttackGrip; }
+  grip?: AttackGrip;
+  /** The mastery property of a weapon the character has mastered (its note id and name). Shown on the row, never applied to a number. */
+  mastery?: { id: string; name: string }; }
 export { NOT_PROFICIENT };
 
 /** "Crossbows, light" -> "light crossbow", "Simple Weapons" -> "simple weapon": lower case, singular, in the order a weapon is named. */
@@ -241,7 +244,8 @@ export function deriveCharacter(c: Character, ctx: EffectContext): ActorStats {
   const checks = Object.fromEntries(ABILS.map(a => [a, m[a] + halfOf({ kind: "check", abil: a }) + sumModifier(fx, "check", opt({ kind: "check", abil: a })).add])) as Record<Abil, number>;
   for (const a of ABILS) { const w = checkTerms({ kind: "check", abil: a }, a, false, false); why[`check:${a}`] = sum(`${ABIL_LONG[a]} check ${signed(checks[a])}`, "", w.terms, { notes: w.notes }); }
   const weaponProf = weaponProficiency(prog.proficiencies.other, classData.length > 0 && classData.every(x => x.d) && prog.unknown.length === 0);
-  const attacks = buildAttacks({ fx, shield: items.some(x => x.e.equipped && x.it?.kind === "shield"), mods: m, prof, scales: prog.scales, vars, items, weaponProf, opt, problem, extraOff: new Set(c.optionsOff ?? []) });
+  const attacks = buildAttacks({ fx, shield: items.some(x => x.e.equipped && x.it?.kind === "shield"), mods: m, prof, scales: prog.scales, vars, items, weaponProf, opt, problem, extraOff: new Set(c.optionsOff ?? []),
+    masteryOf: (e, it) => masteryOfRow(c, ctx.registry, e, it) });
   const casters: CasterStat[] = prog.spellcasting.map(e => ({ name: e.className, abil: e.abil, progression: e.progression,
     dc: 8 + prof + m[e.abil] + sumModifier(fx, "spellDC", opt()).add, attack: prof + m[e.abil] + sumModifier(fx, "spellAttack", opt()).add }));
   if (casters[0]) {

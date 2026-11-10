@@ -95,7 +95,7 @@ export const HIT_WINDOW_MS = 3000;
 
 export class SheetController {
   value: Character | Npc; errors: string[]; writable: boolean;
-  mode: RollMode = "normal"; editing = false; tab = ""; amount = 5;
+  mode: RollMode = "normal"; editing = false; /** The mastered weapon id whose Change picker is open (Edit mode, not saved). */ masteryChanging: string | null = null; tab = ""; amount = 5;
   /** Optional damage type chosen next to the Damage button (resistance, immunity and vulnerability use it). */
   damageType = "";
   /** After damage while concentrating: the save the player is asked to make. */
@@ -201,9 +201,10 @@ export class SheetController {
     const st = this.stats(); if (!st) { this.host.notify("Unknown creature for this NPC"); return { ok: false }; }
     const out = this.value.type === "5e-character" ? apply(this.value, a, this.limits()) : applyNpc(this.value, a, st, n => deriveNpc(n, this.ctx()));
     if (out.error) { this.host.notify(out.error); return { ok: false }; }
+    if (a.type === "mastery") this.masteryChanging = null;
     if (a.type === "equip" || a.type === "attune" || a.type === "removeItem" || a.type === "addItem" || a.type === "addCustomItem") this.gripPrompt = null;
     this.commit(out.value);
-    if ((a.type === "damage" || a.type === "equip" || a.type === "attune" || a.type === "hands") && "note" in out && out.note) this.host.notify(out.note);
+    if ((a.type === "damage" || a.type === "equip" || a.type === "attune" || a.type === "hands" || a.type === "mastery") && "note" in out && out.note) this.host.notify(out.note);
     if ("concentrationCheck" in out && out.concentrationCheck) {
       const prev = this.concentrationCheck;
       this.concentrationCheck = prev && prev.spell === out.concentrationCheck.spell && prev.dc > out.concentrationCheck.dc ? prev : out.concentrationCheck;
@@ -847,7 +848,9 @@ export class SheetController {
   }
 
   setMode(m: RollMode) { this.mode = m; this.emit(); }
-  setEditing(on: boolean) { this.editing = on; this.confirmUndo = false; if (!on && (this.panel?.kind === "customize" || this.panel?.kind === "customize-row")) { this.panel = null; this.customizeDraft = null; } this.emit(); }
+  /** Open (or, with null, close) the Change picker for one mastered weapon. */
+  changeMastery(id: string | null) { this.masteryChanging = id; this.emit(); }
+  setEditing(on: boolean) { this.editing = on; this.confirmUndo = false; if (!on) this.masteryChanging = null; if (!on && (this.panel?.kind === "customize" || this.panel?.kind === "customize-row")) { this.panel = null; this.customizeDraft = null; } this.emit(); }
   /** Whether the traits card section `id` is collapsed (default: expanded). */
   isCollapsed(id: string) { return this.collapsedSet().has(id); }
   toggleCollapsed(id: string) {
