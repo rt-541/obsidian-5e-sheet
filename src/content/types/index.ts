@@ -5,6 +5,7 @@ import { creatureType } from "./creature";
 import { classType } from "./class";
 import { campaignType } from "./campaign";
 import { spellType } from "./spell";
+import { masteryType } from "./mastery";
 import { backgroundType, featType, raceType, subclassType, subraceType } from "./origin";
 export type { ConditionData } from "./condition";
 export type { ItemData, GrantedSpell, ArmorData, WeaponData } from "./item";
@@ -16,7 +17,8 @@ export type { ToggleDef, ToggleCost } from "./toggle";
 export type { AttackOptionDef } from "./attack-option";
 export type { CampaignData, LevelingMode } from "./campaign";
 export type { SpellData } from "./spell";
+export type { MasteryData } from "./mastery";
 
 export function registerBuiltinTypes(r: Registry): void {
-  for (const d of [conditionType("condition"), conditionType("injury"), itemType, creatureType, classType, campaignType, spellType, subclassType, raceType, subraceType, backgroundType, featType]) r.register(d as never);
+  for (const d of [conditionType("condition"), conditionType("injury"), itemType, creatureType, classType, campaignType, spellType, subclassType, raceType, subraceType, backgroundType, featType, masteryType]) r.register(d as never);
 }

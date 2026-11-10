@@ -19,7 +19,9 @@ export interface WeaponData { dmg: string; type: string; ab: "str" | "dex" | "fi
   /** The damage dice when a versatile weapon is held in two hands. Left out: the dice in the "Versatile (1d10)" property, or the next die size up. */
   versatile?: string;
   /** Lower-case words a generic magic item can name (sword, axe, bow); "any sword" fits a weapon whose groups include "sword". */
-  groups?: string[]; }
+  groups?: string[];
+  /** The id of a weapon mastery note (type "mastery") naming this weapon's property. */
+  mastery?: string; }
 /** A generic magic item ("+1 Armor", "Weapon (any sword)"): the player picks the base armor or weapon it is made from. */
 export interface ItemVariant { base: "armor" | "weapon"; only?: string[]; except?: string[]; bonusAc?: number; bonusWeapon?: number; }
 export interface GrantedSpell { id: string; cost: { kind: "charges"; amount: number } | { kind: "perDay"; uses: number } | { kind: "atWill" }; level?: number; dc?: number; attack?: number; }
@@ -86,7 +88,9 @@ export const itemType: TypeDef<ItemData> = {
           ...(typeof w.bonus === "number" ? { bonus: w.bonus } : {}), ...(extra ? { extraDamage: extra } : {}), ...(versatile ? { versatile } : {}),
           ...(w.category === "simple" || w.category === "martial" ? { category: w.category } : {}),
           ...(Array.isArray(w.props) && w.props.every(x => typeof x === "string") && w.props.length ? { props: w.props as string[] } : {}),
-          ...(Array.isArray(w.groups) && w.groups.every(x => typeof x === "string") && w.groups.length ? { groups: (w.groups as string[]).map(x => x.toLowerCase()) } : {}) };
+          ...(Array.isArray(w.groups) && w.groups.every(x => typeof x === "string") && w.groups.length ? { groups: (w.groups as string[]).map(x => x.toLowerCase()) } : {}),
+          ...(typeof w.mastery === "string" && w.mastery.trim() ? { mastery: w.mastery.trim() } : {}) };
+        if (w.mastery !== undefined && !(typeof w.mastery === "string" && w.mastery.trim())) e.push("weapon.mastery: must be the id of a mastery note");
         if (w.groups !== undefined && !(Array.isArray(w.groups) && w.groups.every(x => typeof x === "string"))) e.push("weapon.groups: must be a list of words");
         if (w.category !== undefined && w.category !== "simple" && w.category !== "martial") e.push("weapon.category: must be simple or martial");
       }

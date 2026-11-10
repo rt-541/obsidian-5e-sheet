@@ -14,6 +14,7 @@ describe("registry edition lens", () => {
     expect(own(r24.list("spell"))).toEqual(["glint", "nova", "spark"]); expect(own(r14.list("spell"))).toEqual(["glint", "hush", "spark"]);
     expect(r24.list("spell").every(e => e.source !== "srd")).toBe(true);
     expect(r24.get<any>("item", "tin-blade")!.data.weapon.dmg).toBe("1d8"); expect(r14.get<any>("item", "tin-blade")!.data.weapon.dmg).toBe("1d6");
+    expect(r24.get<any>("item", "tin-blade")!.data.weapon.mastery).toBe("snag");
   });
   it("a qualified id resolves that edition exactly", () => {
     expect(r24.get("spell", "hush@2014")!.edition).toBe("2014"); expect(r14.get("spell", "nova@2024")!.edition).toBe("2024");

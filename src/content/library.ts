@@ -179,6 +179,7 @@ export function libraryBody(type: string, raw: Raw, body: string): Raw {
       const v = recognizeVariant(String(raw.name ?? ""), line?.slice(1, -1));
       return v ? { ...withRules, variant: v } : withRules;
     }
+    case "mastery": { const rules = cleanBody(body); return rules ? { ...raw, rules } : raw; }
     case "condition": case "injury": { const rules = cleanBody(body); return rules ? { ...raw, rules } : raw; }
     case "creature": {
       const attacks = creatureAttacks(body), traits = creatureTraits(body);
@@ -194,6 +195,7 @@ function usesLibrarySchema(type: string, fm: Raw): boolean {
     case "spell": return fm.casting_time !== undefined || typeof fm.components === "string";
     case "item": return fm.item_type !== undefined;
     case "condition": return fm.condition_kind !== undefined;
+    case "mastery": return true;
     case "creature": return fm.creature_type !== undefined || fm.hp_formula !== undefined || typeof fm.hp === "number" || typeof fm.speed === "string";
     default: return false;
   }

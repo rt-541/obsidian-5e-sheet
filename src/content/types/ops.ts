@@ -32,7 +32,7 @@ export type Op =
   | (Base & { op: "scale"; name: string; values?: Record<number, string | number>; formula?: Formula })
   | (Base & { op: "dc"; name: string; abil: Abil; alt?: Abil })
   | (Base & { op: "modify"; resource?: string; scale?: string; set: Formula })
-  | (Base & { op: "choose"; what: "skills" | "expertise" | "tools" | "languages" | "option"; from?: string[]; list?: string; count: number; swap: boolean })
+  | (Base & { op: "choose"; what: "skills" | "expertise" | "tools" | "languages" | "option" | "mastery"; from?: string[]; list?: string; count: number; swap: boolean })
   | (Base & { op: "subclass" })
   /** `feats`: the feat categories this slot accepts; absent, any feat. */
   | (Base & { op: "asi"; feats?: string[] })
@@ -237,7 +237,7 @@ function validateOp(raw: unknown, at: string, index: number, ctx: OpsCtx, e: Err
       return done({ id, op: "modify", set, ...(r ? { resource: r } : {}), ...(s ? { scale: s } : {}) });
     }
     case "choose": {
-      const WHAT = ["skills", "expertise", "tools", "languages", "option"] as const;
+      const WHAT = ["skills", "expertise", "tools", "languages", "option", "mastery"] as const;
       if (!WHAT.includes(raw.what as never)) e.push(`${at}.what: must be one of ${WHAT.join(", ")}`);
       const what = raw.what as (typeof WHAT)[number];
       if (!whole(raw.count, 1)) e.push(`${at}.count: must be a whole number from 1`);

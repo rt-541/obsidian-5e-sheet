@@ -40,9 +40,14 @@ export function baseFits(v: ItemVariant, base: { id: string; data: ItemData }): 
   return !v.only?.length || v.only.some(w => wordsHold(w, base));
 }
 
+/** An ordinary item: not a generic item, not a "+N" weapon, and mundane or common (or no rarity at all). */
+export function isOrdinaryItem(e: { data: ItemData }): boolean {
+  return !e.data.variant && !e.data.weapon?.bonus && (!e.data.rarity || /^(mundane|none|common)$/i.test(e.data.rarity));
+}
+
 /** The ordinary armor or weapons a generic item can be made from: no other magic item, no other generic item. Sorted by name. */
 export function baseChoices(v: ItemVariant, items: Entry<ItemData>[]): Entry<ItemData>[] {
-  return items.filter(e => baseFits(v, e) && !e.data.variant && !e.data.weapon?.bonus && (!e.data.rarity || /^(mundane|none|common)$/i.test(e.data.rarity)))
+  return items.filter(e => baseFits(v, e) && isOrdinaryItem(e))
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 

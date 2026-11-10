@@ -67,6 +67,21 @@ describe("draftProblems", () => {
   it("final scores stay in range", () => { expect(draftProblems(draft({ bonus: { dex: 9 } }), reg).join()).toMatch(/DEX/); });
 });
 
+describe("mastery in the builder", () => {
+  const mk = { type: "5e-class", name: "Maker", hitDie: 8, levels: { 1: [{ op: "choose", what: "mastery", count: 1 }] } };
+  const sword = { type: "5e-item", name: "Tin Blade", kind: "weapon", attunement: false, weight: 2, weapon: { dmg: "1d6", type: "slashing", ab: "str", range: "melee", mastery: "snag" } };
+  const mreg = homebrewRegistry([mk, sword, { type: "5e-mastery", name: "Snag" }]);
+  it("asks the pick at level 1 and the note carries mastery", () => {
+    const d = draft({ classId: "maker", choices: { "race:skink:choose-2": ["elvish"] } });
+    expect(buildSteps(d, mreg).level.map(x => x.key)).toEqual(["class:maker:1:choose-0"]);
+    const r = buildCharacter({ ...d, choices: { ...d.choices, "class:maker:1:choose-0": ["tin-blade"] } }, mreg, seeded(3));
+    if ("error" in r) throw new Error(r.error);
+    expect(r.value.mastery).toEqual(["tin-blade"]);
+    const fm: Record<string, unknown> = {}; writeInto(fm, r.value);
+    expect(fm.mastery).toEqual(["tin-blade"]);
+  });
+});
+
 describe("buildCharacter", () => {
   it("makes a level 1 character: origin, scores with bonuses, full first-level HP, level log", () => {
     const { value: c } = built(draft());

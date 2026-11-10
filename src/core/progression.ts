@@ -288,7 +288,7 @@ export function progress(c: Character, registry: Registry): Progress {
           break;
         }
         case "choose": {
-          const label = op.what === "option" ? optionListLabel(op.list ?? "", op.count, src.classId) : `Choose ${plural(op.count, op.what)}`;
+          const label = op.what === "option" ? optionListLabel(op.list ?? "", op.count, src.classId) : op.what === "mastery" ? `Choose ${plural(op.count, "weapon")} to master` : `Choose ${plural(op.count, op.what)}`;
           const v = choice(key, src.classId, src.level);
           const pend = () => out.pending.push({ key, source: src.label, level: src.level, op, label });
           if (!isStrs(v) || v.length !== op.count) { if (v !== undefined) problem(`${src.label}: the saved pick for ${op.id} does not have ${op.count} entries`); pend(); break; }
@@ -304,6 +304,7 @@ export function progress(c: Character, registry: Registry): Progress {
           else if (op.what === "expertise") v.forEach(s => seen.expertise.add(s));
           else if (op.what === "tools") v.forEach(s => seen.other.add(s));
           else if (op.what === "languages") v.forEach(s => seen.langs.add(s));
+          else if (op.what === "mastery") { /* the picks live in Character.mastery; nothing for progression to derive */ }
           else {
             const list = op.list!;
             for (const id of v) {

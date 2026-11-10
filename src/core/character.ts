@@ -52,6 +52,8 @@ export interface Character {
   levelLog: LevelEntry[];
   /** Feat ids. */
   feats: string[];
+  /** Weapon item ids the character has mastery of. Absent means none, and is never written to a note that lacks it. */
+  mastery?: string[];
   /** Languages entered by hand, merged with those the race, background and class choices give. */
   languages: string[];
   /** Used counts of resources derived from class operations, keyed by resource id. */
@@ -293,6 +295,7 @@ function parseCharacter(fm: R): Parsed {
     return [{ ...x, class: x.class, level: r.whole(x.level, `${at}.level`, 1) || (r.errors.push(`${at}.level: must be from 1`), 1), hp: entryHp, choices: r.obj(x.choices, `${at}.choices`) }];
   });
   c.feats = r.strs(fm.feats, "feats");
+  if (fm.mastery !== undefined) c.mastery = r.strs(fm.mastery, "mastery");
   c.languages = r.strs(fm.languages, "languages");
   for (const [k, v] of Object.entries(r.obj(fm.uses, "uses"))) c.uses[k] = r.whole(v, `uses.${k}`);
   c.choices = r.obj(fm.choices, "choices");
@@ -338,6 +341,7 @@ export function parseNote(fm: unknown): Parsed {
 export function writeInto(fm: Record<string, unknown>, value: Character | Npc): void {
   const defaults = (value.type === "5e-character" ? newCharacter(value.name) : { modifiers: [], conditions: {}, sheet: { hide: [], show: [] }, rules: {} }) as unknown as Record<string, unknown>;
   if (value.type === "5e-character" && value.concentration === undefined) delete fm.concentration;
+  if (value.type === "5e-character" && value.mastery === undefined) delete fm.mastery;
   if (value.type === "5e-character") { if (value.optionsOn === undefined) delete fm.optionsOn; if (value.optionsOff === undefined) delete fm.optionsOff; }
   for (const [k, v] of Object.entries(value)) {
     if (v === undefined) continue;

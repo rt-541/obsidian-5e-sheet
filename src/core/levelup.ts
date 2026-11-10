@@ -1,5 +1,6 @@
+import { isOrdinaryItem } from "../content/item-variant";
 import { sourceLabel, type Registry } from "../content/registry";
-import type { AbilReq, ClassData, FeatData, GrantsData, Op, OptionDef, SpellData, SubclassData, SubraceData } from "../content/types";
+import type { AbilReq, ClassData, FeatData, GrantsData, ItemData, MasteryData, Op, OptionDef, SpellData, SubclassData, SubraceData } from "../content/types";
 import { abilityMod } from "./abilities";
 import { abilityKey, abilityPickKey, describeDelta, describePattern, increaseDelta, pickDelta } from "./ability-increase";
 import type { Character, HpMethod, LevelEntry } from "./character";
@@ -75,7 +76,7 @@ export type Step =
   | { kind: "asi"; key: string; label: string; source: string; maxScores: Record<Abil, number>; feats?: string[]; featOptions: StepOption[] }
   /** A `feat` op that asks: one feat of `categories`, answered with the feat id. */
   | { kind: "feat"; key: string; label: string; source: string; categories: string[]; options: StepOption[] }
-  | { kind: "pick"; key: string; label: string; source: string; what: "skills" | "expertise" | "tools" | "languages" | "option" | "abilities"; count: number; /** Option list name when `what` is option. */ list?: string; options: StepOption[]; /** No list to choose from: type the names. */ free: boolean }
+  | { kind: "pick"; key: string; label: string; source: string; what: "skills" | "expertise" | "tools" | "languages" | "option" | "mastery" | "abilities"; count: number; /** Option list name when `what` is option. */ list?: string; options: StepOption[]; /** No list to choose from: type the names. */ free: boolean }
   /** A background's (or race's) ability pick: choose a pattern, then an ability for each number. `scores` are the scores before it applies. */
   | { kind: "pattern"; key: string; label: string; source: string; from: Abil[]; patterns: number[][]; scores: Record<Abil, number> }
   | { kind: "optional"; key: string; label: string; source: string; name: string; text?: string }
@@ -172,6 +173,13 @@ function stepOf(p: PendingChoice, env: Env, maxScores: () => Record<Abil, number
         const lvl = classLevelOf(env, key);
         options = defs.map(d => ({ id: d.id, name: d.name, ...(d.text !== undefined ? { text: d.text } : {}),
           ...(d.minLevel !== undefined && d.minLevel > lvl ? { disabled: `Needs level ${d.minLevel}` } : prog.options[op.list!]?.includes(d.id) ? { disabled: "Already chosen" } : {}) }));
+      } else if (op.what === "mastery") {
+        // the ordinary weapons in the (lensed) registry that name a mastery property, or the ones the op lists; an id that is not an item is skipped
+        const all = env.registry.list<ItemData>("item");
+        const items = op.from ? op.from.flatMap(id => all.filter(e => e.id === id).slice(0, 1)) : all.filter(e => !!e.data.weapon?.mastery && isOrdinaryItem(e)).sort((a, b) => a.name.localeCompare(b.name));
+        const have = new Set(c.mastery ?? []);
+        options = items.map(e => { const m = e.data.weapon?.mastery, prop = m ? env.registry.get<MasteryData>("mastery", m)?.name ?? titleCase(m) : undefined;
+          return { id: e.id, name: e.name, ...(prop ? { text: prop } : {}), source: sourceLabel(e), ...(have.has(e.id) && env.mode.kind !== "resolve" ? { disabled: "Already mastered" } : {}) }; });
       } else {
         const from = op.from ?? (op.what === "skills" || op.what === "expertise" ? Object.keys(SKILLS) : op.what === "languages" ? LANGUAGE_CHOICES.map(l => l.toLowerCase().replace(/ /g, "-")) : undefined);
         free = op.from === undefined && op.what !== "skills" && op.what !== "expertise";
@@ -395,7 +403,7 @@ function commitSteps(steps: Step[], choices: Record<string, unknown>, env: Env, 
   const asked = steps.filter((s): s is Exclude<Step, { kind: "hp" }> => s.kind !== "hp");
   // expertise may use skills picked in the same level, so skills are checked first
   const order = [...asked.filter(s => !(s.kind === "pick" && s.what === "expertise")), ...asked.filter(s => s.kind === "pick" && s.what === "expertise")];
-  const record: Record<string, unknown> = {}, summary: string[] = [], added: string[] = [], swaps: unknown[] = [];
+  const record: Record<string, unknown> = {}, summary: string[] = [], added: string[] = [], masteryAdded: string[] = [], swaps: unknown[] = [];
   for (const s of order) {
     const r = checkStep(s, choices[s.key], env, taken);
     if ("error" in r) return r;
@@ -418,6 +426,11 @@ function commitSteps(steps: Step[], choices: Record<string, unknown>, env: Env, 
       summary.push(`${s.source}: ${describeDelta(delta)}`);
     }
     else if (s.kind === "optional") summary.push(`Optional feature: ${s.name} (${r.ok === true ? "taken" : "not taken"})`);
+    else if (s.kind === "pick" && s.what === "mastery") {
+      const ids = (r.ok as string[]).filter(id => !(value.mastery ?? []).includes(id));
+      if (ids.length) { value.mastery = [...(value.mastery ?? []), ...ids]; masteryAdded.push(...ids); }
+      summary.push(`Mastery: ${(r.ok as string[]).map(id => optionName(s, id)).join(", ")}`);
+    }
     else if (s.kind === "pick") summary.push(`${s.what === "option" ? titleCase(s.list ?? "choice") : titleCase(s.what)}: ${(r.ok as string[]).map(id => optionName(s, id)).join(", ")}`);
     else if (s.kind === "asi") {
       const a = r.ok as { feat?: string; abilities?: Record<string, number> };
@@ -444,6 +457,7 @@ function commitSteps(steps: Step[], choices: Record<string, unknown>, env: Env, 
       summary.push(`Spells: ${[...ids, ...sw.ok.map(p => p.in)].map(id => optionName(s, id)).join(", ") || "none"}`);
     }
   }
+  if (masteryAdded.length) record["+mastery"] = masteryAdded;
   if (added.length) record["+spells"] = added;
   if (swaps.length) record["+swaps"] = swaps;
   return { record, summary };
@@ -550,6 +564,8 @@ export function undoLevel(c: Character, registry: Registry): { value: Character;
     const j = v.spells.map(x => x.id).lastIndexOf(id);
     if (j >= 0) { v.spells.splice(j, 1); v.mainSpells = v.mainSpells.filter(k => k !== id); }
   }
+  for (const id of isStrs(ch["+mastery"]) ? ch["+mastery"] : []) { const j = (v.mastery ?? []).lastIndexOf(id); if (j >= 0) v.mastery!.splice(j, 1); }
+  if (v.mastery && !v.mastery.length) delete v.mastery;
   for (const id of isStrs(ch["+feats"]) ? ch["+feats"] : []) { const j = v.feats.lastIndexOf(id); if (j >= 0) v.feats.splice(j, 1); }
   for (const id of isStrs(ch["+items"]) ? ch["+items"] : []) { const j = v.inventory.map(x => x.id).lastIndexOf(id); if (j >= 0) v.inventory.splice(j, 1); }
   for (const val of Object.values(ch)) {
