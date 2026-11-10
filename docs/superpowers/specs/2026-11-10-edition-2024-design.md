@@ -1,6 +1,6 @@
 # 2014 and 2024 rules side by side
 
-Date: 2026-11-10. Status: draft for the owner's approval. Nothing is built until it is approved.
+Date: 2026-11-10. Status: the owner answered the draft on 2026-11-10 (all the books, the sheet's edition decides the compendium, a button to bring things in, tags on every compendium file); those answers are folded in below. One question stays open at its default (existing characters).
 
 ## Intent and why
 
@@ -36,6 +36,10 @@ Three deliverables:
 - A plain-words "what changed in 2024" panel for players who are not rules-savvy. It must cover species and background ability scores, weapon mastery, origin feats and class changes.
 - 2024 data comes from the 5etools 2024 mirror (2026-11-10).
 - Daggerheart is parked for now (2026-11-10).
+- **All of the 2024 books go in** (2026-11-10), not only the three core ones.
+- **The edition of the character sheet decides the compendium it reads** (2026-11-10). A 2024 sheet reads the 2024 compendium, a 2014 sheet the 2014 one.
+- **Bringing something in from the other edition is a button the player clicks** (2026-11-10), never something that happens by itself.
+- **Every compendium file carries edition tags** (2026-11-10: "use a sed job to add tags to all the compendium files"), the existing libraries included.
 
 ## Goals
 
@@ -49,8 +53,11 @@ Three deliverables:
 ### 2. Content knows its edition, and a character reads its own
 
 - A content entry has an optional edition. The importer stamps `edition` on every generated note. A generated library note without the stamp is 2014 (every library generated so far is). The bundled SRD is 2014. Hand-made notes (Homebrew and the owner's other source folders) have no edition and count for both.
-- Looking something up for a character prefers entries of the character's edition or of no edition, in today's source order, and only then falls back to the other edition. So a 2024 character's `fighter`, `fireball` or `longsword` is the 2024 one whenever it exists, a 2014 character's is the 2014 one, and homebrew still wins over both.
-- Pickers (builder, level-up, add spell, add item, companions) list the character's edition first. Things that exist only in the other edition are still offered, in their own group at the end with an edition chip ("2014"), so a 2024 character can take a subclass, species, feat or spell that was never reprinted.
+- **A character reads its own edition's compendium, and nothing else by itself.** Looking something up for a character uses entries of the character's edition or of no edition, in today's source order. So a 2024 character's `fighter`, `fireball` or `longsword` is the 2024 one, a 2014 character's is the 2014 one, and homebrew still wins over both. There is no silent fall-back to the other edition.
+- **Pickers (builder, level-up, add spell, add item, companions) list only the character's edition**, plus homebrew.
+- **"Bring in from the 2014 books" (or "from the 2024 books") is a button at the end of every picker.** It opens the other edition's list for that picker, search first. What the player picks is added with an edition chip ("2014") that stays visible wherever it is shown, and the character note records that it was brought in, so that exact entry is used even when the character's own edition has one of the same name. Taking it off the character removes the record. This is how a 2024 character takes a subclass, species, feat, spell, item or creature that was never reprinted, including everything in the 2014-era third-party libraries.
+- **Each thing links to its own version, and a character can hold both.** A 2024 character's Fireball opens the 2024 note. If the player also brings in the 2014 Fireball, the character has two rows; each links to its own note, and the hover card (tap on tablet and phone) names its source: the book and the edition. The same goes for anything else held twice. So an entry on the character records which edition it was brought in from, and two rows may share an id. (Owner, 2026-11-10: "fireball should link to its version but if you added both you can see its source when you hover over it".)
+- If a character note points at something its own edition does not have (a hand-edited note, a library that changed), the sheet shows the existing "missing" marker with one plain line, "This is in the 2014 books", and the same button.
 - The compendium browser, which has no character, shows everything, with an edition filter (All, 2014, 2024) and a chip on each row that has an edition.
 - Campaign source switches keep working on top: a table that wants no 2014 content switches the `WotC` source off in the campaign note.
 
@@ -93,8 +100,8 @@ Reached from the edition chip, from the Settings card, and from the builder's ed
 ### 6. The 2024 library
 
 - The importer builds a second WotC library from `5etools-2024` into `compendium/5e/WotC 2024/`, with its own marker file, Index and Needs Review page. The 2014 build keeps reading `5etools-2014` and writing `compendium/5e/WotC`.
-- Only entries from an allow-list of 2024 books go in (see "Open for the owner"). Everything from older books in the 2024 data is ignored: it already comes from the 2014 clone.
-- Every generated note is stamped with its edition (frontmatter field and a `5e/edition/...` tag). The 2014 library gets its stamp at its next rebuild; until then the plugin treats unstamped library notes as 2014.
+- All 2024 books go in: every book and adventure in the 2024 data published on or after 2024-09-17 (18 books and 24 adventures in v2.41.0), kept as a list in the importer's config so a later title is one line. Everything from older books in the 2024 data is ignored: it already comes from the 2014 clone.
+- Every generated note is stamped with its edition: a frontmatter field and a `5e/edition/2014` or `5e/edition/2024` tag. The existing libraries (`WotC`, `Kobold Press`, `Necromancer Games`) get the stamp in this job: the importer adds it, the libraries are rebuilt from the same code and data that made them on 2026-10-24, a diff against the previous output shows the stamp is the only change, and the marker-guarded sync replaces the folders. `Mystic Arts` is built from another branch and is left as it is; the plugin treats an unstamped library note as 2014.
 - Converters learn the 2024 shapes in goal 4, plus the 2024 class, species, feat, spell, item, creature and condition layouts. Links stay inside the 2024 library and use full vault paths.
 - The build logs counts per type and lists what it could not convert cleanly on the 2024 Needs Review page. I check the output myself against the source data (counts, a sample of each type, every class table); a local model may draft the list of suspect notes, but its output is a draft, not evidence.
 - Sync adds the new folder to the marker-guarded sync. `compendium/5e2024/`, `campaigns/`, the owner's source folders and `.obsidian/graph.json` are not touched.
@@ -126,7 +133,7 @@ Reached from the edition chip, from the Settings card, and from the builder's ed
 
 - Everything in `CLAUDE.md`'s hard rules: plain DOM via `h()`, `classList` on mount roots, `.fe-sheet button.x` specificity, `type="text"` on inputs, parity on three layouts with each feature id placed once, test first, `npm test`, `npm run typecheck` and `npm run build` green, conventional commits.
 - Existing notes stay readable: a note without the new fields behaves as today.
-- **Order of release.** The deployed plugin does not know editions. Read from today's code (`Registry.winner` and `list`): for an id both libraries have, `WotC` outranks any other generated library, so existing characters keep their 2014 entries and pickers show one row per id. But anything that exists only in the 2024 library (new feats, backgrounds, subclasses, spells) would appear in every picker with no edition label, and a 2024 entry would stand in wherever the 2014 note is unusable. So the edition-aware build is deployed before the 2024 folder is synced to the vault. A test with an invented second library pins the first half of this (existing characters unchanged) for both the old and the new lookup. Deploy and merge to `main` wait for the owner's words.
+- **Order of release.** The deployed plugin does not know editions. Read from today's code (`Registry.winner` and `list`): for an id both libraries have, `WotC` outranks any other generated library, so existing characters keep their 2014 entries and pickers show one row per id. But anything that exists only in the 2024 library (new feats, backgrounds, subclasses, spells) would appear in every picker with no edition label, and a 2024 entry would stand in wherever the 2014 note is unusable. So the edition-aware build is deployed before the 2024 folder is synced to the vault. The re-sync of the existing libraries with their stamp does not wait: a test shows today's build reads a stamped note exactly as it reads an unstamped one. A test with an invented second library pins the first half of this (existing characters unchanged) for both the old and the new lookup. Deploy and merge to `main` wait for the owner's words.
 - Importer work happens on the `worktree-dnd-compendium` branch (fast-forwarded to f68f540 first), never in this repo. The owner's uncommitted edits in the main homelab-config checkout are never stashed or overwritten.
 - The public mirror gets none of this until the sanitized sync and its separate audit. The general-changes text in goal 5 is our own wording, like the glossary; the audit decides whether it ships.
 
@@ -139,18 +146,18 @@ Reached from the edition chip, from the Settings card, and from the builder's ed
 
 - **Folder**: `compendium/5e/WotC 2024/`, inside the existing root. The plugin already reads any folder there as a source, and Homebrew and the third-party libraries stay shared by both editions. The alternative, `compendium/5e2024/WotC`, needs a second root in the plugin and hides homebrew from 2024 characters unless both roots load.
 - **Edition is chosen in the builder and then fixed** (see non-goals).
-- **Mixing is allowed and labelled**: other-edition content is offered in its own group with a chip, not hidden.
 - **The panel has two parts**, general and per character, as in goal 5.
 - **Weapon mastery is shown, not applied.**
-- **The 2014 library is not rebuilt in this job.** Unstamped library notes count as 2014, so nothing forces it; a rebuild that adds the stamp and tag can ride along with the next 2014 refresh.
+- **What the button does** was my reading of "if we want to import things we can click a button": it brings one thing from the other edition's compendium onto this character, as in goal 2. The owner's follow-up about holding both versions of Fireball fits that reading.
+- **The tags are added by the importer and a re-sync, not by a sed run inside the vault.** The repo's rule is that only the marker-guarded sync writes the generated library folders, and the next sync would wipe an in-vault edit anyway. The result is the one asked for: every compendium file tagged. A literal in-vault sed needs the owner to lift that rule in words.
+- **Two titles dated 2026-11-17 are held back** (a setting book and its adventure, not on sale yet). The library is for books the owner has; they are one line each to add on release.
 - **The campaign's edition** is an optional `edition` key the sheet only reads from the campaign note, beside the `rules` and `sources` keys the GM already keeps there by hand. The sheet never writes campaign notes. Players are not asked to add it; without it the plugin setting decides the builder's default.
 - **If "unstamped means 2014" ever proves wrong** for a library, the fix is a rebuild of that library with the stamp, and that waits for the owner's go like any re-import.
 - **Branch**: `feat/edition-2024`, cut from `project-home` so it carries `CLAUDE.md` and `docs/STATE.md`; one PR against `main`.
 
 ## Open for the owner
 
-1. **Which 2024 books go in.** The 2024 data holds 18 books published since September 2024: the three core books, and later setting, adventure and screen products. My default is the three core books only (Player's Handbook, Dungeon Master's Guide, Monster Manual), with the list kept in the importer's config so adding a book is one line. The library is for books the owner has, so the owner names any others.
-2. **Existing characters.** Is 2024 for new characters only, or should a character such as Azur or Thalia move? My default: new characters only in this build. If they should move, the safe route is "Start a 2024 copy": the builder opens filled in with the name, scores and every pick that exists in 2024, writes a new note, and leaves the original alone. That is extra work on top of this design.
+1. **Existing characters.** Is 2024 for new characters only, or should a character such as Azur or Thalia move? My default: new characters only in this build. If they should move, the safe route is "Start a 2024 copy": the builder opens filled in with the name, scores and every pick that exists in 2024, writes a new note, and leaves the original alone. That is extra work on top of this design.
 
 ## Left to the builder
 
