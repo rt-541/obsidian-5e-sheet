@@ -88,7 +88,8 @@ it("multiclass slots round as they do today", () => {
   expect(slotTable([{ level: 5, progression: "half" }])).toEqual([{ level: "1", max: 4 }, { level: "2", max: 2 }]);
 });
 it("a long rest gives back half the Hit Dice, lowers exhaustion by one and halves max HP only from level 4", () => { /* tests/rules/rests.test.ts helpers: 5 dice all used -> "Regain 2 Hit Dice"; exhaustion 5 -> 4 sets HP to floor(hpFull/2); exhaustion 3 -> 2 sets HP to hpFull */ });
-it("the level-up asks as many spells as the class table's known column says", () => { /* skirmisher-like invented class with table known: 3 at level 5 -> spells step count 3 */ });
+it("the level-up asks as many spells as the class's spells ops say", () => { /* invented class with { op: "spells", count: 2 } at level 1 and { count: 1 } at level 2 -> the level-2 spells step asks for 1; this is how the 2024 library carries prepared-spell counts (see the contract) */ });
+it("a class with a spellcasting table asks what its known column says", () => { /* invented class with table known: 3 at level 5 -> spells step count 3 */ });
 it("a character with no edition derives the numbers it derives today", () => { /* record hp.max, ac, slots, attacks of an invented two-class character from today's code as literals */ });
 ```
 
