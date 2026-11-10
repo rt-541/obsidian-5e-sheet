@@ -1,6 +1,6 @@
 # State
 
-Last updated 2026-11-10 (edition 2024 branch, Task 22 docs).
+Last updated 2026-11-10 (edition 2024 branch complete and reviewed).
 
 ## Where it stands
 
@@ -15,15 +15,22 @@ Started 2026-11-10 on branch `feat/edition-2024`. The owner parked Daggerheart f
 
 - Design: `docs/superpowers/specs/2026-11-10-edition-2024-design.md` (also https://scratch.rt-541.io/dnd-sheet/edition-2024-design/). Top-level plan: `docs/superpowers/plans/2026-11-10-edition-2024.md`, with one detailed plan each for the plugin and the importer beside it.
 - Decided by the owner on 2026-11-10: all the 2024 books go in; the sheet's edition decides which compendium it reads; bringing something in from the other edition is a button; a character can hold both versions of one thing and the hover card names the source; every compendium file gets edition tags.
-- 2024 data: `/docker/dnd-compendium/5etools-2024`, the `5etools-mirror-3/5etools-src` mirror pinned at v2.41.0. The importer side is a separate plan (`docs/superpowers/plans/2026-11-10-edition-2024-importer.md`); `docs/IMPORTING.md` is written after it.
-- Shipped on `feat/edition-2024` (UNMERGED, not pushed, not deployed): edition on the character, chosen on the builder's first page and fixed afterwards (switching with picks held asks to tap again); the sheet reads one edition's compendium; "Bring in" at the end of pickers; brought-in things show a small year chip; a missing reference says which books have it, with one tap to bring it in; the what-changed panel (part one general, part two this character with Show all levels and Read both) from the identity chip card or the Settings card; the compendium edition filter; the 2024 table (Species, long rest gives back all Hit Dice, Heroic Inspiration, exhaustion, spell slots); background ability picks and feat categories; weapon mastery shown on the attack row and changeable in Edit mode after a long rest, not applied to rolls; overlay twins and the condition audit; a plain "no 2024 classes found" line pointing at `docs/IMPORTING.md`. Player guide: `docs/USING.md`. Ledger: `work/ledgers/edition-2024-plugin-ledger.md`.
+- 2024 data: `/docker/dnd-compendium/5etools-2024`, the `5etools-mirror-3/5etools-src` mirror pinned at v2.41.0. The importer side is a separate plan (`docs/superpowers/plans/2026-11-10-edition-2024-importer.md`).
+- Shipped on `feat/edition-2024` (UNMERGED, not pushed, not deployed): edition on the character, chosen on the builder's first page and fixed afterwards (switching with picks held asks to tap again); the sheet reads one edition's compendium; "Bring in" at the end of pickers; brought-in things show a small year chip; a missing reference says which books have it, with one tap to bring it in; the what-changed panel (part one general, part two this character with Show all levels and Read both) from the identity chip card or the Settings card; the compendium edition filter; the 2024 table (Species, long rest gives back all Hit Dice, Heroic Inspiration, exhaustion, spell slots); background ability picks and feat categories; weapon mastery shown on the attack row and changeable in Edit mode after a long rest, not applied to rolls; overlay twins and the condition audit; a plain "no 2024 classes found" line pointing at `docs/IMPORTING.md`, which now exists. Player guide: `docs/USING.md`. Ledger: `work/ledgers/edition-2024-plugin-ledger.md`.
 - Fixes since: 0fd8e11 lets an ability increase carry its own score cap, so feats that raise a score past 20 load and apply (found by the contract check); the plain "New character" command now records the default rules edition like the builder does (it wrote no edition before, so it always made a 2014 character).
 - The WotC 2024 library is built in `/docker/dnd-compendium` and not yet synced.
-- Open work on this branch: Task 23, `docs/IMPORTING.md`, is being written next (until then references to it point at a missing file); the Task 21 follow-up (phone identity chip on long lines, touch pill selectors); the whole-branch review.
+- Branch status: complete and reviewed, unmerged, not pushed, not deployed. `docs/IMPORTING.md` landed (0df77a6), the Task 21 follow-up landed (f31a336: the edition chip stays visible on long phone identity lines), and the whole-branch review passed with no required changes.
 - Gallery of the new screens (desktop, tablet, phone): https://scratch.rt-541.io/dnd-sheet/edition-2024-gallery/
 - Deploy order: merge and deploy wait for the owner's words. The edition-aware build ships first; only after that is the `compendium/5e/WotC 2024` folder synced to the vault. The reason is the design's "Order of release": same-id entries keep WotC 2014 winning so existing characters are unchanged, but 2024-only entries would appear in every picker with no edition label, and a 2024 entry would stand in wherever the 2014 note is unusable.
 - One owner question still open: do existing characters move to 2024? Default until answered: no, only new characters choose.
-- Known follow-ups: named magic weapons do not match a mastered base weapon until the importer emits a base id; pre-existing `type="search"` inputs in compendium.ts, additem-ui.ts, levelup-ui.ts and panels.ts (CLAUDE.md wants `type="text"`; `tests/ui/pickers-order.test.ts` selects them); pre-existing "Homebrew" badge on library inventory items (inventory-ui.ts checks `source === "vault"` without `library`); the attack hit-window timer (controller.ts, the 3 s Hit? window) can fire after jsdom teardown and give an unhandled "getComputedStyle is not defined" with every test passing.
+- Known follow-ups (older): pre-existing "Homebrew" badge on library inventory items (inventory-ui.ts checks `source === "vault"` without `library`); the attack hit-window timer (controller.ts, the 3 s Hit? window) can fire after jsdom teardown and give an unhandled "getComputedStyle is not defined" with every test passing.
+- Whole-branch reviewer's non-blocking follow-ups, none required before merge:
+  1. On an unlensed registry (NPC sheets, compendium) the SRD fallback in `Registry.winner` can cross editions.
+  2. An id inside a brought-in note's ops that its own edition lacks resolves through the character's lens without a marker.
+  3. Pre-existing `type="search"` inputs in compendium.ts, additem-ui.ts, levelup-ui.ts (2) and panels.ts; CLAUDE.md wants `type="text"` and `tests/ui/pickers-order.test.ts` selects them.
+  4. The mastery picker names a brought-in weapon's property by its id.
+  5. The scattered "2014" defaults could be one constant.
+  - Importer side: emit a base id for named magic weapons so mastery matches a mastered base weapon; document `DNDC_VAULT_PATH` in the importer README.
 
 ## Parked: Daggerheart
 
