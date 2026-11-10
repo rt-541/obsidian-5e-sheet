@@ -1,3 +1,3 @@
-{ "id": "dnd-5e-sheet", "name": "5e Character Sheet", "version": "0.1.0", "minAppVersion": "1.5.0",
+{ "id": "dnd-5e-sheet", "name": "5e Character Sheet", "version": "0.2.0", "minAppVersion": "1.5.0",
   "description": "Play and manage D&D 5e characters, companions and NPCs as notes, under the 2014 or 2024 rules.",
   "author": "rt-541", "isDesktopOnly": false }
