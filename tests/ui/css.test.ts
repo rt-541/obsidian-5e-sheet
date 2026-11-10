@@ -80,3 +80,24 @@ describe("add item pick view", () => {
     expect(css).toContain(".fe-mobile .fe-base-pick button.fe-btn, .fe-tablet .fe-base-pick button.fe-btn { min-height: 44px; }");
   });
 });
+
+describe("render check fixes (edition chip, missing line, compendium tabs)", () => {
+  const rule = (sel: string) => [...css.matchAll(/^([^{}\n]+)\{([^}]*)\}/gm)].filter(m => m[1].split(",").map(s => s.trim()).includes(sel)).map(m => m[2]).join(" ");
+  it("the touch-size edition chip keeps a 44 px target but draws a small pill", () => {
+    const chip = rule(".fe-sheet.fe-mobile .fe-chip.fe-edition-chip");
+    expect(chip).toContain("min-height: 44px");
+    expect(chip).toContain("background: transparent");
+    const pill = rule(".fe-sheet.fe-mobile .fe-chip.fe-edition-chip::before");
+    expect(pill).toContain("position: absolute"); expect(pill).toMatch(/inset: \d+px 0/); expect(pill).toContain("background: var(--background-modifier-hover)");
+  });
+  it("the phone identity line keeps the edition chip visible and lets a missing-reference line wrap", () => {
+    expect(rule(".fe-mobile .fe-pinned .fe-identity")).toContain("display: flex");
+    expect(rule(".fe-mobile .fe-pinned .fe-identity .fe-edition-chip")).toContain("flex: none");
+    expect(rule(".fe-mobile .fe-pinned .fe-identity-label:has(.fe-missing-line)")).toContain("white-space: normal");
+    expect(rule(".fe-sheet .fe-identity-label .fe-missing-line")).toContain("margin-left: 8px");
+  });
+  it("the compendium's source and type tabs scroll sideways on a phone instead of stacking", () => {
+    const r = rule(".fe-mobile.fe-compendium .fe-tabs:not(.fe-ed-tabs)");
+    expect(r).toContain("display: flex"); expect(r).toContain("overflow-x: auto");
+  });
+});
