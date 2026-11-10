@@ -47,9 +47,9 @@ is on, and enable "5e Character Sheet" in the list.
 
 ## Set it up in Obsidian
 
-Open the plugin's settings. Set the compendium folder (the folder that holds the library and your
-homebrew; the default is `Compendium/`, and the importer writes under `compendium/5e/`, so point it at
-the folder that contains `5e`). Choose the default rules edition for new characters, 2014 or 2024.
+Open the plugin's settings. Set the compendium folder (the default is `compendium/5e`): it is the
+folder whose first-level folders are the sources, such as `WotC`, `WotC 2024` and your own
+`Homebrew`. The importer writes its libraries there. Choose the default rules edition for new characters, 2014 or 2024.
 Each character can still pick its own edition on the builder's first page.
 
 ## Install the importer
@@ -91,9 +91,9 @@ library into the vault (the 2014 books become the `WotC` folder, the 2024 books 
 
 Obsidian Sync carries the notes, and the library's root note (`5e Library.md`), between devices. It
 does not carry dot-files, so the `.dnd-compendium-generated` marker never arrives. The root note is
-what lets every device recognise the library as generated. The plugin itself is not synced: install
-it on each device (one of the three ways above, or Obsidian's own plugin folder on a phone or tablet
-through Sync's community plugin setting).
+what lets every device recognise the library as generated. The plugin itself is separate from the notes: install it on each computer (one of the three ways
+above). On a phone or tablet, turn on Obsidian Sync's setting for installed community plugins so the
+plugin files come over from a computer that has them.
 
 ## The Claude Code skill (optional)
 
