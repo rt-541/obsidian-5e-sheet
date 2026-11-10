@@ -1,6 +1,7 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 
 const using = readFileSync("docs/USING.md", "utf8");
+const importing = existsSync("docs/IMPORTING.md") ? readFileSync("docs/IMPORTING.md", "utf8") : "";
 const readme = readFileSync("README.md", "utf8");
 const manifest = JSON.parse(readFileSync("manifest.json", "utf8"));
 
@@ -15,5 +16,16 @@ describe("player docs", () => {
     expect(manifest.description).toMatch(/2024/);
     expect(readme).toMatch(/2024/);
     expect(readme).toMatch(/2014/);
+  });
+  it("IMPORTING.md has the seven sections in order, names the folders, marker and stamp, and has no emoji", () => {
+    const headings = importing.split("\n").filter(l => /^## /.test(l)).map(l => l.slice(3).trim());
+    expect(headings).toEqual(["What you need", "Import a book", "Import the 2014 and 2024 data", "Refresh", "Work through the Needs Review list", "Sync the vault", "Check it worked"]);
+    expect(importing).toMatch(/compendium\/5e\/WotC(`|$|\s*\|)/m);
+    expect(importing).toContain("compendium/5e/WotC 2024");
+    expect(importing).toContain(".dnd-compendium-generated");
+    expect(importing).toMatch(/`edition`/);
+    expect(importing).toMatch(/private/i);
+    expect(importing).not.toMatch(/\p{Extended_Pictographic}/u);
+    expect(importing.split("\n").every(l => l.length <= 200)).toBe(true);
   });
 });
