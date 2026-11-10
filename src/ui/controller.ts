@@ -1,5 +1,6 @@
 import type { Registry } from "../content/registry";
 import { slug } from "../content/registry";
+import { characterEdition, type Edition } from "../core/edition";
 import type { Draft } from "../content/creature-note";
 import type { SpellDraft } from "../content/spell-note";
 import type { CampaignData, ItemData, LevelingMode, SpellData } from "../content/types";
@@ -43,7 +44,7 @@ export interface SheetHost {
   /** Save a custom creature as a Homebrew note and register it; resolves to its creature id. Never overwrites an existing note. */
   saveCreature?(draft: Draft): Promise<string>;
   /** Save a custom item as a Homebrew note and register it; resolves to its item id. Never overwrites an existing note. */
-  saveItem?(draft: ItemDraft): Promise<string>;
+  saveItem?(draft: ItemDraft, find?: (id: string) => ItemData | undefined): Promise<string>;
   /** Save a custom spell as a Homebrew note and register it. Never overwrites an existing note. */
   saveSpell?(draft: SpellDraft): Promise<{ id: string; name: string; path: string }>;
   /** Rewrite the spell fields of a spell note the player made (its id, other properties and body are kept). */
@@ -125,7 +126,19 @@ export class SheetController {
   private subs = new Set<() => void>();
   private collapsed?: Set<string>;
 
-  constructor(public host: SheetHost, parsed: Exclude<Parsed, { kind: "none" }>) {
+  /** The host as given: its registry has no edition lens. `host.registry` is the lens of the character's edition (raw for an NPC). */
+  readonly baseRegistry: Registry;
+  host: SheetHost;
+  constructor(host: SheetHost, parsed: Exclude<Parsed, { kind: "none" }>) {
+    this.baseRegistry = host.registry;
+    // The prototype keeps every other host field live; only `registry` is replaced by the lens of whichever edition the value has now.
+    const lenses = new Map<Edition, Registry>();
+    this.host = Object.create(host, { registry: { enumerable: true, get: () => {
+      const v = this.value; if (v.type !== "5e-character") return this.baseRegistry;
+      const e = characterEdition(v); let lens = lenses.get(e);
+      if (!lens) { lens = this.baseRegistry.forEdition(e); lenses.set(e, lens); }
+      return lens;
+    } } }) as SheetHost;
     this.value = parsed.value; this.errors = parsed.errors; this.writable = parsed.writable;
     void this.hydrateInventory();
   }
@@ -389,7 +402,7 @@ export class SheetController {
     const bad = !Number.isInteger(qty) || qty < 1 ? "How many? Use a whole number, 1 or more." : validateItemDraft(draft)[0];
     if (bad) { f.error = bad; this.emit(); return false; }
     try {
-      const id = await save(draft);
+      const id = await save(draft, k => this.host.registry.get("item", k)?.data as ItemData | undefined);
       this.customItem = blankCustomItem();
       if (!this.dispatch({ type: "addItem", id }).ok) return false;
       if (qty > 1) { const i = this.character.inventory.findIndex(e => e.id === id); if (i >= 0) this.dispatch({ type: "itemQty", index: i, qty }); }

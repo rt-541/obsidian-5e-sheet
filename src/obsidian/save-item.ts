@@ -12,15 +12,15 @@ const fileSafe = (s: string) => s.replace(/[\\/:*?"<>|#^[\]]/g, " ").replace(/\s
 /**
  * Write a custom item as a note in `<compendium>/Homebrew/Items/` and put it in the registry straight away, so the caller can add it to the
  * inventory before Obsidian has re-indexed the new file. Never overwrites: a name that is taken (a note with that file name, or any item with
- * that id) gets " (2)", " (3)" ...
+ * that id) gets " (2)", " (3)" ... `find` looks up a base weapon or armour (a sheet passes its edition lens; the default is the raw registry); the name checks always use the raw one.
  */
-export async function saveItem(deps: { registry: Registry; io: NoteIO; compendiumFolder: string; stringify: (o: Record<string, unknown>) => string }, draft: ItemDraft): Promise<SavedItem> {
+export async function saveItem(deps: { registry: Registry; io: NoteIO; compendiumFolder: string; stringify: (o: Record<string, unknown>) => string }, draft: ItemDraft, find?: (id: string) => ItemData | undefined): Promise<SavedItem> {
   const problems = validateItemDraft(draft);
   if (problems.length) throw new Error(problems.join(" "));
   const folder = `${deps.compendiumFolder.replace(/\/+$/, "")}/Homebrew/Items`;
   const pathOf = (name: string) => `${folder}/${fileSafe(name)}.md`;
   const name = freeName(draft.name.trim(), n => !fileSafe(n) || deps.io.exists(pathOf(n)) || deps.registry.get("item", slug(n)) !== undefined);
-  const { id, fm, body } = draftToItemNote({ ...draft, name }, k => deps.registry.get<ItemData>("item", k)?.data);
+  const { id, fm, body } = draftToItemNote({ ...draft, name }, find ?? (k => deps.registry.get<ItemData>("item", k)?.data));
   const path = pathOf(name);
   await createNote(deps.io, path, fm, body, deps.stringify);
   const problem = deps.registry.add("vault", "item", fm, { path, body, sourceName: "Homebrew" });

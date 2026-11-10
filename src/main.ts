@@ -3,6 +3,7 @@ import { Registry, type Entry } from "./content/registry";
 import type { SourceSwitches } from "./content/sources";
 import { campaignType, type CampaignData } from "./content/types/campaign";
 import type { CompanionKind } from "./core/character";
+import { readEdition, type Edition } from "./core/edition";
 import { loadSrd } from "./content/srd";
 import { setBuiltinMechanics } from "./content/overlay";
 import { registerBuiltinTypes } from "./content/types";
@@ -25,6 +26,7 @@ import { renderStatblock } from "./ui/statblock-card";
 import { renderItemBlock } from "./ui/itemblock-card";
 import { saveItem, type SavedItem } from "./obsidian/save-item";
 import type { ItemDraft } from "./content/itemblock";
+import type { ItemData } from "./content/types";
 import type { Draft } from "./content/creature-note";
 import { ObsidianVaultAdapter } from "./obsidian/vault-adapter";
 
@@ -113,8 +115,8 @@ export default class FiveESheetPlugin extends Plugin {
     return saveCreature({ registry: this.registry, io: vaultNoteIO(this.app), compendiumFolder: this.data.settings.compendiumFolder, stringify: o => stringifyYaml(o) }, draft);
   }
   /** Write a custom item into Homebrew/Items and register it right away (see obsidian/save-item.ts). */
-  saveItem(draft: ItemDraft): Promise<SavedItem> {
-    return saveItem({ registry: this.registry, io: vaultNoteIO(this.app), compendiumFolder: this.data.settings.compendiumFolder, stringify: o => stringifyYaml(o) }, draft);
+  saveItem(draft: ItemDraft, find?: (id: string) => ItemData | undefined): Promise<SavedItem> {
+    return saveItem({ registry: this.registry, io: vaultNoteIO(this.app), compendiumFolder: this.data.settings.compendiumFolder, stringify: o => stringifyYaml(o) }, draft, find);
   }
   /** Write a custom spell into Homebrew/Spells and register it right away (see obsidian/save-spell.ts). */
   saveSpell(draft: SpellDraft): Promise<SavedSpell> {
@@ -164,6 +166,14 @@ export default class FiveESheetPlugin extends Plugin {
     const target = this.app.metadataCache.getFirstLinkpathDest(name, from); if (!target) return undefined;
     const fm = this.app.metadataCache.getFileCache(target)?.frontmatter;
     return fm ? campaignType.validate(fm as Record<string, unknown>).value?.sources : undefined;
+  }
+
+  /** The rules edition a campaign note asks for, if it names one. */
+  private campaignEdition(link: string, from: string): Edition | undefined {
+    const name = campaignLink(link); if (!name) return undefined;
+    const target = this.app.metadataCache.getFirstLinkpathDest(name, from); if (!target) return undefined;
+    const fm = this.app.metadataCache.getFileCache(target)?.frontmatter;
+    return fm ? campaignType.validate(fm as Record<string, unknown>).value?.edition : undefined;
   }
 
   private forViews(match: (v: CharacterView) => boolean, fn: (v: CharacterView) => void | Promise<void>) {
@@ -225,6 +235,8 @@ export default class FiveESheetPlugin extends Plugin {
     const ctl = new BuilderController({
       registry: this.registry, notify: m => this.notice(m), folder: folder === "/" ? "" : folder,
       campaignSources: link => this.campaignSources(link, this.app.workspace.getActiveFile()?.path ?? ""),
+      defaultEdition: () => readEdition(this.data.settings.defaultEdition) ?? "2014",
+      campaignEdition: link => this.campaignEdition(link, this.app.workspace.getActiveFile()?.path ?? ""),
       exists: p => this.app.vault.getAbstractFileByPath(p) !== null,
       createNote: obsidianCreateNote(this.app),
       open: path => this.openCreated(path), close: () => modal.close(),

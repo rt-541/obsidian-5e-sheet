@@ -80,7 +80,7 @@ export class CharacterView extends FileView {
       collapsedGroups: () => this.plugin.data.collapsed?.[file.path] ?? [],
       setCollapsedGroups: ids => { const d = (this.plugin.data.collapsed ??= {}); if (ids.length) d[file.path] = ids; else delete d[file.path]; this.plugin.saveLogsSoon(); },
       saveCreature: async d => (await this.plugin.saveCreature(d)).id,
-      saveItem: async d => (await this.plugin.saveItem(d)).id,
+      saveItem: async (d, find) => (await this.plugin.saveItem(d, find)).id,
       saveSpell: d => this.plugin.saveSpell(d),
       updateSpell: (t, d) => this.plugin.updateSpell(t, d),
       openNote: p => { void this.plugin.openNote(p); },

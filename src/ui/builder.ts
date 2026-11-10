@@ -4,6 +4,7 @@ import type { ClassData } from "../content/types";
 import { baseCharacter, buildCharacter, originBonus, buildSteps, characterFrontmatter, defaultScores, draftProblems, newDraft, notePath, pointBuyCost, rollGold, scoreProblems, POINT_BUY_BUDGET, POINT_BUY_COST,
   type BuildDraft, type EquipmentChoice, type ScoreMethod } from "../core/builder";
 import type { Character } from "../core/character";
+import { readEdition, type Edition } from "../core/edition";
 import type { Step } from "../core/levelup";
 import { ABILS, type Abil, type Rng } from "../core/types";
 import type { LevelUpView } from "./controller";
@@ -13,6 +14,10 @@ export interface BuilderHost {
   registry: Registry; rng?: Rng;
   /** Source switches of the campaign the draft names (a link or plain name); pickers leave out switched-off sources. */
   campaignSources?(campaign: string): SourceSwitches;
+  /** The setting's default edition for new characters (2014 when the host does not say). */
+  defaultEdition?(): Edition;
+  /** The edition the named campaign's note asks for, if it names one. */
+  campaignEdition?(campaign: string): Edition | undefined;
   notify(msg: string): void;
   /** Folder new notes go in ("" = the vault root). */
   folder: string;
@@ -35,10 +40,45 @@ export class BuilderController {
   draft: BuildDraft = newDraft(); page = 0; error?: string; creating = false;
   view: LevelUpView = { featOpen: new Set(), spellQuery: "", featQuery: "" };
   private subs = new Set<() => void>();
-  constructor(public host: BuilderHost) {}
+  /** The host as given: its registry has no edition lens. `host.registry` is the lens of the draft's edition. */
+  readonly baseRegistry: Registry;
+  host: BuilderHost;
+  constructor(host: BuilderHost) {
+    this.baseRegistry = host.registry;
+    // The prototype keeps every other host field live; only `registry` is replaced by the lens of whichever edition the draft has now.
+    const lenses = new Map<Edition, Registry>();
+    this.host = Object.create(host, { registry: { enumerable: true, get: () => {
+      const e = this.edition(); let lens = lenses.get(e);
+      if (!lens) { lens = this.baseRegistry.forEdition(e); lenses.set(e, lens); }
+      return lens;
+    } } }) as BuilderHost;
+  }
 
-  /** The registry the pickers list from: sources the draft's campaign switched off are left out. */
-  pickers(): Registry { return this.host.registry.scoped(this.draft.campaign ? this.host.campaignSources?.(this.draft.campaign) : undefined); }
+  /** The edition the player chose, else the campaign's, else the setting's, else 2014. */
+  edition(): Edition { return this.draft.edition ?? this.defaultEdition(); }
+  /** What a new character starts with: the campaign key, else the setting, else 2014. */
+  defaultEdition(): Edition {
+    const c = this.draft.campaign;
+    return (c ? readEdition(this.host.campaignEdition?.(c)) : undefined) ?? readEdition(this.host.defaultEdition?.()) ?? "2014";
+  }
+  /** Choose the edition; everything picked under the old one is dropped. */
+  setEdition(e: Edition) {
+    const next: BuildDraft = { ...this.draft, edition: e, choices: {} };
+    for (const k of ["race", "subrace", "background", "classId", "equipment"] as const) delete next[k];
+    this.draft = next; this.touch();
+  }
+  /** The host registry read through the draft's edition. */
+  private reg(): Registry { return this.host.registry; }
+  /** The draft with its edition filled in, for the core builder functions. */
+  private resolved(): BuildDraft { return { ...this.draft, edition: this.edition() }; }
+  /** Why a list is empty, when the edition has none of that kind (undefined otherwise). */
+  emptyReason(type: "class" | "race" | "background"): string | undefined {
+    if (this.pickers().list(type).length) return undefined;
+    return `No ${this.edition()} ${type === "class" ? "classes" : type === "race" ? "races" : "backgrounds"} were found in your compendium. docs/IMPORTING.md explains how to import them.`;
+  }
+
+  /** The registry the pickers list from: this edition only, and sources the draft's campaign switched off are left out. */
+  pickers(): Registry { return this.reg().scoped(this.draft.campaign ? this.host.campaignSources?.(this.draft.campaign) : undefined); }
 
   /** Open or close the About card of a race or class. */
   toggleAbout(id: string) { if (this.view.about === id) delete this.view.about; else this.view.about = id; this.emit(); }
@@ -47,9 +87,9 @@ export class BuilderController {
   emit() { this.subs.forEach(f => f()); }
 
   // The same shape the level-up pages use.
-  get character(): Character { return baseCharacter(this.draft, this.host.registry); }
+  get character(): Character { return baseCharacter(this.resolved(), this.reg()); }
   /** Increases the race and subrace give on their own (shown next to the manual bonus). */
-  originBonus() { return originBonus(this.draft, this.host.registry); }
+  originBonus() { return originBonus(this.resolved(), this.reg()); }
   pick(key: string, value: unknown) { this.draft = { ...this.draft, choices: { ...this.draft.choices, [key]: value } }; this.touch(); }
 
   private touch() { delete this.error; this.emit(); }
@@ -57,7 +97,7 @@ export class BuilderController {
     const choices = Object.fromEntries(Object.entries(this.draft.choices).filter(([k]) => !prefixes.some(p => k.startsWith(p))));
     this.draft = { ...this.draft, choices };
   }
-  classData(): ClassData | undefined { return this.draft.classId ? this.host.registry.get<ClassData>("class", this.draft.classId)?.data : undefined; }
+  classData(): ClassData | undefined { return this.draft.classId ? this.reg().get<ClassData>("class", this.draft.classId)?.data : undefined; }
 
   /** Replace the draft with `patch` applied; `without` names fields to remove. */
   private edit(patch: Partial<BuildDraft>, ...without: (keyof BuildDraft)[]) {
@@ -78,7 +118,12 @@ export class BuilderController {
     this.edit({ classId: id }, "equipment");
   }
   setName(name: string) { this.draft = { ...this.draft, name }; this.touch(); }
-  setCampaign(campaign: string) { this.edit(campaign.trim() ? { campaign: campaign.trim() } : {}, ...(campaign.trim() ? [] : ["campaign" as const])); }
+  setCampaign(campaign: string) {
+    // The campaign field is on the last page: a campaign entered after picks must not switch the edition under them.
+    const d = this.draft, picked = !!(d.race || d.subrace || d.background || d.classId || d.equipment || Object.keys(d.choices).length);
+    if (d.edition === undefined && picked) this.draft = { ...d, edition: this.edition() };
+    this.edit(campaign.trim() ? { campaign: campaign.trim() } : {}, ...(campaign.trim() ? [] : ["campaign" as const]));
+  }
 
   // ---- ability scores
   setMethod(method: ScoreMethod) { this.draft = { ...this.draft, method, scores: defaultScores(method) }; this.touch(); }
@@ -117,7 +162,7 @@ export class BuilderController {
 
   // ---- pages
   steps(): { origin: Exclude<Step, { kind: "hp" }>[]; level: Exclude<Step, { kind: "hp" }>[]; error?: string } {
-    const s = buildSteps(this.draft, this.pickers());
+    const s = buildSteps(this.resolved(), this.pickers());
     return { origin: stepsOf(s.origin), level: stepsOf(s.level), ...(s.error ? { error: s.error } : {}) };
   }
   pages(): BuilderPage[] {
@@ -131,11 +176,11 @@ export class BuilderController {
   ready(p: BuilderPage): boolean {
     const d = this.draft;
     switch (p.id) {
-      case "race": return !!d.race && !!this.host.registry.get("race", d.race);
+      case "race": return !!d.race && !!this.reg().get("race", d.race);
       case "background": return true;
       case "scores": return scoreProblems(d.method, d.scores).length === 0 && ABILS.every(a => (d.method === "manual" || d.scores[a] + (d.bonus[a] ?? 0) <= 20) && Number.isInteger(d.bonus[a] ?? 0));
       case "class": return !!d.classId && !!this.classData();
-      case "equipment": return !draftProblems(d, this.host.registry).some(m => /equipment|gold/i.test(m));
+      case "equipment": return !draftProblems(this.resolved(), this.reg()).some(m => /equipment|gold/i.test(m));
       case "name": return false;
       case "step": return this.stepDone(p.step);
     }
@@ -150,9 +195,9 @@ export class BuilderController {
       case "spells": return isStrs(v) && v.length === s.cantrips + s.count;
     }
   }
-  problems(): string[] { return draftProblems(this.draft, this.host.registry); }
+  problems(): string[] { return draftProblems(this.resolved(), this.reg()); }
   /** What the finished character would be (or why not), for the last page. */
-  preview(): { value: Character; summary: string[] } | { error: string } { return buildCharacter(this.draft, this.host.registry, this.host.rng); }
+  preview(): { value: Character; summary: string[] } | { error: string } { return buildCharacter(this.resolved(), this.reg(), this.host.rng); }
 
   /** Build the character, write the note and show it. */
   async create(): Promise<boolean> {

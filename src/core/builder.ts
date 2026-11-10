@@ -2,6 +2,7 @@ import { titleCase } from "./words";
 import type { Registry } from "../content/registry";
 import type { ClassData, GrantsData, SubraceData } from "../content/types";
 import { abilityKey, describeDelta, increaseDelta, type AbilityDelta } from "./ability-increase";
+import type { Edition } from "./edition";
 import { newCharacter, writeInto, type Character, type InventoryEntry } from "./character";
 import { applyLevel, applyResolve, planLevel, planResolve, type Step } from "./levelup";
 import { ABILS, type Abil, type Rng } from "./types";
@@ -46,7 +47,7 @@ export function scoreProblems(method: ScoreMethod, scores: Scores): string[] {
 export type EquipmentChoice = { kind: "option"; index: number } | { kind: "gold"; gold: number };
 /** Everything the builder collects before the note exists. `choices` are keyed like the level log (`race:<id>:<op>`, `class:<id>:1:<op>`). */
 export interface BuildDraft {
-  name: string; campaign?: string; race?: string; subrace?: string; background?: string; classId?: string;
+  name: string; /** The rules edition the player chose; absent until they do (a new character then gets 2014). */ edition?: Edition; campaign?: string; race?: string; subrace?: string; background?: string; classId?: string;
   method: ScoreMethod; scores: Scores; /** Race and other bonuses added to the base scores. */ bonus: Partial<Record<Abil, number>>;
   equipment?: EquipmentChoice; choices: Record<string, unknown>;
 }
@@ -123,6 +124,7 @@ export function draftProblems(d: BuildDraft, r: Registry): string[] {
 /** The character with race, subrace, background and scores but no class: the starting point of the class-level steps. */
 export function baseCharacter(d: BuildDraft, r?: Registry): Character {
   const c = newCharacter(d.name.trim() || "New character");
+  c.edition = d.edition ?? "2014";
   if (d.campaign) c.campaign = d.campaign;
   if (d.race) c.race = d.race;
   if (d.subrace) c.subrace = d.subrace;
