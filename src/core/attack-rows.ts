@@ -28,7 +28,7 @@ export interface AttackInputs {
 interface Row {
   name: string; /** Base damage dice; `1` means the flat 1 damage of an unarmed strike. */ dmg: string; type: string; abils: Abil[]; range: "melee" | "ranged";
   bonus: number; trained: boolean; tags: string[]; itemExtra?: string; offhand?: boolean; addMod?: boolean; dieRules: string[]; notes: string[];
-  /** Inventory index of the weapon. */ item?: number; grip?: AttackGrip; twoHands?: boolean; /** Mastery property to show, main row only. */ mastery?: { id: string; name: string };
+  /** Inventory index of the weapon. */ item?: number; /** The weapon's reference when it is qualified (a brought-in weapon shows an edition chip). */ ref?: string; grip?: AttackGrip; twoHands?: boolean; /** Mastery property to show, main row only. */ mastery?: { id: string; name: string };
 }
 
 /** The better ability of the list for this character (the first one wins a tie, so finesse prefers Dex). */
@@ -53,7 +53,7 @@ export function buildAttacks(i: AttackInputs): AttackStat[] {
     rows.push({ name: it!.name, dmg: twoHands ? twoHanded : w.dmg, type: w.type, abils: w.ab === "finesse" ? ["dex", "str"] : [w.ab], range: w.range, bonus, trained: i.weaponProf(it!.name, e.id, w.category),
       tags: [...(e.id ? [splitRef(e.id).id] : []), ...(w.props ?? []), ...handTags, ...(isMonkWeapon(e.id ? splitRef(e.id).id : undefined, w) ? ["monk"] : []), ...(bonus > 0 || (it!.rarity && !/^(mundane|none)$/i.test(it!.rarity)) ? ["magic"] : [])],
       ...(works && w.extraDamage ? { itemExtra: w.extraDamage } : {}), dieRules: [], notes: [],
-      item: index, twoHands, ...(mastery ? { mastery } : {}), ...(versatile ? { grip: { hands: twoHands ? 2 : 1, twoHanded, shield: i.shield } } : {}) });
+      item: index, ...(e.id && splitRef(e.id).edition ? { ref: e.id } : {}), twoHands, ...(mastery ? { mastery } : {}), ...(versatile ? { grip: { hands: twoHands ? 2 : 1, twoHanded, shield: i.shield } } : {}) });
   }
   rows.push({ name: "Unarmed Strike", dmg: "1", type: "bludgeoning", abils: ["str"], range: "melee", bonus: 0, trained: true, tags: ["unarmed"], dieRules: [], notes: [] });
   // Two light melee weapons in hand: the second one also gets an off-hand attack, which has no positive ability modifier.
@@ -120,7 +120,7 @@ export function buildAttacks(i: AttackInputs): AttackStat[] {
         [...(mod ? [abilTerm(abil, mod, row.offhand && !row.addMod ? "off-hand: only a penalty counts" : undefined)] : []), ...(row.bonus ? [{ n: row.bonus, from: "weapon bonus" }] : []), ...dmgMods.terms],
         { lead: row.twoHands && dmg === row.dmg ? `${dmg} (two hands)` : dmg, tail, notes: dmgMods.notes }),
     };
-    return { name: row.name, toHit, why, damage, ...(row.item !== undefined ? { item: row.item } : {}), ...(row.grip ? { grip: row.grip } : {}), ...(row.mastery ? { mastery: row.mastery } : {}),
+    return { name: row.name, toHit, why, damage, ...(row.item !== undefined ? { item: row.item } : {}), ...(row.ref ? { ref: row.ref } : {}), ...(row.grip ? { grip: row.grip } : {}), ...(row.mastery ? { mastery: row.mastery } : {}),
       ...(crit ? { critDamage: crit } : {}), target, ...(row.trained ? {} : { proficient: false as const }), ...(notes.length ? { note: notes.join(" ") } : {}) };
   });
 }

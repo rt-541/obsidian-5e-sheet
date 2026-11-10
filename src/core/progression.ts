@@ -1,10 +1,11 @@
-import type { Registry } from "../content/registry";
+import type { Entry, Registry } from "../content/registry";
+import { isOrdinaryItem } from "../content/item-variant";
 import { slug } from "../content/registry";
 import { findOverlay, overlayOptionList, type OverlayEntry, type OverlayKind } from "../content/overlay";
 import { characterEdition, type Edition } from "./edition";
 import { refIn, sameRef, splitRef } from "../content/edition";
 import { abilityKey } from "./ability-increase";
-import type { ActionDef, AttackOptionDef, ClassData, FeatData, GrantsData, Op, OptionDef, Progression, Reset, SubclassData, SubraceData, TableRow, ToggleDef } from "../content/types";
+import type { ActionDef, AttackOptionDef, ClassData, FeatData, GrantsData, ItemData, Op, OptionDef, Progression, Reset, SubclassData, SubraceData, TableRow, ToggleDef } from "../content/types";
 import { abilityMod, profBonus } from "./abilities";
 import type { Character } from "./character";
 import { gatedByToggle, type SourcedEffects } from "./effects";
@@ -37,7 +38,16 @@ export interface CasterEntry {
   class: string; className: string; from: "class" | "subclass"; abil: Abil; progression: Progression; level: number;
   table?: Record<number, TableRow>; list?: string; cantrips?: number; known?: number;
 }
-export interface PendingChoice { key: string; source: string; level: number; op: Op; label: string; }
+/**
+ * The weapons a mastery pick can offer: the ordinary weapons naming a mastery property, or the ones `from` lists (an id that is not an item is skipped).
+ * They are read from the asking entry's own edition (`edition`), so a brought-in class lists its own edition's weapons.
+ */
+export function masteryWeapons(registry: Registry, from: string[] | undefined, edition: Edition | undefined, own: Edition): Entry<ItemData>[] {
+  const reg = edition && edition !== own ? registry.forEdition(edition) : registry, all = reg.list<ItemData>("item");
+  return from ? from.flatMap(id => all.filter(e => e.id === id).slice(0, 1)) : all.filter(e => !!e.data.weapon?.mastery && isOrdinaryItem(e)).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+export interface PendingChoice { key: string; source: string; level: number; op: Op; label: string; /** Edition of the entry that asks (the character's own when it has none). */ edition?: Edition; }
 export interface Progress {
   features: FeatureRow[]; resources: DerivedResource[]; scales: Record<string, string | number>; dcs: DcRow[];
   proficiencies: { saves: Abil[]; skills: string[]; expertise: string[]; other: string[] };
@@ -289,16 +299,18 @@ export function progress(c: Character, registry: Registry): Progress {
           break;
         }
         case "choose": {
+          // a mastery pick with no weapon to take (none names a mastery, or `from` lists none that exist) asks nothing
+          if (op.what === "mastery" && !masteryWeapons(registry, op.from, src.edition, characterEdition(c)).length) break;
           const label = op.what === "option" ? optionListLabel(op.list ?? "", op.count, src.classId === undefined ? undefined : splitRef(src.classId).id) : op.what === "mastery" ? `Choose ${plural(op.count, "weapon")} to master` : `Choose ${plural(op.count, op.what)}`;
           const v = choice(key, src.classId, src.level);
-          const pend = () => out.pending.push({ key, source: src.label, level: src.level, op, label });
+          const pend = () => out.pending.push({ key, source: src.label, level: src.level, op, label, ...(src.edition ? { edition: src.edition } : {}) });
           if (!isStrs(v) || v.length !== op.count) { if (v !== undefined) problem(`${src.label}: the saved pick for ${op.id} does not have ${op.count} entries`); pend(); break; }
           let defs: OptionDef[] | undefined;
           if (op.what === "option") {
             defs = src.options?.[op.list ?? ""] ?? src.fallbackOptions?.[op.list ?? ""] ?? resolveOptionList(registry, op.list ?? "");
             if (!defs) { problem(`${src.label}: no options list called ${op.list}`); pend(); break; }
           }
-          const allowed = defs ? defs.map(d => d.id) : op.from ?? (op.what === "skills" || op.what === "expertise" ? Object.keys(SKILLS) : undefined);
+          const allowed = defs ? defs.map(d => d.id) : op.what === "mastery" ? undefined : op.from ?? (op.what === "skills" || op.what === "expertise" ? Object.keys(SKILLS) : undefined);
           const bad = v.find(x => allowed && !allowed.includes(x));
           if (bad !== undefined || new Set(v).size !== v.length) { problem(`${src.label}: ${bad !== undefined ? `"${bad}" is not an allowed pick` : "picks must be different"} for ${op.id}`); pend(); break; }
           if (op.what === "skills") v.forEach(s => seen.skills.add(s));
@@ -369,8 +381,10 @@ export function progress(c: Character, registry: Registry): Progress {
       }
       run(d.levels?.[L] ?? [], src);
       if (goodSub) {
+        // a brought-in subclass reads lists its parent class has in the subclass's own edition when the character's class lacks them
+        const parent = goodSub.edition && goodSub.edition !== characterEdition(c) ? registry.forEdition(goodSub.edition).get<ClassData>("class", classId)?.data.options : undefined, fallback = parent || d.options ? { ...parent, ...d.options } : undefined;
         const ssrc: Src = { ...src, kind: "subclass", keyBase: `subclass:${k.subclass}`, label: `${goodSub.data.name} (${d.name} ${L})`,
-          ...(goodSub.data.options ? { options: goodSub.data.options } : {}), ...(d.options ? { fallbackOptions: d.options } : {}), ...(goodSub.data.overlay === false ? { noOverlay: true } : { noOverlay: false }), ...(goodSub.edition ? { edition: goodSub.edition } : {}) };
+          ...(goodSub.data.options ? { options: goodSub.data.options } : {}), ...(fallback ? { fallbackOptions: fallback } : {}), ...(goodSub.data.overlay === false ? { noOverlay: true } : { noOverlay: false }), ...(goodSub.edition ? { edition: goodSub.edition } : {}) };
         run(goodSub.data.levels[L] ?? [], ssrc);
       }
     }

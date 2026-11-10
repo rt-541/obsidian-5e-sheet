@@ -8,11 +8,14 @@ import { creatureForm } from "./creature-form";
 import { clear, h } from "./h";
 import { playBadge } from "./widgets";
 import { titleCase } from "../core/words";
+import { characterEdition, otherEdition } from "../core/edition";
+import { refFor } from "../content/edition";
+import { bringBackButton, bringInButton, editionChip } from "./bring-in";
 
 export const KIND_LABELS: Record<CompanionKind, string> = { familiar: "Familiar", companion: "Animal companion", steed: "Steed", summon: "Summon", sidekick: "Sidekick" };
 const MAX_ROWS = 80;
 
-interface State { mode: "pick" | "form" | "import"; query: string; cname: string; kind: CompanionKind; draft: Draft; unread: string[]; importText: string; showTemplate: boolean }
+interface State { mode: "pick" | "form" | "import"; /** Showing the other edition's creatures (not saved). */ other: boolean; query: string; cname: string; kind: CompanionKind; draft: Draft; unread: string[]; importText: string; showTemplate: boolean }
 /** One state per opened panel: reopening the panel starts fresh, while a redraw of the same panel keeps what was typed. */
 const states = new WeakMap<Panel, State>();
 
@@ -38,9 +41,9 @@ function facts(d: CreatureData): string {
 
 export function addCompanionPanel(ctl: SheetController, panel: Panel): HTMLElement {
   let st = states.get(panel);
-  if (!st) { st = { mode: "pick", query: "", cname: "", kind: "familiar", draft: blankDraft(), unread: [], importText: "", showTemplate: false }; states.set(panel, st); }
+  if (!st) { st = { mode: "pick", other: false, query: "", cname: "", kind: "familiar", draft: blankDraft(), unread: [], importText: "", showTemplate: false }; states.set(panel, st); }
   const s = st;
-  const canMake = !!ctl.host.saveCreature;
+  const canMake = !!ctl.host.saveCreature, own = characterEdition(ctl.character!);
   const root = h("div", { cls: "fe-companion-panel" });
   const body = h("div", {});
   const go = (mode: State["mode"]) => { s.mode = mode; draw(); };
@@ -63,26 +66,27 @@ export function addCompanionPanel(ctl: SheetController, panel: Panel): HTMLEleme
     btn("Import from stat block", () => go("import"), "", { act: "import-statblock" })) : null;
 
   function drawPick() {
-    const all = ctl.pickers().list<CreatureData>("creature");
-    const list = h("div", {}), note = h("div", { cls: "fe-faint" });
+    const all = s.other ? ctl.pickers().listEdition<CreatureData>("creature", otherEdition(own)) : ctl.pickers().list<CreatureData>("creature");
+    const list = h("div", { data: { list: "creature" } }), note = h("div", { cls: "fe-faint" });
     const fill = () => {
       clear(list);
       const rows = matchCreatures(all, s.query);
       // Familiars, animal companions and steeds are beasts nearly every time: list those first (stable, so A to Z holds inside each group).
       if (BEAST_KINDS.includes(s.kind)) rows.sort((a, b) => Number(b.data.ctype.toLowerCase() === "beast") - Number(a.data.ctype.toLowerCase() === "beast"));
-      for (const e of rows.slice(0, MAX_ROWS)) list.append(h("div", { cls: "fe-inv" },
-        h("div", { cls: "fe-grow" }, h("span", { cls: "fe-inv-name", text: e.name }), playBadge(sourceLabel(e)), h("div", { cls: "fe-faint", text: facts(e.data) })),
-        btn("Add", () => addCompanion(e.id, e.name), "", { creature: e.id })));
+      for (const e of rows.slice(0, MAX_ROWS)) { const ref = refFor(e, own); list.append(h("div", { cls: "fe-inv" },
+        h("div", { cls: "fe-grow" }, h("span", { cls: "fe-inv-name", text: e.name }), editionChip(ref, own), playBadge(sourceLabel(e)), h("div", { cls: "fe-faint", text: facts(e.data) })),
+        btn("Add", () => addCompanion(ref, e.name), "", { creature: ref }))); }
       if (rows.length > MAX_ROWS) list.append(h("div", { cls: "fe-faint", text: `${rows.length - MAX_ROWS} more: narrow the search.` }));
       if (!rows.length) {
         list.append(h("div", { cls: "fe-faint", data: { empty: "" }, text: s.query.trim() ? `No creature called '${s.query.trim()}'.` : "There are no creatures in the compendium yet." }));
       }
       note.textContent = rows.length ? `${rows.length} creature${rows.length === 1 ? "" : "s"}` : "";
+      if (!s.other) list.append(bringInButton(otherEdition(own), () => { s.other = true; draw(); }));
     };
-    const search = h("input", { cls: "fe-search", attrs: { placeholder: "Search creatures", value: s.query, "aria-label": "Search creatures", type: "search" },
+    const search = h("input", { cls: "fe-search", attrs: { placeholder: "Search creatures", value: s.query, "aria-label": "Search creatures", type: "text" },
       on: { input: (e: Event) => { s.query = (e.target as HTMLInputElement).value; fill(); } } });
     fill();
-    const make = makeButtons();
+    const make = s.other ? h("div", { cls: "fe-cf-row", data: { brought: "" } }, h("span", { cls: "fe-muted", text: `Creatures from the ${otherEdition(own)} books` }), bringBackButton(own, () => { s.other = false; draw(); })) : makeButtons();
     body.append(...(make ? [make] : []), search, note, list);
     // Focus the search on desktop only: on a phone or tablet it would pop the keyboard over the list.
     const touch = typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)")?.matches;

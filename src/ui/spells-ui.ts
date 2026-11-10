@@ -3,6 +3,8 @@ import { sourceLabel } from "../content/registry";
 import { characterEdition } from "../core/edition";
 import type { SpellData } from "../content/types";
 import { castRow, spellRows, type SpellRow } from "../core/spells";
+import { bringBackButton, bringInButton, chipFor, editionChip } from "./bring-in";
+import { otherEdition } from "../core/edition";
 import type { ActorStats } from "../core/derive";
 import type { SheetController } from "./controller";
 import { clear, h, sgn } from "./h";
@@ -31,8 +33,9 @@ export function rolls(ctl: SheetController, r: SpellRow): (Node | null)[] {
   ];
 }
 
-function nameCell(r: SpellRow, lead?: HTMLElement | null): HTMLElement {
+function nameCell(ctl: SheetController, r: SpellRow, lead?: HTMLElement | null): HTMLElement {
   return h("div", { cls: "fe-grow" }, lead ?? null, h("span", { cls: `fe-spell-name ${r.known ? "" : "is-missing"}`, text: r.known ? r.name : `${r.id} (missing from compendium)`, ...(r.known ? { data: { ref: `spell:${r.id}` } } : {}) }),
+    r.known ? chipFor(r.id, ctl.character) : null,
     r.concentration ? h("span", { cls: "fe-tag", text: "Concentration", data: { badge: "concentration" } }) : null);
 }
 
@@ -103,7 +106,7 @@ function ownRow(ctl: SheetController, r: SpellRow, index: number): HTMLElement {
   const prepared = r.source.kind === "own" && r.source.prepared;
   const key = `own:${r.id}`;
   const row = h("div", { cls: "fe-inv", data: { spell: r.id } },
-    nameCell(r, r.level >= 1 && r.known ? h("button", { cls: `fe-dot ${prepared ? "is-prof" : ""}`, title: always ? "Always prepared" : prepared ? "Prepared" : "Not prepared", attrs: { "aria-label": `Prepared: ${r.name}` },
+    nameCell(ctl, r, r.level >= 1 && r.known ? h("button", { cls: `fe-dot ${prepared ? "is-prof" : ""}`, title: always ? "Always prepared" : prepared ? "Prepared" : "Not prepared", attrs: { "aria-label": `Prepared: ${r.name}` },
       data: { act: "prepare" }, on: { click: () => { if (!always) ctl.dispatch({ type: "prepare", index, on: !prepared }); } } }) : null), ...rolls(ctl, r), castButton(ctl, r), r.known ? pinButton(ctl, r) : null, menuButton(ctl, key, r.known ? r.name : r.id),
     ctl.editing ? btn("Remove", () => ctl.dispatch({ type: "removeSpell", index }), "", { act: "remove-spell" }) : null);
   return menuState(ctl).open === key ? h("div", { cls: "fe-spell-wrap" }, row, ownMenu(ctl, r, index)) : row;
@@ -145,7 +148,7 @@ export function spellsFeature(ctl: SheetController, st: ActorStats): HTMLElement
     h("div", { cls: "fe-card-title", text: (list[0].source as { itemName: string }).itemName }),
     ...list.map(r => {
       const key = `item:${pinKey(ctl, r)}`, src = r.source as Extract<SpellRow["source"], { kind: "item" }>;
-      const row = h("div", { cls: "fe-inv", data: { spell: r.id } }, nameCell(r), ...rolls(ctl, r), h("span", { cls: "fe-faint", text: costLabel(src) }),
+      const row = h("div", { cls: "fe-inv", data: { spell: r.id } }, nameCell(ctl, r), ...rolls(ctl, r), h("span", { cls: "fe-faint", text: costLabel(src) }),
         castButton(ctl, r), r.known ? pinButton(ctl, r) : null, menuButton(ctl, key, r.known ? r.name : r.id));
       return menuState(ctl).open === key ? h("div", { cls: "fe-spell-wrap" }, row, itemMenu({ ...r, source: src })) : row;
     })));
@@ -163,7 +166,7 @@ export function pinnedSpellsFeature(ctl: SheetController, st: ActorStats): HTMLE
   const all = [...rows.own, ...rows.fromItems].filter(r => r.known);
   const pinned = c.mainSpells.map(k => all.find(r => pinKey(ctl, r) === k)).filter((r): r is SpellRow => !!r);
   return h("div", { cls: "fe-card" }, h("div", { cls: "fe-card-title", text: "Spells" }),
-    ...(pinned.length ? pinned.map(r => h("div", { cls: "fe-attack", data: { spell: r.id } }, nameCell(r), ...rolls(ctl, r),
+    ...(pinned.length ? pinned.map(r => h("div", { cls: "fe-attack", data: { spell: r.id } }, nameCell(ctl, r), ...rolls(ctl, r),
       r.source.kind === "item" ? h("span", { cls: "fe-faint", text: costLabel(r.source) }) : null, castButton(ctl, r)))
       : [h("div", { cls: "fe-faint", text: "Pin spells on the Spells tab to show them here." })]));
 }
@@ -206,7 +209,7 @@ export function castPanel(ctl: SheetController, spell: string): HTMLElement {
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const MAX_ROWS = 80;
 /** What the add-spell panel remembers: one per opened panel, so a redraw keeps what was typed and reopening starts fresh. */
-interface AddState { mode: "pick" | "form" | "import"; query: string; showAll: boolean; higher: boolean; focused: boolean; draft: SpellDraft; unread: string[]; importText: string; showTemplate: boolean }
+interface AddState { mode: "pick" | "form" | "import"; /** Showing the other edition's spells (not saved). */ other: boolean; query: string; showAll: boolean; higher: boolean; focused: boolean; draft: SpellDraft; unread: string[]; importText: string; showTemplate: boolean }
 const addStates = new WeakMap<object, AddState>();
 const fallbackPanel = {};
 type EditSpec = { mode: "edit" | "copy"; id: string };
@@ -219,7 +222,7 @@ function matchSpells<T extends { name: string }>(all: readonly T[], q: string): 
 }
 
 function initialAddState(ctl: SheetController, edit: EditSpec | undefined): AddState {
-  const s: AddState = { mode: "pick", query: "", showAll: false, higher: false, focused: false, draft: blankSpellDraft(), unread: [], importText: "", showTemplate: false };
+  const s: AddState = { mode: "pick", other: false, query: "", showAll: false, higher: false, focused: false, draft: blankSpellDraft(), unread: [], importText: "", showTemplate: false };
   const e = edit ? ctl.host.registry.get<SpellData>("spell", edit.id) : undefined;
   if (edit && e) {
     s.mode = "form";
@@ -246,8 +249,10 @@ export function addSpellPanel(ctl: SheetController, panel: object = fallbackPane
     btn("Create a spell", startForm, "", { act: "create-spell" }),
     btn("Import a spell", () => go("import"), "", { act: "import-spell" })) : null;
 
+  const makeBack = () => h("div", { cls: "fe-cf-row", data: { brought: "" } }, h("span", { cls: "fe-muted", text: `Spells from the ${otherEdition(own)} books` }), bringBackButton(own, () => { st.other = false; draw(); }));
+
   function drawPick() {
-    const all = ctl.pickers().list<SpellData>("spell");
+    const all = st.other ? ctl.pickers().listEdition<SpellData>("spell", otherEdition(own)) : ctl.pickers().list<SpellData>("spell");
     const list = h("div", { data: { results: "" } });
     const top = maxCastableLevel(ctl.stats()!);
     const fill = () => {
@@ -256,23 +261,24 @@ export function addSpellPanel(ctl: SheetController, panel: object = fallbackPane
       const inScope = all.filter(e => e.name.toLowerCase().includes(q) && (st.showAll || !mine.size || e.data.classes.some(k => mine.has(k))));
       const rows = matchSpells(inScope.filter(e => st.higher || e.data.level <= top), q);
       const hidden = st.higher ? 0 : inScope.length - rows.length;
-      for (const e of rows.slice(0, MAX_ROWS)) list.append(h("div", { cls: "fe-inv", data: { pick: e.id } },
-        h("div", { cls: "fe-grow" }, h("span", { cls: "fe-spell-name", text: e.name, data: { ref: `spell:${e.id}`, noclick: "" } }), playBadge(sourceLabel(e)),
+      for (const e of rows.slice(0, MAX_ROWS)) { const ref = refFor(e, own); list.append(h("div", { cls: "fe-inv", data: { pick: ref } },
+        h("div", { cls: "fe-grow" }, h("span", { cls: "fe-spell-name", text: e.name, data: { ref: `spell:${ref}`, noclick: "" } }), editionChip(ref, own), playBadge(sourceLabel(e)),
           h("div", { cls: "fe-tags" }, h("span", { cls: "fe-tag", text: e.data.level === 0 ? "Cantrip" : `Level ${e.data.level}`, data: { badge: "level" } }),
             h("span", { cls: "fe-tag", text: e.data.school, data: { badge: "school" } }),
             ...e.data.classes.map(k => h("span", { cls: `fe-tag ${mine.has(k) ? "is-mine" : ""}`.trim(), text: cap(k), data: { badge: "class" } })))),
-        owned.has(refFor(e, own)) ? h("button", { cls: "fe-btn", text: "Known", attrs: { disabled: "", "aria-label": `${e.name} is already known` }, data: { known: e.id } })
-          : btn("Add", () => { ctl.dispatch({ type: "addSpell", id: e.id }); ctl.host.notify(`Added ${e.name}`); }, "", { add: e.id })));
+        owned.has(ref) ? h("button", { cls: "fe-btn", text: "Known", attrs: { disabled: "", "aria-label": `${e.name} is already known` }, data: { known: ref } })
+          : btn("Add", () => { ctl.dispatch({ type: "addSpell", id: ref }); ctl.host.notify(`Added ${e.name}`); }, "", { add: ref }))); }
       if (rows.length > MAX_ROWS) list.append(h("div", { cls: "fe-faint", data: { more: "" }, text: `${rows.length - MAX_ROWS} more: keep typing.` }));
       if (!rows.length && hidden > 0 && q) {
         list.append(h("div", { cls: "fe-faint", data: { hidden: "" }, text: `${hidden} more ${hidden === 1 ? "spell needs" : "spells need"} higher slots than you have.` }),
           btn("Show higher levels", () => hl.click(), "", { act: "show-hidden" }));
       } else if (!rows.length) {
         list.append(h("div", { cls: "fe-faint", data: { empty: "" }, text: st.query.trim() ? `No spell called '${st.query.trim()}'.` : "No spells match." }));
-        if (canMake && st.query.trim()) list.append(btn(`Create '${st.query.trim()}' as a new spell`, startForm, "mod-cta", { act: "create-from-query" }));
+        if (canMake && st.query.trim() && !st.other) list.append(btn(`Create '${st.query.trim()}' as a new spell`, startForm, "mod-cta", { act: "create-from-query" }));
       }
+      if (!st.other) list.append(bringInButton(otherEdition(own), () => { st.other = true; draw(); }));
     };
-    const search = h("input", { cls: "fe-search", attrs: { placeholder: "Search spells", value: st.query, type: "search", "aria-label": "Search spells" },
+    const search = h("input", { cls: "fe-search", attrs: { placeholder: "Search spells", value: st.query, type: "text", "aria-label": "Search spells" },
       on: { input: (e: Event) => { st.query = (e.target as HTMLInputElement).value; fill(); }, focus: () => { st.focused = true; }, blur: () => { st.focused = false; } } });
     fill();
     const hl = h("button", { cls: `fe-btn ${st.higher ? "is-on" : ""}`.trim(), text: st.higher ? "Hide higher levels" : "Show higher levels", data: { act: "higher-levels" }, attrs: { type: "button" },
@@ -281,7 +287,7 @@ export function addSpellPanel(ctl: SheetController, panel: object = fallbackPane
     setLabel();
     const sw = h("button", { cls: `fe-switch ${st.showAll ? "is-on" : ""}`, data: { act: "show-all" }, attrs: { role: "switch", "aria-checked": String(st.showAll), "aria-label": "Show all spells" },
       on: { click: () => { st.showAll = !st.showAll; sw.classList.toggle("is-on", st.showAll); sw.setAttribute("aria-checked", String(st.showAll)); setLabel(); fill(); } } });
-    body.append(...([makeButtons(), search as HTMLElement,
+    body.append(...([st.other ? makeBack() : makeButtons(), search as HTMLElement,
       mine.size ? h("label", { cls: "fe-kv fe-menu-row" }, label, sw) : null, hl, list] as (HTMLElement | null)[]).filter((n): n is HTMLElement => !!n));
     // A redraw (after Add) keeps the cursor in the search box; the panel itself does not open the keyboard on a phone or tablet.
     const touch = typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)")?.matches;

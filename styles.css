@@ -399,3 +399,10 @@
 .fe-mastery-edit { margin-top: 8px; padding-top: 6px; border-top: 1px solid var(--background-modifier-border); }
 .fe-mastery-options { display: flex; flex-direction: column; gap: 4px; padding: 4px 0 6px; }
 .fe-mobile button.fe-mastery-chip, .fe-tablet button.fe-mastery-chip, .fe-mobile button.fe-mastery-change, .fe-tablet button.fe-mastery-change, .fe-mobile button.fe-mastery-option, .fe-tablet button.fe-mastery-option { min-height: 44px; }
+
+/* Bring in from the other edition: the button that ends a picker list, its Back link and the small edition chip on brought-in rows. */
+.fe-sheet button.fe-bring-in, .fe-sheet button.fe-bring-back { font-size: var(--font-ui-smaller); align-self: flex-start; margin-top: 8px; }
+.fe-sheet button.fe-bring-back { margin-top: 0; }
+.fe-sheet .fe-chip.fe-edition { display: inline-block; flex: none; margin: 0 6px; padding: 0 8px; border-radius: 10px; font-size: var(--font-ui-smaller); line-height: 1.5; background: var(--background-modifier-hover); color: var(--text-muted); }
+.fe-sheet .fe-detail-prov { margin-bottom: 4px; }
+.fe-mobile button.fe-bring-in, .fe-tablet button.fe-bring-in, .fe-mobile button.fe-bring-back, .fe-tablet button.fe-bring-back { min-height: 44px; }

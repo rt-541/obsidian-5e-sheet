@@ -7,13 +7,30 @@ import type { LevelUpState, LevelUpView, SheetController } from "./controller";
 import { featCategoryWords, plural } from "../core/words";
 import { clear, h } from "./h";
 import { btn, playBadge, titleCase } from "./widgets";
+import { characterEdition, otherEdition, type Edition } from "../core/edition";
+import { bringBackButton, bringInButton, editionChip } from "./bring-in";
 
 const ABIL_NAME: Record<Abil, string> = { str: "STR", dex: "DEX", con: "CON", int: "INT", wis: "WIS", cha: "CHA" };
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 const isStrs = (v: unknown): v is string[] => Array.isArray(v) && v.every(x => typeof x === "string");
 const sgn = (n: number) => (n >= 0 ? "+" : "") + n;
+/** The edition the character's own books are (2014 when the page has no character yet). */
+const ownOf = (ctl: PageCtl): Edition => characterEdition(ctl.character ?? {});
+/** Is this picker showing the other edition? (A view flag, never saved.) */
+const isOther = (st: PageState, key: string): boolean => !!st.view.other?.has(key);
+function setOther(ctl: PageCtl, st: PageState, key: string, on: boolean): void {
+  const set = (st.view.other ??= new Set<string>());
+  if (on) set.add(key); else set.delete(key);
+  ctl.emit?.();
+}
+/** The line and Back link above a brought-in list. */
+const broughtHead = (ctl: PageCtl, st: PageState, key: string, what: string): HTMLElement =>
+  h("div", { cls: "fe-cf-row", data: { brought: "" } }, h("span", { cls: "fe-muted", text: `${what} from the ${otherEdition(ownOf(ctl))} books` }), bringBackButton(ownOf(ctl), () => setOther(ctl, st, key, false)));
+/** The Bring in button that ends a picker list. */
+const broughtEnd = (ctl: PageCtl, st: PageState, key: string): HTMLElement => bringInButton(otherEdition(ownOf(ctl)), () => setOther(ctl, st, key, true));
+
 /** What the step pages need from their owner: the level-up wizard's SheetController, or the character builder. */
-export interface PageCtl { character?: Character; host: { registry: Registry; notify(msg: string): void }; /** Registry for pick lists (campaign source switches applied). */ pickers(): Registry; pick(key: string, value: unknown): void; }
+export interface PageCtl { character?: Character; host: { registry: Registry; notify(msg: string): void }; /** Registry for pick lists (campaign source switches applied). */ pickers(): Registry; pick(key: string, value: unknown): void; /** Redraw (the builder and the sheet both have it). */ emit?(): void; }
 /** The answers and view state the pages read. */
 export interface PageState { choices: Record<string, unknown>; view: LevelUpView; }
 type Pick<K extends Step["kind"]> = Extract<Step, { kind: K }>;
@@ -71,10 +88,15 @@ function hpPage(ctl: SheetController, s: Pick<"hp">, st: LevelUpState): HTMLElem
 }
 
 export function subclassPage(ctl: PageCtl, s: Pick<"subclass">, st: PageState): HTMLElement {
+  const on = isOther(st, s.key), own = ownOf(ctl), rows = on ? s.other ?? [] : s.options;
+  const none = on ? `The ${otherEdition(own)} books have no subclass of this class.` : `The ${own} books have no subclass of this class. Bring one in from the ${otherEdition(own)} books.`;
   return h("div", { cls: "fe-lu-body", data: { step: s.key } }, h("div", { cls: "fe-muted", text: s.label }),
-    ...s.options.map(o => h("div", { cls: "fe-subclass" },
-      choiceButton(o.name, undefined, st.choices[s.key] === o.id, o.disabled, () => ctl.pick(s.key, o.id), { opt: o.id }, o.source),
-      h("span", { cls: "fe-faint fe-detail-link", text: "details", data: { ref: `subclass:${o.id}`, noclick: "" } }))));
+    on ? broughtHead(ctl, st, s.key, "Subclasses") : null,
+    ...rows.map(o => h("div", { cls: "fe-subclass" },
+      choiceButton(o.name, undefined, st.choices[s.key] === o.id, o.disabled, () => ctl.pick(s.key, o.id), { opt: o.id }, o.source), editionChip(o.id, own),
+      h("span", { cls: "fe-faint fe-detail-link", text: "details", data: { ref: `subclass:${o.id}`, noclick: "" } }))),
+    rows.length ? null : h("div", { cls: "fe-faint", data: { empty: "" }, text: none }),
+    on ? null : broughtEnd(ctl, st, s.key));
 }
 
 export function abilityRows(ctl: PageCtl, s: Pick<"asi">, st: PageState): HTMLElement {
@@ -95,15 +117,18 @@ export function abilityRows(ctl: PageCtl, s: Pick<"asi">, st: PageState): HTMLEl
 export const featSlotHeading = (categories: string[] | undefined): string => (categories ? `This slot offers ${featCategoryWords(categories)} feats` : "This slot offers any feat");
 
 /** A searchable list of feats with a Pick button each; a disabled one says why. `rows` are the options of the slot or op. */
-function featRows(ctl: PageCtl, rows: StepOption[], picked: unknown, view: LevelUpView, heading: string, pick: (id: string) => void): HTMLElement {
-  const list = h("div", { data: { feats: "list" } });
+function featRows(ctl: PageCtl, st: PageState, key: string, options: StepOption[], other: StepOption[], picked: unknown, heading: string, pick: (id: string) => void): HTMLElement {
+  const view = st.view, list = h("div", { data: { feats: "list" } }), own = ownOf(ctl);
   const fill = () => {
     clear(list);
+    const on = isOther(st, key), rows = on ? other : options;
+    if (on) list.append(broughtHead(ctl, st, key, "Feats"));
     const q = view.featQuery.toLowerCase(), feats = rows.filter(o => o.name.toLowerCase().includes(q));
     for (const o of feats.slice(0, 60)) list.append(h("div", { cls: "fe-inv", data: { feat: o.id } },
-      h("div", { cls: "fe-grow" }, h("span", { cls: "fe-inv-name", text: o.name, data: { ref: `feat:${o.id}`, noclick: "" } }), o.source ? playBadge(o.source) : null, o.text ? h("div", { cls: "fe-faint", text: `Prerequisite: ${o.text}` }) : null),
+      h("div", { cls: "fe-grow" }, h("span", { cls: "fe-inv-name", text: o.name, data: { ref: `feat:${o.id}`, noclick: "" } }), editionChip(o.id, own), o.source ? playBadge(o.source) : null, o.text ? h("div", { cls: "fe-faint", text: `Prerequisite: ${o.text}` }) : null),
       o.disabled ? h("span", { cls: "fe-faint", text: o.disabled.toLowerCase() }) : btn(picked === o.id ? "Picked" : "Pick", () => pick(o.id), picked === o.id ? "is-on" : "")));
     if (!feats.length) list.append(h("div", { cls: "fe-faint", text: "No feats match." }));
+    if (!on) list.append(broughtEnd(ctl, st, key));
   };
   fill();
   return h("div", {}, h("div", { cls: "fe-muted", data: { feats: "heading" }, text: heading }),
@@ -112,13 +137,13 @@ function featRows(ctl: PageCtl, rows: StepOption[], picked: unknown, view: Level
 
 export function featList(ctl: PageCtl, s: Pick<"asi">, st: PageState): HTMLElement {
   const picked = isObj(st.choices[s.key]) ? (st.choices[s.key] as Record<string, unknown>).feat : undefined;
-  return featRows(ctl, s.featOptions, picked, st.view, featSlotHeading(s.feats), id => ctl.pick(s.key, { feat: id }));
+  return featRows(ctl, st, s.key, s.featOptions, s.other ?? [], picked, featSlotHeading(s.feats), id => ctl.pick(s.key, { feat: id }));
 }
 
 /** A `feat` op that asks: the feats of its categories, one to pick. */
 export function featPage(ctl: PageCtl, s: Pick<"feat">, st: PageState): HTMLElement {
   return h("div", { cls: "fe-lu-body", data: { step: s.key } }, h("div", { cls: "fe-muted", text: s.label }),
-    featRows(ctl, s.options, st.choices[s.key], st.view, featSlotHeading(s.categories), id => ctl.pick(s.key, id)));
+    featRows(ctl, st, s.key, s.options, s.other ?? [], st.choices[s.key], featSlotHeading(s.categories), id => ctl.pick(s.key, id)));
 }
 
 export function asiPage(ctl: PageCtl, s: Pick<"asi">, st: PageState): HTMLElement {
@@ -198,7 +223,8 @@ export function spellStepHeading(s: Extract<Step, { kind: "spells" }>, nCantrips
 
 export function spellsPage(ctl: PageCtl, s: Pick<"spells">, st: PageState): HTMLElement {
   const v = st.choices[s.key], cur = isStrs(v) ? v : [];
-  const level = (id: string) => s.options.find(o => o.id === id)?.level ?? 1;
+  const level = (id: string) => [...s.options, ...(s.other ?? [])].find(o => o.id === id)?.level ?? 1;
+  const own = ownOf(ctl);
   const nCantrips = cur.filter(id => level(id) === 0).length, nSpells = cur.length - nCantrips;
   const toggle = (id: string) => {
     if (cur.includes(id)) { ctl.pick(s.key, cur.filter(x => x !== id)); return; }
@@ -209,13 +235,16 @@ export function spellsPage(ctl: PageCtl, s: Pick<"spells">, st: PageState): HTML
   const list = h("div", {});
   const fill = () => {
     clear(list);
-    const query = st.view.spellQuery, rows = spellStepRows(s, query), shown = s.count === 0 ? rows : rows.slice(0, 80);
+    const on = isOther(st, s.key), query = st.view.spellQuery, rows = spellStepRows(on ? { ...s, options: s.other ?? [] } : s, query), shown = s.count === 0 ? rows : rows.slice(0, 80);
+    if (on) list.append(broughtHead(ctl, st, s.key, "Spells"));
     for (const o of shown) list.append(h("div", { cls: "fe-inv", data: { spell: o.id } },
-      h("div", { cls: "fe-grow" }, h("span", { cls: "fe-spell-name", text: o.name, data: { ref: `spell:${o.id}`, noclick: "" } }), o.source ? playBadge(o.source) : null, h("div", { cls: "fe-faint", text: o.text ?? "" })),
+      h("div", { cls: "fe-grow" }, h("span", { cls: "fe-spell-name", text: o.name, data: { ref: `spell:${o.id}`, noclick: "" } }), editionChip(o.id, own), o.source ? playBadge(o.source) : null, h("div", { cls: "fe-faint", text: o.text ?? "" })),
       o.disabled ? h("span", { cls: "fe-faint", text: o.disabled.toLowerCase() }) : btn(cur.includes(o.id) ? "Chosen" : "Add", () => toggle(o.id), cur.includes(o.id) ? "is-on" : "", )));
     if (rows.length > shown.length) list.append(h("div", { cls: "fe-faint", text: `${rows.length - shown.length} more: narrow the search.` }));
-    if (!query && !rows.some(o => !o.disabled)) list.append(h("div", { cls: "fe-warn", text: s.count === 0 ? "Every cantrip on this list is already known." : "Every spell on this list is already known." }));
+    if (on && !rows.length) list.append(h("div", { cls: "fe-faint", text: `No spells for this list in the ${otherEdition(own)} books.` }));
+    else if (!query && !rows.some(o => !o.disabled)) list.append(h("div", { cls: "fe-warn", text: s.count === 0 ? "Every cantrip on this list is already known." : "Every spell on this list is already known." }));
     else if (!rows.length) list.append(h("div", { cls: "fe-faint", text: "No spells match." }));
+    if (!on) list.append(broughtEnd(ctl, st, s.key));
   };
   fill();
   const swaps = Array.isArray(st.choices[`${s.key}:swap`]) ? st.choices[`${s.key}:swap`] as { out: string; in: string }[] : [];

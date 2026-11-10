@@ -1,5 +1,6 @@
 import { refFor, sameRef, splitRef } from "../content/edition";
-import { editionRules } from "../core/edition";
+import { editionRules, otherEdition } from "../core/edition";
+import { bringBackButton, bringInButton, editionChip } from "./bring-in";
 import type { GrantsData, SubraceData } from "../content/types";
 import { gearList, STANDARD_ARRAY, POINT_BUY_BUDGET, type ScoreMethod } from "../core/builder";
 import { ABILS, type Abil } from "../core/types";
@@ -20,29 +21,50 @@ const hint = (text: string) => h("div", { cls: "fe-muted", text });
 
 /** A choice with its one-line pitch and an About button that opens the full card under it. */
 function aboutRow(ctl: BuilderController, kind: string, e: Entry, pitch: string, on: boolean, pick: () => void): HTMLElement {
-  const open = ctl.view.about === e.id;
-  const about = h("button", { cls: `fe-btn fe-about ${open ? "is-on" : ""}`.trim(), text: "About", data: { act: "about", about: e.id }, attrs: { "aria-expanded": String(open), "aria-label": `About ${e.name}` }, on: { click: () => ctl.toggleAbout(e.id) } });
-  return h("div", { data: { row: kind } }, h("div", { cls: "fe-subclass" }, choiceButton(e.name, pitch || undefined, on, undefined, pick, { [kind]: e.id }, sourceLabel(e)), about), open ? entryCard(ctl.pickers(), e) : null);
+  const own = ctl.edition(), ref = refFor(e, own), open = ctl.view.about === ref;
+  const about = h("button", { cls: `fe-btn fe-about ${open ? "is-on" : ""}`.trim(), text: "About", data: { act: "about", about: ref }, attrs: { "aria-expanded": String(open), "aria-label": `About ${e.name}` }, on: { click: () => ctl.toggleAbout(ref) } });
+  return h("div", { data: { row: kind } }, h("div", { cls: "fe-subclass" }, choiceButton(e.name, pitch || undefined, on, undefined, pick, { [kind]: ref }, sourceLabel(e)), editionChip(ref, own), about), open ? entryCard(ctl.pickers(), e) : null);
+}
+
+/** The picker view flag: showing the other edition's list of `key` (not saved). */
+const isOther = (ctl: BuilderController, key: string): boolean => !!ctl.view.other?.has(key);
+function setOther(ctl: BuilderController, key: string, on: boolean): void {
+  const set = (ctl.view.other ??= new Set<string>());
+  if (on) set.add(key); else set.delete(key);
+  ctl.emit();
+}
+/** One picker list: the rows, then (own list) the Bring in button as its last child, or (other list) a Back link first. */
+function pickList(ctl: BuilderController, key: string, what: string, lead: (HTMLElement | null)[], rows: HTMLElement[]): HTMLElement {
+  const on = isOther(ctl, key), own = ctl.edition();
+  return h("div", { cls: "fe-pick-list", data: { list: key } },
+    on ? h("div", { cls: "fe-cf-row", data: { brought: "" } }, h("span", { cls: "fe-muted", text: `${what} from the ${otherEdition(own)} books` }), bringBackButton(own, () => setOther(ctl, key, false))) : null,
+    ...lead, ...rows,
+    on && !rows.length ? h("div", { cls: "fe-faint", data: { empty: "" }, text: `Nothing of this kind in the ${otherEdition(own)} books.` }) : null,
+    on ? null : bringInButton(otherEdition(own), () => setOther(ctl, key, true)));
 }
 
 /** The word for a race in the draft's edition. */
 const raceWord = (ctl: BuilderController): string => editionRules(ctl.edition()).raceWord;
 
 function racePage(ctl: BuilderController): HTMLElement {
-  const reg = ctl.pickers(), d = ctl.draft;
-  const own = ctl.edition(), subs = d.race ? reg.list<SubraceData>("subrace").filter(e => e.data.race === splitRef(d.race!).id) : [];
-  return body("race", hint(`Pick a ${raceWord(ctl).toLowerCase()}.`),
-    ...reg.list<GrantsData>("race").map(e => aboutRow(ctl, "race", e, originPitch(e, reg), sameRef(d.race ?? "", refFor(e, own), own) && !!d.race, () => ctl.setRace(e.id))),
-    subs.length ? hint("Subrace") : null,
-    ...(subs.length ? [choiceButton("No subrace", undefined, !d.subrace, undefined, () => ctl.setSubrace(undefined), { subrace: "" }),
-      ...subs.map(e => choiceButton(e.name, undefined, !!d.subrace && sameRef(d.subrace, refFor(e, own), own), undefined, () => ctl.setSubrace(e.id), { subrace: e.id }, sourceLabel(e)))] : []));
+  const reg = ctl.pickers(), d = ctl.draft, own = ctl.edition(), word = raceWord(ctl);
+  const races = isOther(ctl, "race") ? reg.listEdition<GrantsData>("race", otherEdition(own)) : reg.list<GrantsData>("race");
+  const subOf = (list: Entry<SubraceData>[]) => d.race ? list.filter(e => e.data.race === splitRef(d.race!).id) : [];
+  const ownSubs = subOf(reg.list<SubraceData>("subrace")), otherSubs = subOf(reg.listEdition<SubraceData>("subrace", otherEdition(own)));
+  const subs = isOther(ctl, "subrace") ? otherSubs : ownSubs;
+  const pick = (e: Entry<SubraceData>) => { const ref = refFor(e, own); return choiceButton(e.name, undefined, !!d.subrace && sameRef(d.subrace, ref, own), undefined, () => ctl.setSubrace(ref), { subrace: ref }, sourceLabel(e)); };
+  return body("race", hint(`Pick a ${word.toLowerCase()}.`),
+    pickList(ctl, "race", `${word}${/s$/.test(word) ? "" : "s"}`, [], races.map(e => aboutRow(ctl, "race", e, originPitch(e, reg), sameRef(d.race ?? "", refFor(e, own), own) && !!d.race, () => ctl.setRace(refFor(e, own))))),
+    ownSubs.length || otherSubs.length ? hint("Subrace") : null,
+    ...(ownSubs.length || otherSubs.length ? [pickList(ctl, "subrace", "Subraces", [choiceButton("No subrace", undefined, !d.subrace, undefined, () => ctl.setSubrace(undefined), { subrace: "" })], subs.map(e => h("div", { cls: "fe-subclass" }, pick(e), editionChip(refFor(e, own), own))))] : []));
 }
 
 function backgroundPage(ctl: BuilderController): HTMLElement {
-  const d = ctl.draft, own = ctl.edition();
+  const d = ctl.draft, own = ctl.edition(), reg = ctl.pickers();
+  const list = isOther(ctl, "background") ? reg.listEdition<GrantsData>("background", otherEdition(own)) : reg.list<GrantsData>("background");
   return body("background", hint("Pick a background."),
-    choiceButton("No background", undefined, !d.background, undefined, () => ctl.setBackground(undefined), { background: "" }),
-    ...ctl.pickers().list<GrantsData>("background").map(e => choiceButton(e.name, undefined, !!d.background && sameRef(d.background, refFor(e, own), own), undefined, () => ctl.setBackground(e.id), { background: e.id }, sourceLabel(e))));
+    pickList(ctl, "background", "Backgrounds", [choiceButton("No background", undefined, !d.background, undefined, () => ctl.setBackground(undefined), { background: "" })],
+      list.map(e => { const ref = refFor(e, own); return h("div", { cls: "fe-subclass" }, choiceButton(e.name, undefined, !!d.background && sameRef(d.background, ref, own), undefined, () => ctl.setBackground(ref), { background: ref }, sourceLabel(e)), editionChip(ref, own)); })));
 }
 
 const METHODS: [ScoreMethod, string][] = [["point-buy", "Point buy"], ["standard-array", "Standard array"], ["manual", "Manual"]];
@@ -73,9 +95,10 @@ function scoresPage(ctl: BuilderController): HTMLElement {
 }
 
 function classPage(ctl: BuilderController): HTMLElement {
-  const d = ctl.draft, own = ctl.edition();
+  const d = ctl.draft, own = ctl.edition(), reg = ctl.pickers();
+  const list = isOther(ctl, "class") ? reg.listEdition<ClassData>("class", otherEdition(own)) : reg.list<ClassData>("class");
   return body("class", hint("Pick a class (level 1)."),
-    ...ctl.pickers().list<ClassData>("class").map(e => aboutRow(ctl, "class", e, classPitch(e), !!d.classId && sameRef(d.classId, refFor(e, own), own), () => ctl.setClass(e.id))));
+    pickList(ctl, "class", "Classes", [], list.map(e => aboutRow(ctl, "class", e, classPitch(e), !!d.classId && sameRef(d.classId, refFor(e, own), own), () => ctl.setClass(refFor(e, own))))));
 }
 
 /** `5d4*10` read as "roll 5d4 × 10 gp". */

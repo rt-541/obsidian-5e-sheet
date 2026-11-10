@@ -40,3 +40,12 @@ export function refIn(reg: Registry, type: string, id: string, from: Edition | u
   const hit = reg.forEdition(from).get(type, id);
   return hit ? refFor(hit, own) : id;
 }
+/** The name a stored reference shows: the entry's name, else the plain id (a missing entry stays as the id it was stored under). */
+export function refName(reg: Registry, type: string, ref: string): string {
+  return reg.get<{ name: string }>(type, ref)?.name ?? splitRef(ref).id;
+}
+/** The name of a reference with its edition after it when qualified (`Rope-coil (2014)`); a plain reference is returned as it is stored. */
+export function refLabel(reg: Registry, type: string, ref: string): string {
+  const ed = splitRef(ref).edition;
+  return ed ? `${refName(reg, type, ref)} (${ed})` : ref;
+}

@@ -1,5 +1,6 @@
 import { refFor, sameRef } from "../content/edition";
-import { characterEdition } from "../core/edition";
+import { characterEdition, otherEdition } from "../core/edition";
+import { bringBackButton, bringInButton, editionChip } from "./bring-in";
 import type { Entry } from "../content/registry";
 import { sourceLabel } from "../content/registry";
 import type { ItemData } from "../content/types";
@@ -120,7 +121,7 @@ export function customItemForm(ctl: SheetController): HTMLElement {
 
 export type ItemChip = "all" | "consumable" | "weapon" | "armor" | "gear" | "magic";
 /** The add panel's search box and kind chip, kept in the controller so they survive redraws. */
-export interface ItemSearch { query: string; chip: ItemChip; /** The result whose card is open. */ selected?: string; }
+export interface ItemSearch { query: string; chip: ItemChip; /** The result whose card is open. */ selected?: string; /** Listing the other edition (not saved). */ other?: boolean; }
 export const blankItemSearch = (): ItemSearch => ({ query: "", chip: "all" });
 const CHIPS: { id: ItemChip; label: string }[] = [
   { id: "all", label: "All" }, { id: "consumable", label: "Potions and scrolls" }, { id: "weapon", label: "Weapons" },
@@ -144,26 +145,27 @@ function inChip(chip: ItemChip, d: ItemData): boolean {
 export function itemResults(ctl: SheetController): { hint: boolean; rows: Entry<ItemData>[]; more: number } {
   const { query, chip } = ctl.itemSearch, q = query.trim().toLowerCase();
   if (q.length < MIN_QUERY && chip === "all") return { hint: true, rows: [], more: 0 };
-  const hits = ctl.pickers().list<ItemData>("item").filter(e => inChip(chip, e.data) && e.name.toLowerCase().includes(q));
+  const own = characterEdition(ctl.character!), all = ctl.itemSearch.other ? ctl.pickers().listEdition<ItemData>("item", otherEdition(own)) : ctl.pickers().list<ItemData>("item");
+  const hits = all.filter(e => inChip(chip, e.data) && e.name.toLowerCase().includes(q));
   const rank = (e: Entry<ItemData>) => (e.name.toLowerCase().startsWith(q) ? 0 : 1);
   const sorted = hits.map((e, i) => ({ e, i })).sort((a, b) => rank(a.e) - rank(b.e) || a.i - b.i).map(x => x.e);
   return { hint: false, rows: sorted.slice(0, ITEM_RESULT_CAP), more: Math.max(0, sorted.length - ITEM_RESULT_CAP) };
 }
 
 function resultRow(ctl: SheetController, e: Entry<ItemData>): HTMLElement {
-  const own = characterEdition(ctl.character!), owned = ctl.character!.inventory.some(x => x.id !== undefined && sameRef(x.id, refFor(e, own), own)), gear = isGear(e.data) || !!e.data.variant;
-  const open = ctl.itemSearch.selected === e.id;
+  const own = characterEdition(ctl.character!), ref = refFor(e, own), owned = ctl.character!.inventory.some(x => x.id !== undefined && sameRef(x.id, ref, own)), gear = isGear(e.data) || !!e.data.variant;
+  const open = ctl.itemSearch.selected === ref;
   const label = owned && !gear ? "+1" : "Add";
-  const toggle = () => { ctl.itemSearch.selected = open ? undefined : e.id; ctl.emit(); };
+  const toggle = () => { ctl.itemSearch.selected = open ? undefined : ref; ctl.emit(); };
   return h("div", { cls: "fe-result" },
     h("div", { cls: "fe-inv" },
       h("div", { cls: "fe-grow" },
-        h("span", { cls: "fe-inv-name", text: e.name, data: { ref: `item:${e.id}`, noclick: "" }, attrs: { role: "button", tabindex: "0", "aria-expanded": String(open) },
+        h("span", { cls: "fe-inv-name", text: e.name, data: { ref: `item:${ref}`, noclick: "" }, attrs: { role: "button", tabindex: "0", "aria-expanded": String(open) },
           on: { click: toggle, keydown: (ev: KeyboardEvent) => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); toggle(); } } } }),
-        playBadge(sourceLabel(e)),
+        editionChip(ref, own), playBadge(sourceLabel(e)),
         h("div", { cls: "fe-faint", text: [e.data.rarity, e.data.attunement ? "attunement" : ""].filter(Boolean).join(" · ") }),
         owned && gear ? h("div", { cls: "fe-faint", text: "Owned", data: { note: "owned" } }) : null),
-      h("button", { cls: "fe-btn", text: label, data: { item: e.id }, on: { click: () => { void ctl.startAdd(e.id); } } })),
+      h("button", { cls: "fe-btn", text: label, data: { item: ref }, on: { click: () => { void ctl.startAdd(ref); } } })),
     open ? itemStatCard(e.name, e.data) : null);
 }
 
@@ -205,15 +207,19 @@ function pickView(ctl: SheetController): HTMLElement {
 function fillResults(ctl: SheetController, box: HTMLElement) {
   clear(box);
   if (ctl.addPick) { box.append(pickView(ctl)); return; }
-  const res = itemResults(ctl), q = ctl.itemSearch.query.trim();
-  if (res.hint) { box.append(h("div", { cls: "fe-faint", text: "Type to search", data: { note: "item-hint" } })); return; }
+  const res = itemResults(ctl), q = ctl.itemSearch.query.trim(), own = characterEdition(ctl.character!), other = !!ctl.itemSearch.other;
+  const toggleOther = () => { ctl.itemSearch.other = !other; ctl.itemSearch.selected = undefined; ctl.emit(); };
+  if (other) box.append(h("div", { cls: "fe-cf-row", data: { brought: "" } }, h("span", { cls: "fe-muted", text: `Items from the ${otherEdition(own)} books` }), bringBackButton(own, toggleOther)));
+  const end = () => { if (!other) box.append(bringInButton(otherEdition(own), toggleOther)); };
+  if (res.hint) { box.append(h("div", { cls: "fe-faint", text: "Type to search", data: { note: "item-hint" } })); end(); return; }
   box.append(...res.rows.map(e => resultRow(ctl, e)));
   if (res.more) box.append(h("div", { cls: "fe-faint", text: `${res.more} more: keep typing`, data: { note: "item-more" } }));
   if (!res.rows.length) {
     box.append(h("div", { cls: "fe-faint", text: q ? `No item matches "${q}".` : "Nothing in this group yet.", data: { note: "item-none" } }));
-    if (q) box.append(h("button", { cls: "fe-btn", text: `Add '${q}' as a custom item`, data: { act: "prefill-custom" },
+    if (q && !other) box.append(h("button", { cls: "fe-btn", text: `Add '${q}' as a custom item`, data: { act: "prefill-custom" },
       on: { click: () => { ctl.customItem.name = q; delete ctl.customItem.error; ctl.focusNext = "custom-name"; ctl.emit(); } } }));
   }
+  end();
 }
 
 /** The "Add item" panel: custom item form, search box, kind chips and results. */

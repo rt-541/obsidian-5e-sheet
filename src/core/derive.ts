@@ -1,4 +1,4 @@
-import { splitRef } from "../content/edition";
+import { refName, splitRef } from "../content/edition";
 import type { CompanionEntry, Character, Npc } from "./character";
 import type { ClassData, CreatureData, ItemData } from "../content/types";
 import { collectEffects, damageTraits, itemWorks, missingIds, modifierParts, notes, sumModifier, type EffectContext, type ModOpts, type SourcedEffects } from "./effects";
@@ -8,7 +8,7 @@ import { buildAttacks, NOT_PROFICIENT } from "./attack-rows";
 import { attackOptionRows, type AttackOptionRow } from "./attack-options";
 import { evalFormula } from "./formula";
 import { emptyProgress, formulaVars, progress, type Progress, type DerivedResource } from "./progression";
-import { slug } from "../content/registry";
+import { slug, type Registry } from "../content/registry";
 import { matchesTag } from "./roll-tags";
 import { editionRules, characterEdition } from "./edition";
 import { slotTable } from "./slots";
@@ -31,6 +31,8 @@ export interface AttackStat { name: string; toHit?: number; save?: { abil: Abil;
   why?: { hit?: string; damage?: string };
   /** The inventory index of the weapon behind this row (its off-hand row too). */
   item?: number;
+  /** The weapon's qualified reference, only when it is a brought-in one, for the edition chip on the row. */
+  ref?: string;
   /** Only on a versatile weapon's main row. */
   grip?: AttackGrip;
   /** The mastery property of a weapon the character has mastered (its note id and name). Shown on the row, never applied to a number. */
@@ -141,6 +143,11 @@ export function actionDc(st: ActorStats, dc: string): { dc: number; label: strin
   return d ? { dc: d.dc, label: `${d.name} save DC` } : undefined;
 }
 
+/** "warden 3", or "Warden 3 (2014)" for a class from the other edition: a qualified id is never shown raw. */
+function classLabel(r: Registry, k: { class: string; level: number }): string {
+  const ed = splitRef(k.class).edition;
+  return ed ? `${refName(r, "class", k.class)} ${k.level} (${ed})` : `${k.class} ${k.level}`;
+}
 export function deriveCharacter(c: Character, ctx: EffectContext): ActorStats {
   const r = ctx.registry, prog = progress(c, r);
   const level = c.classes.reduce((a, k) => a + k.level, 0), prof = profBonus(level);
@@ -310,7 +317,7 @@ export function deriveCharacter(c: Character, ctx: EffectContext): ActorStats {
     try { attacksPerAction = Math.max(attacksPerAction, Math.floor(evalFormula(s.effects.attacks, vars))); } catch (x) { problem(`${s.source}: attacks ${(x as Error).message}`); }
   }
   return {
-    kind: "character", name: c.name, label: c.classes.map(k => `${k.class} ${k.level}`).join(" / "),
+    kind: "character", name: c.name, label: c.classes.map(k => classLabel(r, k)).join(" / "),
     abilities: scores, mods: m, prof, level, ac, speed: { ...speedBase, other: modes.join(", ") + (hover && modes.some(x => x.startsWith("fly")) ? " (hover)" : "") },
     attacksPerAction, senses, conditionImmune: [...new Set(fx.flatMap(s => s.effects.conditionImmune ?? []))],
     hp: hpOf(c.hp.max, c.hp.current, c.hp.temp, fx, opt()), hpFull: hpFullOf(c.hp.max, fx, opt()), saves, concentrationSave: saveMod("con", true), skills, checks,

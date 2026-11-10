@@ -5,6 +5,7 @@ import { entryItem } from "../core/item-entry";
 import type { ActorStats, AttackStat } from "../core/derive";
 import type { Abil } from "../core/types";
 import type { SheetController } from "./controller";
+import { chipFor } from "./bring-in";
 import { h, sgn } from "./h";
 import { btn } from "./widgets";
 
@@ -45,6 +46,7 @@ export function attacksList(ctl: SheetController, st: ActorStats, who?: number):
         : null;
       const row = h("div", { cls: "fe-attack", data: { attack: String(ai) } },
         h("span", { cls: "fe-grow", text: a.name, ...refData(noteRef) }),
+        chipFor(a.ref, ctl.character),
         a.mastery ? h("button", { cls: "fe-mastery-chip", text: a.mastery.name, attrs: { type: "button", "aria-label": `${a.name}: weapon mastery ${a.mastery.name}` }, data: { ref: `mastery:${a.mastery.id}` } }) : null,
         a.note ? h("span", { cls: "fe-faint fe-attack-note-mark", text: "notes", ...refData(noteRef) }) : null,
         h("span", { cls: "fe-attack-ctl" },

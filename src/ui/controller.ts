@@ -67,7 +67,7 @@ export interface CustomizeDraft { target: CustomizeTarget; form: CustomizeForm; 
 /** The combo form: `index` is the combo being changed, or null for a new one. Typing changes the draft without redrawing. */
 export interface ComboDraft { index: number | null; combo: Combo; error?: string; confirmDelete?: boolean; }
 /** The level-up wizard: `level` adds a class level, `resolve` only answers choices a note still owes. */
-export interface LevelUpView { featOpen: Set<string>; spellQuery: string; featQuery: string; /** Builder: the race or class whose About card is open. */ about?: string; }
+export interface LevelUpView { featOpen: Set<string>; spellQuery: string; featQuery: string; /** Pickers (by step key or builder list) showing the other edition. Not saved. */ other?: Set<string>; /** Builder: the race or class whose About card is open. */ about?: string; }
 export interface LevelUpState {
   mode: "level" | "resolve"; classId?: string; page: number; /** Search text and the feat/ability switch, kept across redraws. */ view: LevelUpView;
   hp?: { method: "roll" | "average"; roll?: number }; choices: Record<string, unknown>; error?: string;

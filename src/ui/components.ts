@@ -1,4 +1,6 @@
 import { characterEdition, editionRules } from "../core/edition";
+import { refName, splitRef } from "../content/edition";
+import { chipFor } from "./bring-in";
 import { titleCase } from "../core/words";
 import { entryItem, entryRef } from "../core/item-entry";
 import type { ConditionData, CreatureData, ItemData } from "../content/types";
@@ -97,7 +99,7 @@ function pinnedItems(ctl: SheetController): { index: number; row: HTMLElement }[
     const index = c.inventory.findIndex(e => itemRef(e) === ref); if (index < 0) return [];
     const s = itemState(ctl, index), e = s.e;
     return [{ index, row: h("div", { cls: `fe-kv fe-pinned-item ${s.usedUp ? "is-used-up" : ""}`.trim(), data: { pinnedItem: ref } },
-      h("span", { cls: "fe-grow" }, h("span", { cls: "fe-inv-name", text: s.name, ...(s.it && e.id ? { data: { ref: entryRef(e) } } : {}) }),
+      h("span", { cls: "fe-grow" }, h("span", { cls: "fe-inv-name", text: s.name, ...(s.it && e.id ? { data: { ref: entryRef(e) } } : {}) }), chipFor(e.id, c),
         s.consumable || e.qty > 1 ? h("span", { cls: "fe-faint", text: ` x${e.qty}` }) : null,
         s.upWord ? h("span", { cls: "fe-faint fe-used-up", text: ` · ${s.upWord}` }) : null),
       s.charges ? pips(s.charges.max, e.charges?.used ?? 0, n => ctl.dispatch({ type: "charges", index, used: n })) : null,
@@ -114,17 +116,18 @@ function identityParts(ctl: SheetController): HTMLElement {
   // a pick that is missing from the compendium stays plain text, marked so it is not mistaken for a name
   const part = (text: string, ref: string, missing = false) => { const [type, id] = ref.split(":"); return missing ? h("span", { cls: "fe-id-part is-missing", text: `${text} (missing from compendium)` }) : h("span", { cls: "fe-id-part", text, ...(r.get(type, id ?? (type === "race" ? c.race! : type === "subrace" ? c.subrace! : c.background!)) ? { data: { ref: `identity:${ref}` } } : {}) }); };
   const named = (type: string, id: string) => { const e = r.get<{ name: string }>(type, id); return part(e?.name ?? id, `${type}:${id}`, !e); };
-  const out: (Node | string)[] = [];
+  const chip = (ref: string | undefined) => chipFor(ref, c);
+  const out: (Node | string | null)[] = [];
   c.classes.forEach((k, i) => {
     if (i) out.push(" / ");
-    out.push(part(`${k.class} ${k.level}`, `class:${k.class}`));
-    if (k.subclass) out.push(" (", named("subclass", k.subclass), ")");
+    // a brought-in class shows its name (a plain one keeps the id, as the plain label always did); the chip follows the level
+    out.push(part(`${splitRef(k.class).edition ? refName(r, "class", k.class) : k.class} ${k.level}`, `class:${k.class}`), chip(k.class));
+    if (k.subclass) out.push(" (", named("subclass", k.subclass), chip(k.subclass), ")");
   });
-  const origin: Node[] = [];
-  if (c.race) origin.push((() => { const e = r.get<{ name: string }>("race", c.race!); return part(e?.name ?? c.race!, "race", !e); })());
-  if (c.subrace) origin.push((() => { const e = r.get<{ name: string }>("subrace", c.subrace!); return part(e?.name ?? c.subrace!, "subrace", !e); })());
-  if (c.background) origin.push((() => { const e = r.get<{ name: string }>("background", c.background!); return part(e?.name ?? c.background!, "background", !e); })());
-  origin.forEach(o => out.push(" · ", o));
+  const origin: (Node | null)[][] = [];
+  const one = (type: "race" | "subrace" | "background", id: string | undefined) => { if (!id) return; const e = r.get<{ name: string }>(type, id); origin.push([part(e?.name ?? id, type, !e), chip(id)]); };
+  one("race", c.race); one("subrace", c.subrace); one("background", c.background);
+  origin.forEach(o => out.push(" · ", ...o));
   return h("span", { cls: "fe-muted fe-identity-label" }, ...out);
 }
 
@@ -228,7 +231,7 @@ export const RENDER: Record<string, Render> = {
       const ch = checks(ctl, st, i);
       const traits = r.get<CreatureData>("creature", comp.creature)?.data.traits ?? [];
       return h("div", { cls: "fe-comp", data: { companion: String(i) } },
-        h("div", { cls: "fe-kv" }, h("span", { cls: "fe-name", text: st.name }), h("span", { cls: "fe-muted", text: st.label }), companionMenuButton(ctl, i, st.name)),
+        h("div", { cls: "fe-kv" }, h("span", { cls: "fe-name", text: st.name }), h("span", { cls: "fe-muted", text: st.label }), chipFor(comp.creature, ctl.character), companionMenuButton(ctl, i, st.name)),
         ctl.companionMenu === i ? companionMenu(ctl, i, st.name) : null,
         h("div", { cls: "fe-stats" }, stat("AC", String(st.ac.value)), stat("Initiative", rollButton(ctl, sgn(st.initiative), `${st.name} initiative`, st.initiative, { kind: "initiative", abil: "dex" }, i)),
           stat("Speed", `${st.speed.value}${st.speed.other ? ` (${st.speed.other})` : ""}`)),

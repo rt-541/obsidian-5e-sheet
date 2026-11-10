@@ -12,6 +12,7 @@ import type { SheetController } from "./controller";
 import { actionWords, describeEffects, effectParts, sourceBadge, wordsCtx, type WordsCtx } from "./widgets";
 import { h, sgn } from "./h";
 import { identityCard } from "./identity-cards";
+import { withProvenance } from "./bring-in";
 import { ABIL_FULL, glossaryEntry } from "../content/glossary";
 import type { Abil } from "../core/types";
 
@@ -50,6 +51,7 @@ function itemCardOf(reg: Registry, name: string, d: ItemData, e?: Entry<ItemData
   }
   return h("div", { cls: "fe-detail" },
     e ? h("div", { cls: "fe-detail-src" }, sourceBadge(sourceLabel(e))) : null,
+    e ? h("div", { cls: "fe-faint fe-detail-prov", text: provenanceLine(e) }) : null,
     itemStatCard(name, d, { lines, notes }),
     e?.source === "vault" ? h("div", { cls: "fe-faint", text: `Source note: ${e.path}` }) : null);
 }
@@ -133,7 +135,8 @@ function effectCard(source: string, ctl: SheetController): HTMLElement | null {
 }
 
 /** The card for one compendium entry (any source), for the compendium browser and the sheet. A reference-only library note gets a plain card: the caller supplies its body text. */
-export function entryCard(reg: Registry, e: Entry, body?: string): HTMLElement {
+export function entryCard(reg: Registry, e: Entry, body?: string): HTMLElement { return withProvenance(entryCardBare(reg, e, body), e); }
+function entryCardBare(reg: Registry, e: Entry, body?: string): HTMLElement {
   if (e.referenceOnly) return card(e.name, `${cap(e.type)} · reference only`, [`Not usable on the sheet: ${e.referenceOnly}`], body, undefined, sourceLabel(e));
   switch (e.type) {
     case "item": return itemCard(reg, e as Entry<ItemData>);
@@ -206,8 +209,8 @@ export function detailCard(ref: string, ctl: SheetController): HTMLElement | nul
       const row = ctl.character?.inventory.find(x => x.row === rest), d = row && entryItem(row, reg);
       return row && d ? itemCardOf(reg, d.name, d, row.id ? reg.get<ItemData>("item", row.id) : undefined, row.change?.notes) : null;
     }
-    case "spell": { const e = reg.get<SpellData>("spell", rest); return e ? spellCard(reg, e) : null; }
-    case "condition": { const e = reg.get<ConditionData>("condition", rest) ?? reg.get<ConditionData>("injury", rest); return e ? conditionCard(e, ctl.value.conditions[rest] ?? 0) : null; }
+    case "spell": { const e = reg.get<SpellData>("spell", rest); return e ? withProvenance(spellCard(reg, e), e) : null; }
+    case "condition": { const e = reg.get<ConditionData>("condition", rest) ?? reg.get<ConditionData>("injury", rest); return e ? withProvenance(conditionCard(e, ctl.value.conditions[rest] ?? 0), e) : null; }
     case "why": return whyCard(rest, ctl);
     case "attack-note": return attackNoteCard(rest, ctl);
     case "glossary": return glossaryCard(rest, ctl);
@@ -215,8 +218,8 @@ export function detailCard(ref: string, ctl: SheetController): HTMLElement | nul
     case "effect": return effectCard(rest, ctl);
     case "feature": return featureCard(rest, ctl);
     case "combo": return comboCard(Number(rest), ctl);
-    case "subclass": { const e = reg.get<SubclassData>("subclass", rest); return e ? subclassCard(reg, e) : null; }
-    case "feat": { const e = reg.get<FeatData>("feat", rest); return e ? featCard(e) : null; }
+    case "subclass": { const e = reg.get<SubclassData>("subclass", rest); return e ? withProvenance(subclassCard(reg, e), e) : null; }
+    case "feat": { const e = reg.get<FeatData>("feat", rest); return e ? withProvenance(featCard(e), e) : null; }
     case "mastery": { const e = reg.get<MasteryData>("mastery", rest); return e ? card(e.name, "Weapon mastery", [provenanceLine(e)], e.data.rules, e.source === "vault" ? e.path : undefined, sourceLabel(e)) : null; }
     case "trait": { const j = rest.lastIndexOf(":"); return j < 0 ? null : traitCard(rest.slice(0, j), Number(rest.slice(j + 1)), ctl); }
     default: return null;

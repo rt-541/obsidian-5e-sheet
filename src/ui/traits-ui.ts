@@ -1,13 +1,14 @@
 import { characterEdition, editionRules } from "../core/edition";
 import type { Registry } from "../content/registry";
 import { slug } from "../content/registry";
-import type { ClassData, GrantsData, SubclassData } from "../content/types";
 import type { Character } from "../core/character";
 import type { ActorStats } from "../core/derive";
 import type { FeatureRow } from "../core/progression";
 import type { SheetController } from "./controller";
 import { customizeButton } from "./customize-ui";
 import { h } from "./h";
+import { chipFor } from "./bring-in";
+import { refLabel, splitRef } from "../content/edition";
 import { btn, card, describeEffects, usesPips, wordsCtx, type WordsCtx } from "./widgets";
 
 /** One row of the traits card: a feature (or a whole feat) with the source it came from. */
@@ -30,27 +31,29 @@ export function summaryOf(f: FeatureRow, ctx?: WordsCtx): string {
 /** Group the derived features by where they came from: race, each class, each subclass, background, feats. */
 export function traitGroups(c: Character, features: FeatureRow[], reg: Registry, ctx?: WordsCtx): TraitGroup[] {
   const name = <T extends { name: string }>(type: string, id: string | undefined) => (id ? reg.get<T>(type, id)?.name ?? id : undefined);
+  /** The heading name: a brought-in entry shows its edition after it. */
+  const named = (type: string, id: string | undefined) => (id ? (splitRef(id).edition ? refLabel(reg, type, id) : name(type, id)) : undefined);
   const one = (f: FeatureRow): TraitRow => ({ ref: `feature:${f.key}`, name: f.name, level: f.level, summary: summaryOf(f, ctx), rows: [f] });
   const byPrefix = (prefix: string) => features.filter(f => f.key.startsWith(prefix));
   const groups: TraitGroup[] = [];
 
   const race = features.filter(f => f.sourceKind === "race" || f.sourceKind === "subrace");
   if (race.length) {
-    const r = name("race", c.race), s = name("subrace", c.subrace);
+    const r = named("race", c.race), s = named("subrace", c.subrace);
     const word = editionRules(characterEdition(c)).raceWord;
     groups.push({ id: "race", heading: `${word} · ${r ?? word}${s ? ` (${s})` : ""}`, rows: race.map(one) });
   }
   for (const k of c.classes) {
     const rows = byPrefix(`class:${k.class}:`).sort((a, b) => a.level - b.level);
-    if (rows.length) groups.push({ id: `class:${k.class}`, heading: `Class · ${name<ClassData>("class", k.class)} ${k.level}`, rows: rows.map(one) });
+    if (rows.length) groups.push({ id: `class:${k.class}`, heading: `Class · ${named("class", k.class)} ${k.level}`, rows: rows.map(one) });
   }
   for (const k of c.classes) {
     if (!k.subclass) continue;
     const rows = byPrefix(`subclass:${k.subclass}:`).sort((a, b) => a.level - b.level);
-    if (rows.length) groups.push({ id: `subclass:${k.subclass}`, heading: `Subclass · ${name<SubclassData>("subclass", k.subclass)}`, rows: rows.map(one) });
+    if (rows.length) groups.push({ id: `subclass:${k.subclass}`, heading: `Subclass · ${named("subclass", k.subclass)}`, rows: rows.map(one) });
   }
   const bg = features.filter(f => f.sourceKind === "background");
-  if (bg.length) groups.push({ id: "background", heading: `Background · ${name<GrantsData>("background", c.background) ?? "Background"}`, rows: bg.map(one) });
+  if (bg.length) groups.push({ id: "background", heading: `Background · ${named("background", c.background) ?? "Background"}`, rows: bg.map(one) });
 
   const feats: TraitRow[] = [];
   for (const id of c.feats) {
@@ -90,6 +93,7 @@ function traitRow(ctl: SheetController, st: ActorStats, t: TraitRow, withLevel: 
   return h("div", { cls: "fe-trait", data: { trait: t.ref } },
     h("div", { cls: "fe-grow" },
       h("span", { cls: "fe-inv-name", text: t.name, data: { ref: t.ref } }),
+      t.ref.startsWith("feat:") ? chipFor(t.ref.slice(5), ctl.character) : null,
       withLevel && t.level ? h("span", { cls: "fe-faint", text: ` Lv ${t.level}` }) : null,
       t.summary ? h("div", { cls: "fe-faint", text: t.summary }) : null),
     ...usesAndActs(ctl, traitParts(st, t)),

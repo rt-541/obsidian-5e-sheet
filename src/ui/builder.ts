@@ -66,7 +66,7 @@ export class BuilderController {
   setEdition(e: Edition) {
     const next: BuildDraft = { ...this.draft, edition: e, choices: {} };
     for (const k of ["race", "subrace", "background", "classId", "equipment"] as const) delete next[k];
-    this.draft = next; this.touch();
+    this.draft = next; delete this.view.other; this.touch();
   }
   /** The host registry read through the draft's edition. */
   private reg(): Registry { return this.host.registry; }

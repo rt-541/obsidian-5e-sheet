@@ -7,6 +7,7 @@ import type { FeatureRow } from "../core/progression";
 import type { SheetController } from "./controller";
 import { h } from "./h";
 import { summaryOf } from "./traits-ui";
+import { withProvenance } from "./bring-in";
 
 /**
  * The cards behind the identity line (class, subclass, race, subrace, background): what you get from each, one line per feature.
@@ -42,29 +43,29 @@ export function identityCard(ref: string, ctl: SheetController): HTMLElement | n
     const k = c.classes.find(x => x.class === id), e = reg.get<ClassData>("class", id); if (!k || !e) return null;
     const d = e.data, first = c.classes[0]?.class === id;
     const profs = (first ? d.proficiencies : d.multiclass?.proficiencies)?.filter(p => !/^(skill|save):/.test(p)) ?? [];
-    return mk(`${e.name} ${k.level}`, "Class", [
+    return withProvenance(mk(`${e.name} ${k.level}`, "Class", [
       `Hit die: d${d.hitDie}`, `Saving throws: ${d.saves.map(a => ABIL_FULL[a]).join(", ")}`,
       ...(profs.length ? [`Armor, weapons and tools: ${profs.join(", ")}`] : []),
       ...(d.spellcasting ? [`Casts with ${ABIL_FULL[d.spellcasting.abil]} (${d.spellcasting.progression} caster)`] : []),
-      ...withHeading("Features so far:", featureLines(feats.filter(f => f.key.startsWith(`class:${id}:`))))]);
+      ...withHeading("Features so far:", featureLines(feats.filter(f => f.key.startsWith(`class:${id}:`))))]), e);
   }
   if (kind === "subclass") {
     const e = reg.get<SubclassData>("subclass", id); if (!e) return null;
-    return mk(e.name, `${reg.get<ClassData>("class", e.data.class)?.name ?? cap(e.data.class)} subclass`, withHeading("Features so far:", featureLines(feats.filter(f => f.key.startsWith(`subclass:${id}:`)))));
+    return withProvenance(mk(e.name, `${reg.get<ClassData>("class", e.data.class)?.name ?? cap(e.data.class)} subclass`, withHeading("Features so far:", featureLines(feats.filter(f => f.key.startsWith(`subclass:${id}:`))))), e);
   }
   if (kind === "race" || kind === "subrace") {
     const sub = kind === "subrace", rid = sub ? c.subrace : c.race; if (!rid) return null;
     const e = reg.get<GrantsData | SubraceData>(kind, rid); if (!e) return null;
     const own = feats.filter(f => f.sourceKind === kind);
     const word = editionRules(characterEdition(c)).raceWord;
-    return mk(e.name, sub ? `${reg.get<GrantsData>("race", c.race ?? "")?.name ?? word} subrace` : word, [
+    return withProvenance(mk(e.name, sub ? `${reg.get<GrantsData>("race", c.race ?? "")?.name ?? word} subrace` : word, [
       abilityLine(e.data.ability), ...(sub ? [] : [`Speed: ${st.speed.value} ft.`, sensesLine(st.senses), st.languages?.length ? `Languages: ${st.languages.join(", ")}` : ""]),
-      ...withHeading("Traits:", featureLines(own))]);
+      ...withHeading("Traits:", featureLines(own))]), e);
   }
   if (kind === "background") {
     if (!c.background) return null;
     const e = reg.get<GrantsData>("background", c.background); if (!e) return null;
-    return mk(e.name, "Background", withHeading("What it gives you:", featureLines(feats.filter(f => f.sourceKind === "background"))));
+    return withProvenance(mk(e.name, "Background", withHeading("What it gives you:", featureLines(feats.filter(f => f.sourceKind === "background")))), e);
   }
   return null;
 }

@@ -6,6 +6,7 @@ import type { SheetController } from "./controller";
 import { coinsRow } from "./coins-ui";
 import { customizeButton } from "./customize-ui";
 import { h } from "./h";
+import { chipFor } from "./bring-in";
 import { btn, card, pips } from "./widgets";
 
 /** Pin key for an inventory entry: the compendium id, or the name of a custom item. */
@@ -107,7 +108,7 @@ export function inventoryFeature(ctl: SheetController, st: ActorStats): HTMLElem
   return card("Inventory", addItemButton(ctl), coinsRow(ctl), ...c.inventory.map((e, i) => {
     const s = itemState(ctl, i), it = s.it, name = s.name, stack = isStackable(ctl, i);
     return h("div", { cls: `fe-inv ${it || e.name ? "" : "is-missing"} ${s.usedUp ? "is-used-up" : ""}`.replace(/\s+/g, " ").trim(), data: { item: String(i) } },
-      h("div", { cls: "fe-grow" }, h("span", { cls: "fe-inv-name", text: name, ...(it && e.id ? { data: { ref: entryRef(e) } } : {}) }), (e.id && ctl.host.registry.get("item", e.id)?.source) === "vault" ? h("span", { cls: "fe-src", text: "Homebrew" }) : null,
+      h("div", { cls: "fe-grow" }, h("span", { cls: "fe-inv-name", text: name, ...(it && e.id ? { data: { ref: entryRef(e) } } : {}) }), chipFor(e.id, c), (e.id && ctl.host.registry.get("item", e.id)?.source) === "vault" ? h("span", { cls: "fe-src", text: "Homebrew" }) : null,
         askBase(ctl, i),
         h("div", { cls: "fe-faint", text: [!stack && e.qty > 1 ? `x${e.qty}` : "", s.upWord, it?.rarity ?? "", it?.attunement ? (e.attuned ? "attuned" : "requires attunement") : ""].filter(Boolean).join(" · ") })),
       stack ? qtyStepper(ctl, i, name) : null,
