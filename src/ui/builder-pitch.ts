@@ -31,8 +31,10 @@ export function backgroundPitch(e: Entry<GrantsData>, r: Registry): string {
   for (const g of e.data.grants) {
     if (g.op === "grant") {
       for (const p of g.proficiencies) {
-        const m = /^(skill|tool):(.+)$/.exec(p);
-        if (m) (m[1] === "skill" ? skills : tools).push(titleCase(m[2]));
+        const m = /^(skill|save|expertise|tool):(.+)$/.exec(p);
+        if (!m) tools.push(p); // plain text is a tool (or armor, weapon) exactly as the note writes it
+        else if (m[1] === "skill") skills.push(titleCase(m[2]));
+        else if (m[1] === "tool") tools.push(titleCase(m[2]));
       }
       langs.push(...g.languages.map(titleCase));
     } else if (g.op === "choose") {

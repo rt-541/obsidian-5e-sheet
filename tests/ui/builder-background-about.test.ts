@@ -27,6 +27,10 @@ describe("backgroundPitch", () => {
   it("is empty when the note gives nothing to summarise", () => {
     expect(pitchOf(reg, "blank")).toBe("");
   });
+  it("lists a plain-text proficiency as written, after the skills", () => {
+    const r = homebrewRegistry([{ type: "5e-background", name: "Rigger", grants: [grant({ proficiencies: ["skill:stealth", "Rope Kit", "save:wis", "tool:pulley set"] })] }]);
+    expect(pitchOf(r, "rigger")).toBe("Stealth · Rope Kit, Pulley Set");
+  });
   it("turns an unknown feat id into words", () => {
     const r = homebrewRegistry([{ type: "5e-background", name: "Odd", grants: [{ op: "feat", feat: "lone-star" }] }]);
     expect(pitchOf(r, "odd")).toBe("Feat: Lone Star");
