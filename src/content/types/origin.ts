@@ -6,8 +6,8 @@ import { optOut, validateLevels, validateOps, validateOptions, type Op, type Opt
 /** Subclass: picked inside a class; its `levels` are keyed by the CLASS level at which they apply. */
 export interface SubclassData { name: string; class: string; options?: Record<string, OptionDef[]>; levels: Record<number, Op[]>; /** false: the built-in mechanics never fill in this subclass. */ overlay?: false; }
 /** Ability score increase of a race, subrace or feat: fixed amounts plus "pick `count` of `from`, +`amount` each" groups. */
-export interface AbilityChoose { from: Abil[]; count: number; amount: number; }
-export interface AbilityIncrease { fixed: Partial<Record<Abil, number>>; choose: AbilityChoose[]; }
+export interface AbilityChoose { from: Abil[]; count: number; amount: number; /** The highest score this group may raise an ability to (20 to 30); absent means the usual 20. */ max?: number; }
+export interface AbilityIncrease { fixed: Partial<Record<Abil, number>>; choose: AbilityChoose[]; /** Per ability, the score cap of the entry its fixed amount was written in (absent: the usual 20). */ fixedMax?: Partial<Record<Abil, number>>; }
 /** "Pick one pattern, then give each number of it to a different ability of `from`" (a background's ability scores). */
 export interface AbilityPick { from: Abil[]; patterns: number[][]; }
 /** Race, subrace, background and feat: a flat list of grants. */
@@ -17,15 +17,24 @@ export interface FeatData extends GrantsData { prerequisite?: string; /** An opa
 
 /**
  * The raw 5e.tools `ability` field: a list (or one mapping) of `{ con: 2 }` and `{ choose: { from, count, amount } }`, which may share a mapping
- * (`{ cha: 2, choose: {...} }`). All entries of the list add up. `choose.from` defaults to all six abilities, `count` and `amount` to 1.
+ * (`{ cha: 2, choose: {...} }`). An entry may carry `max` (a whole number from 20 to 30: the highest score its increase may raise an ability to).
+ * All entries of the list add up. `choose.from` defaults to all six abilities, `count` and `amount` to 1.
  */
 export function parseAbilityIncrease(v: unknown, at: string, e: Errs): AbilityIncrease | undefined {
   if (v === undefined) return undefined;
-  const list = Array.isArray(v) ? v : [v], fixed: Partial<Record<Abil, number>> = {}, choose: AbilityChoose[] = [], before = e.length;
+  const list = Array.isArray(v) ? v : [v], fixed: Partial<Record<Abil, number>> = {}, choose: AbilityChoose[] = [], fixedMax: Partial<Record<Abil, number>> = {}, before = e.length;
   list.forEach((entry: unknown, i: number) => {
     const here = Array.isArray(v) ? `${at}[${i}]` : at;
     if (!isObj(entry)) { e.push(`${here}: must be a mapping such as { con: 2 }`); return; }
+    let max: number | undefined, own = 0;
+    if ("max" in entry) {
+      const m = entry.max;
+      if (typeof m !== "number" || !Number.isInteger(m) || m < 20 || m > 30) e.push(`${here}.max: must be a whole number from 20 to 30`);
+      else max = m;
+    }
+    const mark = choose.length, fixedHere: Abil[] = [];
     for (const [k, x] of Object.entries(entry)) {
+      if (k === "max") continue;
       if (k === "choose") {
         if (!isObj(x)) { e.push(`${here}.choose: must be a mapping with from, count and amount`); continue; }
         if (x.weighted !== undefined) { e.push(`${here}.choose.weighted: not supported, use from, count and amount`); continue; }
@@ -37,12 +46,18 @@ export function parseAbilityIncrease(v: unknown, at: string, e: Errs): AbilityIn
         else choose.push({ from, count, amount });
       } else if (ABILS.includes(k as Abil)) {
         if (typeof x !== "number" || !Number.isInteger(x) || x < -4 || x > 4 || x === 0) e.push(`${here}.${k}: must be a whole number from -4 to 4, not 0`);
-        else fixed[k as Abil] = (fixed[k as Abil] ?? 0) + x;
+        else { fixed[k as Abil] = (fixed[k as Abil] ?? 0) + x; fixedHere.push(k as Abil); }
       } else e.push(`${here}.${k}: unknown ability (use ${ABILS.join(", ")} or choose)`);
+    }
+    if (max !== undefined) {
+      for (const g of choose.slice(mark)) g.max = max;
+      for (const a of fixedHere) fixedMax[a] = Math.max(fixedMax[a] ?? 0, max);
+      own = choose.length - mark + fixedHere.length;
+      if (!own && e.length === before) e.push(`${here}.max: has no ability or choose beside it to cap`);
     }
   });
   if (e.length > before) return undefined;
-  return Object.keys(fixed).length || choose.length ? { fixed, choose } : undefined;
+  return Object.keys(fixed).length || choose.length ? { fixed, choose, ...(Object.keys(fixedMax).length ? { fixedMax } : {}) } : undefined;
 }
 
 /** `abilityPick: { from: [<abil>, ...], patterns: [[2, 1], [1, 1, 1]] }`. */

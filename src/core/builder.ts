@@ -75,17 +75,17 @@ export function originFeats(d: BuildDraft, r: Registry): string[] {
  * Increases from the race's, subrace's and background's `ability` field (fixed amounts plus the abilities picked in `choices`, `race:<id>:ability`)
  * and their `abilityPick` (the answer under `<kind>:<id>:pick`). Groups and picks still unanswered add nothing yet.
  */
-export function originParts(d: BuildDraft, r?: Registry): { source: "race" | "background" | "feat"; delta: AbilityDelta }[] {
-  const out: { source: "race" | "background" | "feat"; delta: AbilityDelta }[] = [];
+export function originParts(d: BuildDraft, r?: Registry): { source: "race" | "background" | "feat"; delta: AbilityDelta; /** Score caps of increases that carry their own `max`, per ability. */ caps?: AbilityDelta; /** The part of `delta` that carries those caps. */ capped?: AbilityDelta }[] {
+  const out: { source: "race" | "background" | "feat"; delta: AbilityDelta; /** Score caps of increases that carry their own `max`, per ability. */ caps?: AbilityDelta; /** The part of `delta` that carries those caps. */ capped?: AbilityDelta }[] = [];
   if (!r) return out;
   const feats = originFeats(d, r).map(id => ["feat", id] as const);
   for (const [kind, id] of [["race", d.race], ["subrace", d.subrace], ["background", d.background], ...feats] as const) {
     const data = id ? r.get<GrantsData>(kind, id)?.data : undefined, inc = data?.ability;
-    const { delta } = increaseDelta(inc, (inc?.choose ?? []).map((_g, i) => d.choices[abilityKey(kind, id!, i)]));
+    const { delta, caps, capped } = increaseDelta(inc, (inc?.choose ?? []).map((_g, i) => d.choices[abilityKey(kind, id!, i)]));
     const picked = data?.abilityPick ? pickDelta(data.abilityPick, d.choices[abilityPickKey(kind, id!)]) : undefined;
     const sum: AbilityDelta = {};
     for (const [a, n] of [...Object.entries(delta), ...Object.entries(picked ?? {})]) sum[a as Abil] = (sum[a as Abil] ?? 0) + (n as number);
-    if (Object.keys(sum).length) out.push({ source: kind === "background" ? "background" : kind === "feat" ? "feat" : "race", delta: sum });
+    if (Object.keys(sum).length) out.push({ source: kind === "background" ? "background" : kind === "feat" ? "feat" : "race", delta: sum, ...(Object.keys(caps).length ? { caps, capped } : {}) });
   }
   return out;
 }
@@ -102,12 +102,21 @@ const originWords = (d: BuildDraft, r: Registry): string => {
   return [...new Set(originParts(d, r).map(p => p.source === "race" ? word : p.source))].join(" and ");
 };
 
-/** Base scores plus the manual bonus and the race's own increases; the increases stop at 20 (a manual score already above stays as it is). */
+/**
+ * Base scores plus the manual bonus and the race's own increases. Per ability: the base, the bonus, every uncapped amount and every
+ * reduction stop at 20 (a manual score already above stays as it is); then each capped amount is added in turn and stops at its own `max`.
+ */
 export const finalScores = (d: BuildDraft, r?: Registry): Scores => {
-  const origin = originBonus(d, r);
+  const parts = originParts(d, r);
   return Object.fromEntries(ABILS.map(a => {
-    const before = d.scores[a] + (d.bonus[a] ?? 0), add = origin[a] ?? 0;
-    return [a, add > 0 ? Math.max(before, Math.min(20, before + add)) : Math.max(1, before + add)];
+    const before = d.scores[a] + (d.bonus[a] ?? 0);
+    const plain = parts.reduce((n, p) => n + (p.delta[a] ?? 0) - (p.capped?.[a] ?? 0), 0);
+    let s = plain > 0 ? Math.max(before, Math.min(20, before + plain)) : before + plain;
+    for (const p of parts) {
+      const n = p.capped?.[a] ?? 0;
+      if (n > 0) s = Math.max(s, Math.min(p.caps?.[a] ?? 20, s + n));
+    }
+    return [a, Math.max(1, s)];
   })) as Scores;
 };
 

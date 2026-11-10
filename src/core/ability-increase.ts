@@ -12,25 +12,26 @@ const isAbils = (v: unknown, from: readonly Abil[], count: number): v is Abil[] 
 /**
  * What an ability increase adds, as per-ability amounts: the fixed part plus `amount` for each ability picked in every choose group.
  * `picks[i]` answers `inc.choose[i]`; a group whose answer is missing or not allowed adds nothing and is reported in `missing`.
- * With `current` and `max`, a positive amount stops at the maximum (the delta is what actually applies, so recording it makes undo exact).
+ * With `current` and `max`, a positive amount stops at the maximum (an increase with its own `max` stops there instead, when that is higher; `caps` says which) (the delta is what actually applies, so recording it makes undo exact).
  */
-export function increaseDelta(inc: AbilityIncrease | undefined, picks: unknown[], current?: Record<Abil, number>, max?: Record<Abil, number>): { delta: AbilityDelta; missing: number[] } {
-  const want: AbilityDelta = {}, missing: number[] = [];
-  if (!inc) return { delta: want, missing };
-  for (const [a, n] of Object.entries(inc.fixed)) want[a as Abil] = (want[a as Abil] ?? 0) + n;
+export function increaseDelta(inc: AbilityIncrease | undefined, picks: unknown[], current?: Record<Abil, number>, max?: Record<Abil, number>): { delta: AbilityDelta; missing: number[]; caps: AbilityDelta; /** The part of `delta` that came from amounts carrying their own `max`. */ capped: AbilityDelta } {
+  const want: AbilityDelta = {}, missing: number[] = [], caps: AbilityDelta = {}, capped: AbilityDelta = {};
+  if (!inc) return { delta: want, missing, caps, capped };
+  const cap = (a: Abil, m: number | undefined, n: number) => { if (m !== undefined && n > 0) { caps[a] = Math.max(caps[a] ?? 0, m); capped[a] = (capped[a] ?? 0) + n; } };
+  for (const [a, n] of Object.entries(inc.fixed)) { want[a as Abil] = (want[a as Abil] ?? 0) + n; cap(a as Abil, inc.fixedMax?.[a as Abil], n); }
   inc.choose.forEach((g, i) => {
     const p = picks[i];
     if (!isAbils(p, g.from, g.count)) { missing.push(i); return; }
-    for (const a of p) want[a] = (want[a] ?? 0) + g.amount;
+    for (const a of p) { want[a] = (want[a] ?? 0) + g.amount; cap(a, g.max, g.amount); }
   });
   const delta: AbilityDelta = {};
   for (const a of ABILS) {
     let n = want[a] ?? 0;
-    if (n > 0 && current && max) n = Math.min(n, Math.max(0, max[a] - current[a]));
+    if (n > 0 && current && max) n = Math.min(n, Math.max(0, Math.max(max[a], caps[a] ?? 0) - current[a]));
     else if (n < 0 && current) n = Math.max(n, 1 - current[a]);
     if (n) delta[a] = n;
   }
-  return { delta, missing };
+  return { delta, missing, caps, capped };
 }
 
 export const describeDelta = (d: AbilityDelta): string => ABILS.filter(a => d[a]).map(a => `${d[a]! >= 0 ? "+" : ""}${d[a]} ${a.toUpperCase()}`).join(", ");
