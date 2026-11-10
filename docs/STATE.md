@@ -1,6 +1,6 @@
 # State
 
-Last updated 2026-11-10.
+Last updated 2026-11-10 (edition 2024 branch, Task 22 docs).
 
 ## Where it stands
 
@@ -15,8 +15,12 @@ Started 2026-11-10 on branch `feat/edition-2024`. The owner parked Daggerheart f
 
 - Design: `docs/superpowers/specs/2026-11-10-edition-2024-design.md` (also https://scratch.rt-541.io/dnd-sheet/edition-2024-design/). Top-level plan: `docs/superpowers/plans/2026-11-10-edition-2024.md`, with one detailed plan each for the plugin and the importer beside it.
 - Decided by the owner on 2026-11-10: all the 2024 books go in; the sheet's edition decides which compendium it reads; bringing something in from the other edition is a button; a character can hold both versions of one thing and the hover card names the source; every compendium file gets edition tags.
-- 2024 data: `/docker/dnd-compendium/5etools-2024`, the `5etools-mirror-3/5etools-src` mirror pinned at v2.41.0. Nothing is built or synced from it yet.
-- Still open: whether existing characters move to 2024 (default: new characters only).
+- 2024 data: `/docker/dnd-compendium/5etools-2024`, the `5etools-mirror-3/5etools-src` mirror pinned at v2.41.0. The importer side is a separate plan (`docs/superpowers/plans/2026-11-10-edition-2024-importer.md`); `docs/IMPORTING.md` is written after it.
+- Shipped on `feat/edition-2024` (UNMERGED, not pushed, not deployed): edition on the character, chosen on the builder's first page and fixed afterwards (switching with picks held asks to tap again); the sheet reads one edition's compendium; "Bring in" at the end of pickers; brought-in things show a small year chip; a missing reference says which books have it, with one tap to bring it in; the what-changed panel (part one general, part two this character with Show all levels and Read both) from the identity chip card or the Settings card; the compendium edition filter; the 2024 table (Species, long rest gives back all Hit Dice, Heroic Inspiration, exhaustion, spell slots); background ability picks and feat categories; weapon mastery shown on the attack row and changeable in Edit mode after a long rest, not applied to rolls; overlay twins and the condition audit; a plain "no 2024 classes found" line pointing at `docs/IMPORTING.md`. Player guide: `docs/USING.md`. Ledger: `work/ledgers/edition-2024-plugin-ledger.md`.
+- Gallery of the new screens (desktop, tablet, phone): https://scratch.rt-541.io/dnd-sheet/edition-2024-gallery/
+- Deploy order: merge and deploy wait for the owner's words. The edition-aware build ships first; only after that is the `compendium/5e/WotC 2024` folder synced to the vault (a 2024 library read by the old plugin would show up as 2014 entries).
+- One owner question still open: do existing characters move to 2024? Default until answered: no, only new characters choose.
+- Known follow-ups: named magic weapons do not match a mastered base weapon until the importer emits a base id; pre-existing `type="search"` inputs in compendium.ts, additem-ui.ts, levelup-ui.ts and panels.ts (CLAUDE.md wants `type="text"`; `tests/ui/pickers-order.test.ts` selects them); pre-existing "Homebrew" badge on library inventory items (inventory-ui.ts checks `source === "vault"` without `library`); the attack hit-window timer (controller.ts, the 3 s Hit? window) can fire after jsdom teardown and give an unhandled "getComputedStyle is not defined" with every test passing.
 - Order of release: the edition-aware plugin is deployed before the 2024 folder is synced to the vault.
 
 ## Parked: Daggerheart

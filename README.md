@@ -1,6 +1,8 @@
 # 5e Character Sheet (Obsidian plugin)
 
-Private plugin. 2014 D&D 5e sheet for character, companion and NPC notes; desktop and mobile.
+Private plugin. D&D 5e sheet for character, companion and NPC notes under the 2014 or the 2024 rules; desktop and mobile. Players: read `docs/USING.md`. Importing books: `docs/IMPORTING.md`.
+
+Each character picks an edition on the builder's first page and keeps it. The sheet reads only that edition's compendium; anything from the other edition is brought in with a button and shows a small year chip. A what-changed panel explains the differences in plain words. The bundled SRD is 2014.
 
 Includes material from the System Reference Document 5.1 by Wizards of the Coast LLC,
 licensed under CC-BY 4.0 (https://creativecommons.org/licenses/by/4.0/legalcode).
