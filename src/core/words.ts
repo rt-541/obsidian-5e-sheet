@@ -73,3 +73,9 @@ export function formulaWords(f: string): string {
   if (/^[\d.]+$/.test(s)) return s;
   return "an amount that grows with your level";
 }
+
+/** Feat categories in plain words: ["general", "epic-boon"] is "general or epic boon", three are "a, b or c". */
+export function featCategoryWords(categories: string[]): string {
+  const w = categories.map(x => titleCase(x).toLowerCase());
+  return w.length > 1 ? `${w.slice(0, -1).join(", ")} or ${w[w.length - 1]}` : w[0] ?? "";
+}

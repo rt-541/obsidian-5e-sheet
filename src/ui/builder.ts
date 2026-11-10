@@ -109,11 +109,11 @@ export class BuilderController {
   }
   setRace(id: string | undefined) {
     if (id === this.draft.race) return;
-    this.dropChoices("race:", "subrace:");
+    this.dropChoices("race:", "subrace:", "feat:");
     this.edit(id ? { race: id } : {}, "subrace", ...(id ? [] : ["race" as const]));
   }
-  setSubrace(id: string | undefined) { this.dropChoices("subrace:"); this.edit(id ? { subrace: id } : {}, ...(id ? [] : ["subrace" as const])); }
-  setBackground(id: string | undefined) { this.dropChoices("background:"); this.edit(id ? { background: id } : {}, ...(id ? [] : ["background" as const])); }
+  setSubrace(id: string | undefined) { this.dropChoices("subrace:", "feat:"); this.edit(id ? { subrace: id } : {}, ...(id ? [] : ["subrace" as const])); }
+  setBackground(id: string | undefined) { this.dropChoices("background:", "feat:"); this.edit(id ? { background: id } : {}, ...(id ? [] : ["background" as const])); }
   setClass(id: string) {
     if (id === this.draft.classId) return;
     this.dropChoices("class:", "subclass:", "feat:");
@@ -190,7 +190,7 @@ export class BuilderController {
   private stepDone(s: Exclude<Step, { kind: "hp" }>): boolean {
     const v = this.draft.choices[s.key], isStrs = (x: unknown): x is string[] => Array.isArray(x) && x.every(y => typeof y === "string");
     switch (s.kind) {
-      case "subclass": return typeof v === "string";
+      case "subclass": case "feat": return typeof v === "string";
       case "asi": return typeof v === "object" && v !== null && ("feat" in v || Object.values((v as { abilities?: Record<string, number> }).abilities ?? {}).reduce((a, n) => a + n, 0) === 2);
       case "pattern": return pickDelta({ from: s.from, patterns: s.patterns }, v) !== undefined;
       case "optional": return typeof v === "boolean";

@@ -7,7 +7,7 @@ import { deriveCharacter } from "./derive";
 import { progress, resolveOptionList, type PendingChoice, type Progress } from "./progression";
 import { editionRules, characterEdition } from "./edition";
 import { slotTable } from "./slots";
-import { titleCase } from "./words";
+import { featCategoryWords, titleCase } from "./words";
 import { ABILS, SKILLS, type Abil, type Rng } from "./types";
 
 /** Experience needed to reach level n + 1 (index 0 = level 1); the same in both editions. */
@@ -71,7 +71,10 @@ export interface StepOption { id: string; name: string; /** Source badge text. *
 export type Step =
   | { kind: "hp"; key: "hp"; label: string; die: number; conMod: number; average: number; first: boolean }
   | { kind: "subclass"; key: string; label: string; source: string; options: StepOption[] }
-  | { kind: "asi"; key: string; label: string; source: string; maxScores: Record<Abil, number> }
+  /** `feats`: the categories this slot accepts (absent: any feat); `featOptions` is what the feat side of the slot lists. */
+  | { kind: "asi"; key: string; label: string; source: string; maxScores: Record<Abil, number>; feats?: string[]; featOptions: StepOption[] }
+  /** A `feat` op that asks: one feat of `categories`, answered with the feat id. */
+  | { kind: "feat"; key: string; label: string; source: string; categories: string[]; options: StepOption[] }
   | { kind: "pick"; key: string; label: string; source: string; what: "skills" | "expertise" | "tools" | "languages" | "option" | "abilities"; count: number; /** Option list name when `what` is option. */ list?: string; options: StepOption[]; /** No list to choose from: type the names. */ free: boolean }
   /** A background's (or race's) ability pick: choose a pattern, then an ability for each number. `scores` are the scores before it applies. */
   | { kind: "pattern"; key: string; label: string; source: string; from: Abil[]; patterns: number[][]; scores: Record<Abil, number> }
@@ -89,7 +92,23 @@ export const averageHp = (die: number) => Math.floor(die / 2) + 1;
 export const rollHitDie = (die: number, rng: Rng = Math.random) => 1 + Math.floor(rng() * die);
 
 type Mode = { kind: "level"; classId: string } | { kind: "resolve" };
-interface Env { registry: Registry; cand: Character; prog: Progress; mode: Mode; }
+/** `owned`: the feats the character had before this plan's own picks (so the feat a step's answer adds is not "already had"). */
+interface Env { registry: Registry; cand: Character; prog: Progress; mode: Mode; owned: string[]; }
+
+/**
+ * The feats a slot or a `feat` op offers: those whose category is in `categories` (every feat when undefined), the ones the character already
+ * has or cannot take yet at `totalLevel` shown but disabled with the reason. `withUncategorised` (an asi slot) also lists feats with no
+ * category, which hand-made and brought-in feats are; a `feat` op stays strict.
+ */
+export function featOptions(reg: Registry, categories: string[] | undefined, c: Character, totalLevel: number, withUncategorised = false): StepOption[] {
+  const owned = new Set(c.feats);
+  return reg.list<FeatData>("feat")
+    .filter(e => !categories || (e.data.category === undefined ? withUncategorised : categories.includes(e.data.category)))
+    .map(e => ({ id: e.id, name: e.name, source: sourceLabel(e), ...(e.data.prerequisite ? { text: e.data.prerequisite } : {}),
+      ...(owned.has(e.id) ? { disabled: "Already have" } : e.data.minLevel !== undefined && e.data.minLevel > totalLevel ? { disabled: `Needs level ${e.data.minLevel}` } : {}) }));
+}
+/** A character being built has no level yet; the gate reads as level 1 then. */
+const optionsFor = (env: Env, categories: string[] | undefined, withUncategorised = false) => featOptions(env.registry, categories, { ...env.cand, feats: env.owned }, Math.max(1, totalLevel(env.cand)), withUncategorised);
 
 const classOfKey = (key: string) => /^class:([^:]+):\d+:/.exec(key)?.[1];
 function optionLists(env: Env, key: string): Record<string, OptionDef[]> | undefined {
@@ -139,7 +158,8 @@ function stepOf(p: PendingChoice, env: Env, maxScores: () => Record<Abil, number
       const options = env.registry.list<SubclassData>("subclass").filter(e => e.data.class === cls).map(e => ({ id: e.id, name: e.name, source: sourceLabel(e) }));
       return options.length ? { kind: "subclass", ...base, options } : undefined;
     }
-    case "asi": return { kind: "asi", ...base, maxScores: maxScores() };
+    case "asi": return { kind: "asi", ...base, maxScores: maxScores(), ...(op.feats ? { feats: op.feats } : {}), featOptions: optionsFor(env, op.feats, true) };
+    case "feat": return op.categories ? { kind: "feat", ...base, categories: op.categories, options: optionsFor(env, op.categories) } : undefined;
     case "spells": {
       const maxLevel = maxSpellLevel(env, key);
       const options = spellOptions(env, op, maxLevel);
@@ -166,21 +186,21 @@ function stepOf(p: PendingChoice, env: Env, maxScores: () => Record<Abil, number
 }
 
 /**
- * Picks owed by `ability` fields with a choose group: the race and subrace of a character that has no class yet (the builder), and the feats
- * taken in this level. Existing notes already carry their scores, so a character with class levels is never asked about its race.
+ * Picks owed by `ability` and `abilityPick` fields: the race, subrace, background and feats of a character that has no class yet (the builder),
+ * and the feats taken in this level. Existing notes already carry their scores, so a character with class levels is never asked about its race.
  */
 function abilityPicks(env: Env, c: Character, addedFeats: string[]): Step[] {
   const out: Step[] = [], reg = env.registry;
   const kindWord = (k: string) => (k === "race" ? editionRules(characterEdition(c)).raceWord : titleCase(k));
   const add = (kind: "race" | "subrace" | "background" | "feat", id: string | undefined) => {
     const e = id ? reg.get<GrantsData | SubraceData | FeatData>(kind, id) : undefined;
-    if (e?.data.abilityPick && kind !== "feat") out.push({ kind: "pattern", key: abilityPickKey(kind, id!), label: `Ability score increase: ${e.data.abilityPick.patterns.map(describePattern).join(" or ")}`,
+    if (e?.data.abilityPick) out.push({ kind: "pattern", key: abilityPickKey(kind, id!), label: `Ability score increase: ${e.data.abilityPick.patterns.map(describePattern).join(" or ")}`,
       source: `${kindWord(kind)}: ${e.name}`, from: e.data.abilityPick.from, patterns: e.data.abilityPick.patterns, scores: { ...c.abilities } });
     e?.data.ability?.choose.forEach((g, i) => out.push({ kind: "pick", key: abilityKey(kind, id!, i), what: "abilities", count: g.count, free: false,
       label: `Ability score increase: +${g.amount} to ${g.count === 1 ? "one ability" : `${g.count} abilities`}`, source: `${kindWord(kind)}: ${e.name}`,
       options: g.from.map(a => ({ id: a, name: ABIL_NAME[a] })) }));
   };
-  if (env.mode.kind === "resolve" && c.classes.length === 0) { add("race", c.race); add("subrace", c.subrace); add("background", c.background); }
+  if (env.mode.kind === "resolve" && c.classes.length === 0) { add("race", c.race); add("subrace", c.subrace); add("background", c.background); for (const f of c.feats) add("feat", f); }
   if (env.mode.kind === "level") for (const f of addedFeats) add("feat", f);
   return out;
 }
@@ -201,7 +221,7 @@ function optionalFeatures(env: Env): Step[] {
   return out;
 }
 
-interface Planned { env: Env; steps: Step[]; ops: Map<string, PendingChoice>; first: boolean; className: string; level: number; die: number; }
+interface Planned { env: Env; steps: Step[]; ops: Map<string, PendingChoice>; /** Feats a `feat` op added (fixed or picked) in this plan. */ opFeats: string[]; first: boolean; className: string; level: number; die: number; }
 
 /** Build the candidate (class level raised, subclass and feat answers applied so their follow-up steps appear) and its steps. */
 function plan(c: Character, mode: Mode, registry: Registry, choices: Record<string, unknown>): Planned | { error: string } {
@@ -216,28 +236,35 @@ function plan(c: Character, mode: Mode, registry: Registry, choices: Record<stri
     if (k) k.level++; else { k = { class: mode.classId, level: 1 }; cand.classes.push(k); }
     level = k.level;
   }
-  const addedFeats: string[] = [], mine = new Map<string, PendingChoice>();
-  const inScope = (p: PendingChoice) => {
+  const addedFeats: string[] = [], opFeats: string[] = [], mine = new Map<string, PendingChoice>(), picked = new Set<string>();
+  const keyInScope = (key: string) => {
     if (mode.kind === "resolve") return true;
     const sub = cand.classes.find(k => k.class === mode.classId)?.subclass;
-    return p.key.startsWith(`class:${mode.classId}:${level}:`) || (!!sub && p.key.startsWith(`subclass:${sub}:${level}:`)) || addedFeats.some(f => p.key.startsWith(`feat:${f}:`));
+    return key.startsWith(`class:${mode.classId}:${level}:`) || (!!sub && key.startsWith(`subclass:${sub}:${level}:`)) || addedFeats.some(f => key.startsWith(`feat:${f}:`));
   };
+  const inScope = (p: PendingChoice) => keyInScope(p.key);
   let prog = progress(cand, registry);
   for (let pass = 0; pass < 4; pass++) {
     for (const p of prog.pending) if (inScope(p) && !mine.has(p.key)) mine.set(p.key, p);
     let changed = false;
+    // a feat op that names its feat gives it when the level is applied
+    if (mode.kind === "level") for (const g of prog.grantedFeats)
+      if (g.fixed && keyInScope(g.key) && !cand.feats.includes(g.id) && registry.get<FeatData>("feat", g.id)) { cand.feats.push(g.id); addedFeats.push(g.id); opFeats.push(g.id); changed = true; }
     for (const p of [...mine.values()]) {
       const v = choices[p.key];
       if (p.op.op === "subclass" && typeof v === "string") {
         const cls = classOfKey(p.key), k = cand.classes.find(x => x.class === cls), sd = registry.get<SubclassData>("subclass", v);
         if (k && !k.subclass && sd && sd.data.class === cls) { k.subclass = v; changed = true; }
       }
-      if (p.op.op === "asi" && isObj(v) && typeof v.feat === "string" && !cand.feats.includes(v.feat) && registry.get<FeatData>("feat", v.feat)) { cand.feats.push(v.feat); addedFeats.push(v.feat); changed = true; }
+      if (p.op.op === "asi" && isObj(v) && typeof v.feat === "string" && !cand.feats.includes(v.feat) && registry.get<FeatData>("feat", v.feat)) { cand.feats.push(v.feat); addedFeats.push(v.feat); picked.add(v.feat); changed = true; }
+      // the builder's base character already lists the origin feat its answer names
+      if (p.op.op === "feat" && p.op.categories && typeof v === "string" && mode.kind === "resolve" && c.classes.length === 0 && cand.feats.includes(v)) picked.add(v);
+      if (p.op.op === "feat" && typeof v === "string" && !cand.feats.includes(v) && registry.get<FeatData>("feat", v)) { cand.feats.push(v); addedFeats.push(v); picked.add(v); opFeats.push(v); changed = true; }
     }
     if (!changed) break;
     prog = progress(cand, registry);
   }
-  const env: Env = { registry, cand, prog, mode };
+  const env: Env = { registry, cand, prog, mode, owned: cand.feats.filter(f => !picked.has(f)) };
   let scores: Record<Abil, number> | undefined;
   const maxScores = () => (scores ??= deriveCharacter(cand, { registry }).maxScores);
   const steps: Step[] = [];
@@ -247,7 +274,7 @@ function plan(c: Character, mode: Mode, registry: Registry, choices: Record<stri
   }
   for (const p of mine.values()) { const s = stepOf(p, env, maxScores); if (s) steps.push(s); }
   steps.push(...abilityPicks(env, c, addedFeats), ...optionalFeatures(env));
-  return { env, steps, ops: mine, first, className, level, die };
+  return { env, steps, ops: mine, opFeats, first, className, level, die };
 }
 
 /** What choosing a class level asks: HP, then every asking op for the new class level (and its subclass and feat follow-ups). */
@@ -265,7 +292,7 @@ export function planResolve(c: Character, registry: Registry, choices: Record<st
 // ---------------------------------------------------------------- validation and application
 
 const optionName = (s: { options: StepOption[] }, id: string) => s.options.find(o => o.id === id)?.name ?? titleCase(id);
-interface Taken { skills: Set<string>; expertise: Set<string>; languages: Set<string>; tools: Set<string>; /** Picks made in this answer (resolve mode only checks against these). */ picked: Set<string>; }
+interface Taken { /** Feats picked by earlier steps of this answer. */ feats: Set<string>; skills: Set<string>; expertise: Set<string>; languages: Set<string>; tools: Set<string>; /** Picks made in this answer (resolve mode only checks against these). */ picked: Set<string>; }
 
 /** Check one step's answer against the step; returns the error, or the normalized answer. */
 function checkStep(s: Exclude<Step, { kind: "hp" }>, v: unknown, env: Env, taken: Taken): { error: string } | { ok: unknown } {
@@ -280,7 +307,11 @@ function checkStep(s: Exclude<Step, { kind: "hp" }>, v: unknown, env: Env, taken
       if (!isObj(v)) return { error: `${label}: pick abilities or a feat` };
       if (typeof v.feat === "string") {
         if (!env.registry.get<FeatData>("feat", v.feat)) return { error: `${label}: unknown feat ${v.feat}` };
-        if (env.cand.feats.filter(f => f === v.feat).length > 1) return { error: `${label}: ${v.feat} is already taken` };
+        if (env.cand.feats.filter(f => f === v.feat).length > 1 || taken.feats.has(v.feat)) return { error: `${label}: ${v.feat} is already taken` };
+        const o = s.featOptions.find(x => x.id === v.feat);
+        if (!o) return { error: `${label}: ${v.feat} is not offered by this slot` };
+        if (o.disabled) return { error: `${label}: ${o.name} is not available (${o.disabled.toLowerCase()})` };
+        taken.feats.add(v.feat);
         return { ok: { feat: v.feat } };
       }
       if (!isObj(v.abilities)) return { error: `${label}: pick abilities or a feat` };
@@ -292,6 +323,14 @@ function checkStep(s: Exclude<Step, { kind: "hp" }>, v: unknown, env: Env, taken
         if (env.mode.kind === "level" && to > s.maxScores[abil]) return { error: `${label}: ${ABIL_NAME[abil]} cannot go above ${s.maxScores[abil]}` };
       }
       return { ok: { abilities: Object.fromEntries(entries) } };
+    }
+    case "feat": {
+      const o = typeof v === "string" ? s.options.find(x => x.id === v) : undefined;
+      if (!o) return { error: `${label}: pick one of the listed feats` };
+      if (o.disabled) return { error: `${label}: ${o.name} is not available (${o.disabled.toLowerCase()})` };
+      if (taken.feats.has(o.id)) return { error: `${label}: ${o.name} is already taken` };
+      taken.feats.add(o.id);
+      return { ok: o.id };
     }
     case "pattern": {
       const delta = pickDelta({ from: s.from, patterns: s.patterns }, v);
@@ -352,7 +391,7 @@ function checkSwaps(s: Extract<Step, { kind: "spells" }>, v: unknown, env: Env):
 /** Validate every step's answer and write the effects of the answers into `value`; returns what to record in the log. */
 function commitSteps(steps: Step[], choices: Record<string, unknown>, env: Env, value: Character, c: Character): { record: Record<string, unknown>; summary: string[] } | { error: string } {
   const taken: Taken = { skills: new Set([...c.proficiencies.skills, ...env.prog.proficiencies.skills]), expertise: new Set([...c.proficiencies.expertise, ...env.prog.proficiencies.expertise]),
-    languages: new Set([...env.prog.languages, ...c.languages].map(langKey)), tools: new Set(env.prog.proficiencies.other), picked: new Set() };
+    languages: new Set([...env.prog.languages, ...c.languages].map(langKey)), tools: new Set(env.prog.proficiencies.other), picked: new Set(), feats: new Set() };
   const asked = steps.filter((s): s is Exclude<Step, { kind: "hp" }> => s.kind !== "hp");
   // expertise may use skills picked in the same level, so skills are checked first
   const order = [...asked.filter(s => !(s.kind === "pick" && s.what === "expertise")), ...asked.filter(s => s.kind === "pick" && s.what === "expertise")];
@@ -366,7 +405,18 @@ function commitSteps(steps: Step[], choices: Record<string, unknown>, env: Env, 
     }
     record[s.key] = r.ok;
     if (s.kind === "subclass") summary.push(`Subclass: ${optionName(s, r.ok as string)}`);
-    else if (s.kind === "pattern") summary.push(`${s.source}: ${describeDelta(pickDelta({ from: s.from, patterns: s.patterns }, r.ok)!)}`);
+    else if (s.kind === "feat") summary.push(`Feat: ${optionName(s, r.ok as string)}`);
+    else if (s.kind === "pattern") {
+      let delta = pickDelta({ from: s.from, patterns: s.patterns }, r.ok)!;
+      // a feat's own pick changes the score now (a background's was added when the builder made the scores); what applied is recorded for undo
+      if (env.mode.kind === "level" && s.key.startsWith("feat:")) {
+        const max = deriveCharacter(env.cand, { registry: env.registry }).maxScores, cur = { ...value.abilities };
+        delta = Object.fromEntries(Object.entries(delta).map(([a, n]) => [a, Math.min(n as number, Math.max(0, max[a as Abil] - cur[a as Abil]))]).filter(([, n]) => n)) as typeof delta;
+        for (const [a, n] of Object.entries(delta)) value.abilities[a as Abil] += n as number;
+        record[s.key] = { ...(r.ok as object), abilities: delta };
+      }
+      summary.push(`${s.source}: ${describeDelta(delta)}`);
+    }
     else if (s.kind === "optional") summary.push(`Optional feature: ${s.name} (${r.ok === true ? "taken" : "not taken"})`);
     else if (s.kind === "pick") summary.push(`${s.what === "option" ? titleCase(s.list ?? "choice") : titleCase(s.what)}: ${(r.ok as string[]).map(id => optionName(s, id)).join(", ")}`);
     else if (s.kind === "asi") {
@@ -415,6 +465,7 @@ export function applyLevel(c: Character, pl: Pick<LevelPlan, "class">, answers: 
   const p = plan(c, { kind: "level", classId: pl.class }, registry, choices);
   if ("error" in p) return p;
   const { env, steps } = p, value = env.cand, hpStep = steps[0] as Extract<Step, { kind: "hp" }>;
+  const fixedFeats = new Set(env.prog.grantedFeats.filter(g => g.fixed).map(g => g.id));
   let method: HpMethod, gained: number;
   if (p.first) { method = "first"; gained = p.die; }
   else if (answers.hp?.method === "average") { method = "average"; gained = averageHp(p.die); }
@@ -431,6 +482,20 @@ export function applyLevel(c: Character, pl: Pick<LevelPlan, "class">, answers: 
 
   const record = done.record, summary = [`${p.className} ${p.level} (character level ${total})`,
     `HP +${added} (${method === "roll" ? `rolled ${gained}` : method === "first" ? `d${p.die}` : `average ${gained}`} ${sgn(oldMod)} CON${newMod !== oldMod ? `, CON modifier ${sgn(newMod - oldMod)} on ${total} levels` : ""})`, ...done.summary];
+  // feats a `feat` op gave: recorded for undo, with the points they add (a feat's pick was recorded by its own step)
+  if (p.opFeats.length) {
+    record["+feats"] = [...p.opFeats];
+    const max = deriveCharacter(value, { registry }).maxScores, sum: Partial<Record<Abil, number>> = {};
+    for (const f of p.opFeats) {
+      const fe = registry.get<FeatData>("feat", f), inc = fe?.data.ability;
+      if (!fixedFeats.has(f)) { if (!inc) continue; } else summary.push(`Feat: ${fe?.name ?? f}`);
+      const picks = (inc?.choose ?? []).map((_g, i) => choices[abilityKey("feat", f, i)]);
+      const { delta, missing } = increaseDelta(inc, picks, value.abilities, max);
+      if (missing.length) return { error: `${fe?.name ?? f}: choose the abilities it raises` };
+      for (const [k, n] of Object.entries(delta)) { value.abilities[k as Abil] += n as number; sum[k as Abil] = (sum[k as Abil] ?? 0) + (n as number); }
+    }
+    if (Object.keys(sum).length) { record["+feat-abilities"] = { abilities: sum }; summary.push(`Feat abilities: ${describeDelta(sum)}`); }
+  }
   const sub = value.classes.find(k => k.class === pl.class)?.subclass;
   if (sub && !c.classes.find(k => k.class === pl.class)?.subclass) record["+subclass"] = sub;
   const items = [...grantItems(registry, value, pl.class, p.level), ...value.feats.filter(f => !c.feats.includes(f)).flatMap(f => featItems(registry, f))];
@@ -485,6 +550,7 @@ export function undoLevel(c: Character, registry: Registry): { value: Character;
     const j = v.spells.map(x => x.id).lastIndexOf(id);
     if (j >= 0) { v.spells.splice(j, 1); v.mainSpells = v.mainSpells.filter(k => k !== id); }
   }
+  for (const id of isStrs(ch["+feats"]) ? ch["+feats"] : []) { const j = v.feats.lastIndexOf(id); if (j >= 0) v.feats.splice(j, 1); }
   for (const id of isStrs(ch["+items"]) ? ch["+items"] : []) { const j = v.inventory.map(x => x.id).lastIndexOf(id); if (j >= 0) v.inventory.splice(j, 1); }
   for (const val of Object.values(ch)) {
     if (!isObj(val)) continue;

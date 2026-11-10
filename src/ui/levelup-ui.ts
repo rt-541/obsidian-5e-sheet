@@ -1,11 +1,10 @@
-import { sourceLabel, type Registry } from "../content/registry";
-import type { FeatData } from "../content/types";
+import type { Registry } from "../content/registry";
 import type { Character } from "../core/character";
 import { describePattern, pickDelta } from "../core/ability-increase";
 import { levelOptions, type LevelOption, type Step, type StepOption } from "../core/levelup";
 import { ABILS, type Abil } from "../core/types";
 import type { LevelUpState, LevelUpView, SheetController } from "./controller";
-import { plural } from "../core/words";
+import { featCategoryWords, plural } from "../core/words";
 import { clear, h } from "./h";
 import { btn, playBadge, titleCase } from "./widgets";
 
@@ -24,7 +23,7 @@ export function answered(s: Step, st: { choices: Record<string, unknown>; hp?: u
   const v = st.choices[s.key];
   switch (s.kind) {
     case "hp": return s.first || !!st.hp;
-    case "subclass": return typeof v === "string";
+    case "subclass": case "feat": return typeof v === "string";
     case "asi": return isObj(v) && (typeof v.feat === "string" || (isObj(v.abilities) && Object.values(v.abilities).reduce<number>((a, n) => a + (typeof n === "number" ? n : 0), 0) === 2));
     case "pattern": return pickDelta({ from: s.from, patterns: s.patterns }, v) !== undefined;
     case "optional": return typeof v === "boolean";
@@ -92,20 +91,34 @@ export function abilityRows(ctl: PageCtl, s: Pick<"asi">, st: PageState): HTMLEl
     }));
 }
 
-export function featList(ctl: PageCtl, s: Pick<"asi">, st: PageState): HTMLElement {
-  const view = st.view, picked = isObj(st.choices[s.key]) ? (st.choices[s.key] as Record<string, unknown>).feat : undefined, owned = new Set(ctl.character!.feats);
-  const list = h("div", {});
+/** "This slot offers general, origin or epic boon feats"; a slot with no list takes any feat. */
+export const featSlotHeading = (categories: string[] | undefined): string => (categories ? `This slot offers ${featCategoryWords(categories)} feats` : "This slot offers any feat");
+
+/** A searchable list of feats with a Pick button each; a disabled one says why. `rows` are the options of the slot or op. */
+function featRows(ctl: PageCtl, rows: StepOption[], picked: unknown, view: LevelUpView, heading: string, pick: (id: string) => void): HTMLElement {
+  const list = h("div", { data: { feats: "list" } });
   const fill = () => {
     clear(list);
-    const q = view.featQuery.toLowerCase();
-    const feats = ctl.pickers().list<FeatData>("feat").filter(e => e.name.toLowerCase().includes(q));
-    for (const e of feats.slice(0, 60)) list.append(h("div", { cls: "fe-inv" },
-      h("div", { cls: "fe-grow" }, h("span", { cls: "fe-inv-name", text: e.name, data: { ref: `feat:${e.id}`, noclick: "" } }), playBadge(sourceLabel(e)), e.data.prerequisite ? h("div", { cls: "fe-faint", text: `Prerequisite: ${e.data.prerequisite}` }) : null),
-      owned.has(e.id) ? h("span", { cls: "fe-faint", text: "taken" }) : btn(picked === e.id ? "Picked" : "Pick", () => ctl.pick(s.key, { feat: e.id }), picked === e.id ? "is-on" : "")));
+    const q = view.featQuery.toLowerCase(), feats = rows.filter(o => o.name.toLowerCase().includes(q));
+    for (const o of feats.slice(0, 60)) list.append(h("div", { cls: "fe-inv", data: { feat: o.id } },
+      h("div", { cls: "fe-grow" }, h("span", { cls: "fe-inv-name", text: o.name, data: { ref: `feat:${o.id}`, noclick: "" } }), o.source ? playBadge(o.source) : null, o.text ? h("div", { cls: "fe-faint", text: `Prerequisite: ${o.text}` }) : null),
+      o.disabled ? h("span", { cls: "fe-faint", text: o.disabled.toLowerCase() }) : btn(picked === o.id ? "Picked" : "Pick", () => pick(o.id), picked === o.id ? "is-on" : "")));
     if (!feats.length) list.append(h("div", { cls: "fe-faint", text: "No feats match." }));
   };
   fill();
-  return h("div", {}, h("input", { cls: "fe-search", attrs: { type: "search", placeholder: "Search feats", value: view.featQuery }, on: { input: (e: Event) => { view.featQuery = (e.target as HTMLInputElement).value; fill(); } } }), list);
+  return h("div", {}, h("div", { cls: "fe-muted", data: { feats: "heading" }, text: heading }),
+    h("input", { cls: "fe-search", attrs: { type: "search", placeholder: "Search feats", value: view.featQuery }, on: { input: (e: Event) => { view.featQuery = (e.target as HTMLInputElement).value; fill(); } } }), list);
+}
+
+export function featList(ctl: PageCtl, s: Pick<"asi">, st: PageState): HTMLElement {
+  const picked = isObj(st.choices[s.key]) ? (st.choices[s.key] as Record<string, unknown>).feat : undefined;
+  return featRows(ctl, s.featOptions, picked, st.view, featSlotHeading(s.feats), id => ctl.pick(s.key, { feat: id }));
+}
+
+/** A `feat` op that asks: the feats of its categories, one to pick. */
+export function featPage(ctl: PageCtl, s: Pick<"feat">, st: PageState): HTMLElement {
+  return h("div", { cls: "fe-lu-body", data: { step: s.key } }, h("div", { cls: "fe-muted", text: s.label }),
+    featRows(ctl, s.options, st.choices[s.key], st.view, featSlotHeading(s.categories), id => ctl.pick(s.key, id)));
 }
 
 export function asiPage(ctl: PageCtl, s: Pick<"asi">, st: PageState): HTMLElement {
@@ -251,7 +264,7 @@ export function levelUpPanel(ctl: SheetController): HTMLElement {
   else if (last) { body = summaryPage(ctl, st); ready = !("error" in ctl.levelUpPreview()); }
   else if (step) {
     ready = answered(step, st);
-    body = step.kind === "hp" ? hpPage(ctl, step, st) : step.kind === "subclass" ? subclassPage(ctl, step, st) : step.kind === "asi" ? asiPage(ctl, step, st)
+    body = step.kind === "hp" ? hpPage(ctl, step, st) : step.kind === "subclass" ? subclassPage(ctl, step, st) : step.kind === "asi" ? asiPage(ctl, step, st) : step.kind === "feat" ? featPage(ctl, step, st)
       : step.kind === "pick" ? pickPage(ctl, step, st) : step.kind === "pattern" ? patternPage(ctl, step, st) : step.kind === "optional" ? optionalPage(ctl, step, st) : spellsPage(ctl, step, st);
   } else { body = h("div", { cls: "fe-faint", text: error ?? "Pick a class first." }); ready = false; }
   const back = btn(page === 0 ? "Cancel" : "Back", () => { if (page === 0) ctl.cancelLevelUp(); else ctl.setLevelUp({ page: page - 1 }); }, "", );

@@ -13,7 +13,7 @@ export interface AbilityPick { from: Abil[]; patterns: number[][]; }
 /** Race, subrace, background and feat: a flat list of grants. */
 export interface GrantsData { name: string; grants: Op[]; ability?: AbilityIncrease; abilityPick?: AbilityPick; /** false: the built-in mechanics never fill in this note. */ overlay?: false; }
 export interface SubraceData extends GrantsData { race: string; }
-export interface FeatData extends GrantsData { prerequisite?: string; }
+export interface FeatData extends GrantsData { prerequisite?: string; /** An opaque label (a slot offers the feats of the categories it lists). */ category?: string; /** The character level from which the feat may be taken. */ minLevel?: number; }
 
 /**
  * The raw 5e.tools `ability` field: a list (or one mapping) of `{ con: 2 }` and `{ choose: { from, count, amount } }`, which may share a mapping
@@ -92,6 +92,8 @@ export const raceType = grantsType<GrantsData>("race", () => ({}), true, true);
 export const backgroundType = grantsType<GrantsData>("background", () => ({}), true, true);
 export const subraceType = grantsType<SubraceData>("subrace", (raw, e) => ({ race: str(raw.race, "race", e) ?? "" }), true, true);
 export const featType = grantsType<FeatData>("feat", (raw, e) => {
-  const p = str(raw.prerequisite, "prerequisite", e, true);
-  return p ? { prerequisite: p } : {};
-}, true);
+  const p = str(raw.prerequisite, "prerequisite", e, true), category = str(raw.category, "category", e, true);
+  let minLevel: number | undefined;
+  if (raw.minLevel !== undefined) { if (typeof raw.minLevel === "number" && Number.isInteger(raw.minLevel) && raw.minLevel >= 1 && raw.minLevel <= 20) minLevel = raw.minLevel; else e.push("minLevel: must be a whole number from 1 to 20"); }
+  return { ...(p ? { prerequisite: p } : {}), ...(category ? { category } : {}), ...(minLevel !== undefined ? { minLevel } : {}) };
+}, true, true);

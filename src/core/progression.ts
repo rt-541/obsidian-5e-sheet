@@ -9,7 +9,7 @@ import type { Character } from "./character";
 import { gatedByToggle, type SourcedEffects } from "./effects";
 import { customizeKey, layerRow, type RowDefs } from "./customize";
 import { evalFormula, isUnlimitedWord, UNLIMITED, type Formula } from "./formula";
-import { optionListLabel, plural } from "./words";
+import { featCategoryWords, optionListLabel, plural } from "./words";
 import { ABILS, SKILLS, type Abil, type Effects } from "./types";
 
 export interface FeatureRow {
@@ -44,6 +44,8 @@ export interface Progress {
   options: Record<string, string[]>; spellcasting: CasterEntry[];
   grantedSpells: { id: string; source: string }[]; grantedItems: { id: string; source: string }[];
   pending: PendingChoice[]; effects: SourcedEffects[];
+  /** Feats a `feat` op gives (a fixed one, or the one the player picked); `key` is the op's key, `fixed` is false for a pick. Their own grants are in the rows above. */
+  grantedFeats: { id: string; key: string; source: string; fixed: boolean }[];
   /** Every switch a feature or option declares (Rage, a stance); its effects are in `effects` only while it is on. */
   toggles: DeclaredToggle[];
   /** Every attack option (a focus die, extra on-hit dice, a reroll) a feature, option or built-in entry declares; the sheet lists them under Attack options. */
@@ -64,7 +66,7 @@ export interface DeclaredToggle { id: string; name: string; source: string; /** 
 
 export const emptyProgress = (): Progress => ({
   features: [], resources: [], scales: {}, dcs: [], proficiencies: { saves: [], skills: [], expertise: [], other: [] }, languages: [],
-  options: {}, spellcasting: [], grantedSpells: [], grantedItems: [], pending: [], effects: [], toggles: [], attackOptions: [], unknown: [], problems: [], overlay: { used: [], skipped: [] },
+  options: {}, spellcasting: [], grantedSpells: [], grantedItems: [], pending: [], effects: [], grantedFeats: [], toggles: [], attackOptions: [], unknown: [], problems: [], overlay: { used: [], skipped: [] },
 });
 
 const own = (o: object, k: string) => Object.prototype.hasOwnProperty.call(o, k);
@@ -195,6 +197,15 @@ export function progress(c: Character, registry: Registry): Progress {
     }
   };
 
+  /** A feat a `feat` op gives counts once: not again when the note already lists it among its feats or another op gave it. */
+  const featsRun = new Set<string>();
+  const giveFeat = (id: string, key: string, src: Src, fixed: boolean) => {
+    out.grantedFeats.push({ id, key, source: src.label, fixed });
+    if (c.feats.includes(id) || featsRun.has(id)) return;
+    featsRun.add(id);
+    origin<FeatData>("feat", id);
+  };
+
   function run(ops: Op[], src: Src) {
     for (const op of ops) {
       const key = `${src.keyBase}:${src.kind === "race" || src.kind === "subrace" || src.kind === "background" || src.kind === "feat" ? "" : `${src.level}:`}${op.id}`;
@@ -259,6 +270,16 @@ export function progress(c: Character, registry: Registry): Progress {
           const ok = isObj(v) && (typeof v.feat === "string" || isObj(v.abilities));
           if (v !== undefined && !ok) problem(`${src.label}: the saved Ability Score Improvement pick is not understood`);
           if (!ok) out.pending.push({ key, source: src.label, level: src.level, op, label: "Ability Score Improvement or feat" });
+          break;
+        }
+        case "feat": {
+          if (op.feat !== undefined) { giveFeat(op.feat, key, src, true); break; }
+          const v = choice(key, src.classId, src.level);
+          if (typeof v === "string" && registry.get("feat", v)) giveFeat(v, key, src, false);
+          else {
+            if (v !== undefined) problem(`${src.label}: the saved feat pick is not understood`);
+            out.pending.push({ key, source: src.label, level: src.level, op, label: `Choose one ${featCategoryWords(op.categories ?? [])} feat` });
+          }
           break;
         }
         case "spells": {

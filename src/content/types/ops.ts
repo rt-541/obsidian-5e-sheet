@@ -34,12 +34,15 @@ export type Op =
   | (Base & { op: "modify"; resource?: string; scale?: string; set: Formula })
   | (Base & { op: "choose"; what: "skills" | "expertise" | "tools" | "languages" | "option"; from?: string[]; list?: string; count: number; swap: boolean })
   | (Base & { op: "subclass" })
-  | (Base & { op: "asi" })
+  /** `feats`: the feat categories this slot accepts; absent, any feat. */
+  | (Base & { op: "asi"; feats?: string[] })
+  /** Grants one feat (`feat`) or asks for one feat of the listed `categories`; exactly one of the two. */
+  | (Base & { op: "feat"; feat?: string; categories?: string[] })
   | (Base & { op: "spells"; count: number; cantrips?: number; from: string | string[]; swap?: number; schools?: string[] })
   | (Base & { op: "spellcasting"; abil: Abil; progression: Progression; table?: Record<number, TableRow>; list?: string })
   | (Base & { op: "effect"; effects: Effects });
 export type OpName = Op["op"];
-export const OP_NAMES: OpName[] = ["grant", "feature", "resource", "scale", "dc", "modify", "choose", "subclass", "asi", "spells", "spellcasting", "effect"];
+export const OP_NAMES: OpName[] = ["grant", "feature", "resource", "scale", "dc", "modify", "choose", "subclass", "asi", "feat", "spells", "spellcasting", "effect"];
 
 export interface OpsCtx {
   kind: "class" | "subclass" | "grants";
@@ -259,7 +262,17 @@ function validateOp(raw: unknown, at: string, index: number, ctx: OpsCtx, e: Err
       return done({ id, op: "subclass" });
     case "asi":
       if (ctx.kind === "grants") e.push(`${at}: the asi op only belongs in class or subclass levels`);
-      return done({ id, op: "asi" });
+      if (raw.feats !== undefined && !(Array.isArray(raw.feats) && raw.feats.length > 0 && raw.feats.every(x => typeof x === "string" && x.trim()))) e.push(`${at}.feats: must be a list of feat categories`);
+      return done({ id, op: "asi", ...(Array.isArray(raw.feats) && raw.feats.length && raw.feats.every(x => typeof x === "string" && x.trim()) ? { feats: (raw.feats as string[]).map(x => x.trim()) } : {}) });
+    case "feat": {
+      if ((raw.feat === undefined) === (raw.categories === undefined)) { e.push(`${at}: feat op: give feat or categories, not both`); return undefined; }
+      if (raw.feat !== undefined) {
+        if (typeof raw.feat !== "string" || !raw.feat.trim()) { e.push(`${at}.feat: must be the id of a feat`); return undefined; }
+        return done({ id, op: "feat", feat: raw.feat.trim() });
+      }
+      if (!Array.isArray(raw.categories) || raw.categories.length === 0 || !raw.categories.every(x => typeof x === "string" && x.trim())) { e.push(`${at}.categories: must be a list of feat categories`); return undefined; }
+      return done({ id, op: "feat", categories: (raw.categories as string[]).map(x => x.trim()) });
+    }
     case "spells": {
       if (!whole(raw.count)) e.push(`${at}.count: must be a whole number`);
       if (raw.cantrips !== undefined && !whole(raw.cantrips)) e.push(`${at}.cantrips: must be a whole number`);
