@@ -202,3 +202,12 @@ Two repos build against this, so it is fixed here rather than left to either bui
 - `5e-mastery`: `id`, `name`, the common fields, and the rules text as the body. Folder `Masteries/`.
 - `5e-item`: the plugin-native `weapon` mapping may carry `mastery: <mastery id>`.
 - `5e-race` stays the type for a 2024 species; the plugin only changes the word it shows.
+
+## Addendum 2026-11-10: a library marker that travels
+
+Found on the first sync: the `.dnd-compendium-generated` marker is a dot-file, and Obsidian Sync does not carry dot-files. A library synced to one machine reaches the owner's other machines without it, so the plugin there treats the folder as a hand-made source and the importer's guard refuses to replace it. The owner asked for the lasting fix.
+
+- Every generated library already has a root note `<Library>/5e Library.md`. Its frontmatter gains `type: "5e-library"`, `schema: 1` and `generated: true` (beside the edition stamp and tag it has). This note is the marker that travels.
+- **Plugin:** a first-level folder under the compendium root is generated library content when it holds the dot-file marker, or is the `WotC` folder, or a note directly in it has `type: 5e-library`. A `5e-library` note is never a content entry or a problem. When such a note arrives, changes or is removed later (Obsidian Sync delivers files in any order), the notes of that folder are re-read under the new classification.
+- **Importer:** the sync guard accepts a live folder that has the dot-file marker or a `5e Library.md` whose frontmatter carries `type: "5e-library"`. It still refuses a non-empty folder with neither. The dot-file keeps being written.
+- No marker is ever written by hand: a folder that arrived unmarked becomes recognised when the rebuilt library note reaches it through Obsidian Sync from a machine the importer could sync.
