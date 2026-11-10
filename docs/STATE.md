@@ -1,6 +1,6 @@
 # State
 
-Last updated 2026-11-06, when the long build session was retired and this project was created.
+Last updated 2026-11-10.
 
 ## Where it stands
 
@@ -9,7 +9,17 @@ Last updated 2026-11-06, when the long build session was retired and this projec
 - Compendium re-imported 2026-10-24: WotC 7963 notes with mundane weapons and armor and variant data on 95 of 129 generic items, Kobold Press 948, Necromancer Games 288. Mystic Arts lives on `worktree-dnd-arcane-forge` (PR #30) and was left alone. Importer branch `worktree-dnd-compendium` is at f68f540. Backups: `/docker/dnd-compendium/out.bak-2026-10-24`, `code.bak-2026-10-24`.
 - Built so far: play sheet, spells, leveling with a plain changes list, builder, single compendium, combos, tablet layout, inventory with coins, Hexploration rests and rations, glossary and hover cards, companions with stat-block import, UI review fixes, stat tiles, roll-mode slider, Settings card, compact attack rows, 1H/2H, attack options with the 3 s Hit? window, I roll my own dice, per-character Customize, item variants, stat-block cards, Change on an item.
 
-## Next: Daggerheart
+## Now: 2014 and 2024 rules side by side
+
+Started 2026-11-10 on branch `feat/edition-2024`. The owner parked Daggerheart for this ("skip dagger heart for now").
+
+- Design: `docs/superpowers/specs/2026-11-10-edition-2024-design.md` (also https://scratch.rt-541.io/dnd-sheet/edition-2024-design/). Top-level plan: `docs/superpowers/plans/2026-11-10-edition-2024.md`, with one detailed plan each for the plugin and the importer beside it.
+- Decided by the owner on 2026-11-10: all the 2024 books go in; the sheet's edition decides which compendium it reads; bringing something in from the other edition is a button; a character can hold both versions of one thing and the hover card names the source; every compendium file gets edition tags.
+- 2024 data: `/docker/dnd-compendium/5etools-2024`, the `5etools-mirror-3/5etools-src` mirror pinned at v2.41.0. Nothing is built or synced from it yet.
+- Still open: whether existing characters move to 2024 (default: new characters only).
+- Order of release: the edition-aware plugin is deployed before the 2024 folder is synced to the vault.
+
+## Parked: Daggerheart
 
 The owner plays a Daggerheart one-shot in **November 2026** (said on 2026-10-24: "next month") and wants it working by then. Check the date with them first. They are a player with a character, and may GM it later. Product: Daggerheart Core Set.
 
