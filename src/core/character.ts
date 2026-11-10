@@ -1,3 +1,4 @@
+import { readEdition, type Edition } from "./edition";
 import { parseModifier } from "./modifier";
 import { readCustomization, type Customization } from "./customize";
 import { ABILS, type Abil, type Modifier } from "./types";
@@ -36,7 +37,7 @@ export interface ComboStep { action: string; /** Who does it, when not the chara
 export interface Combo { name: string; when: string; steps: ComboStep[]; notes?: string; /** Shown on the main page. */ pinned?: boolean; }
 export interface SheetToggles { hide: string[]; show: string[]; }
 export interface Character {
-  type: "5e-character"; schema: 1; name: string; campaign?: string; race?: string; subrace?: string; background?: string;
+  type: "5e-character"; schema: 1; name: string; /** Rules edition; absent means 2014 and is never written to a note that lacks it. */ edition?: Edition; campaign?: string; race?: string; subrace?: string; background?: string;
   classes: ClassLevel[]; abilities: Record<Abil, number>;
   proficiencies: { saves: Abil[]; skills: string[]; expertise: string[] };
   hp: { max: number; current: number; temp: number };
@@ -196,6 +197,7 @@ function parseCharacter(fm: R): Parsed {
   const r = new Reader(), c = newCharacter(r.str(fm.name, "name") ?? "Unnamed");
   schemaCheck(fm, r);
   for (const k of ["campaign", "race", "subrace", "background"] as const) { const s = r.str(fm[k], k); if (s) c[k] = s; }
+  if (fm.edition !== undefined && fm.edition !== null && fm.edition !== "") { const ed = readEdition(fm.edition); if (ed) c.edition = ed; else r.errors.push("edition: must be 2014 or 2024"); }
   c.classes = r.list(fm.classes, "classes").flatMap((x, i) => {
     if (!isObj(x) || typeof x.class !== "string") { r.errors.push(`classes[${i}]: must have a class`); return []; }
     const sub = r.str(x.subclass, `classes[${i}].subclass`);

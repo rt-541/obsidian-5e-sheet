@@ -1,4 +1,5 @@
 import { PluginSettingTab, Setting, type App } from "obsidian";
+import type { Edition } from "../core/edition";
 import type { RollResult } from "../core/types";
 import { setBuiltinMechanics } from "../content/overlay";
 import { MODULES } from "../rules";
@@ -12,9 +13,11 @@ export interface Settings {
   ruleDefaults: Record<string, boolean>;
   /** Built-in mechanics: numbers and switches the plugin supplies for features whose notes have none. */
   builtinMechanics: boolean;
+  /** The rules edition a new character starts with when its campaign names none. */
+  defaultEdition: Edition;
 }
 export interface PluginData { settings: Settings; logs: Record<string, RollResult[]>; /** Collapsed traits-card groups per character note path. */ collapsed?: Record<string, string[]>; }
-export const DEFAULT_SETTINGS: Settings = { compendiumFolder: "compendium/5e", autoOpen: true, layout: "auto", ruleDefaults: {}, builtinMechanics: true };
+export const DEFAULT_SETTINGS: Settings = { compendiumFolder: "compendium/5e", autoOpen: true, layout: "auto", ruleDefaults: {}, builtinMechanics: true, defaultEdition: "2014" };
 
 export class FiveESettingTab extends PluginSettingTab {
   constructor(app: App, private plugin: FiveESheetPlugin) { super(app, plugin); }
@@ -35,6 +38,9 @@ export class FiveESettingTab extends PluginSettingTab {
       }));
     containerEl.createEl("h3", { text: "Default rules" });
     containerEl.createEl("p", { text: "Campaign notes and character notes can override these.", cls: "setting-item-description" });
+    new Setting(containerEl).setName("Default rules edition").setDesc("The rules a new character starts with when its campaign does not say. A character keeps the edition it was made with.")
+      .addDropdown(d => d.addOptions({ "2014": "2014 rules", "2024": "2024 rules" }).setValue(s.defaultEdition)
+        .onChange(async v => { s.defaultEdition = v as Edition; await this.plugin.persist(); }));
     for (const m of MODULES) new Setting(containerEl).setName(m.title)
       .addToggle(t => t.setValue(s.ruleDefaults[m.id] ?? m.defaultOn).onChange(async v => { s.ruleDefaults[m.id] = v; await this.plugin.persist(); this.plugin.refreshViews(true); }));
   }
