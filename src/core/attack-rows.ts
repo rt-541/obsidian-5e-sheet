@@ -1,3 +1,4 @@
+import { splitRef } from "../content/edition";
 import { slug } from "../content/registry";
 import type { ItemData } from "../content/types";
 import { isVersatile, versatileDie } from "../content/types/item";
@@ -50,7 +51,7 @@ export function buildAttacks(i: AttackInputs): AttackStat[] {
     const versatile = isVersatile(w), twoHands = versatile && e.hands === 2 && !i.shield, twoHanded = versatileDie(w);
     const props = w.props ?? [], handTags = twoHands ? (props.includes("two-handed") ? [] : ["two-handed"]) : oneHanded && !props.includes("one-handed") ? ["one-handed"] : [];
     rows.push({ name: it!.name, dmg: twoHands ? twoHanded : w.dmg, type: w.type, abils: w.ab === "finesse" ? ["dex", "str"] : [w.ab], range: w.range, bonus, trained: i.weaponProf(it!.name, e.id, w.category),
-      tags: [...(e.id ? [e.id] : []), ...(w.props ?? []), ...handTags, ...(isMonkWeapon(e.id, w) ? ["monk"] : []), ...(bonus > 0 || (it!.rarity && !/^(mundane|none)$/i.test(it!.rarity)) ? ["magic"] : [])],
+      tags: [...(e.id ? [splitRef(e.id).id] : []), ...(w.props ?? []), ...handTags, ...(isMonkWeapon(e.id ? splitRef(e.id).id : undefined, w) ? ["monk"] : []), ...(bonus > 0 || (it!.rarity && !/^(mundane|none)$/i.test(it!.rarity)) ? ["magic"] : [])],
       ...(works && w.extraDamage ? { itemExtra: w.extraDamage } : {}), dieRules: [], notes: [],
       item: index, twoHands, ...(mastery ? { mastery } : {}), ...(versatile ? { grip: { hands: twoHands ? 2 : 1, twoHanded, shield: i.shield } } : {}) });
   }

@@ -1,5 +1,6 @@
 import type { Registry } from "../content/registry";
 import { slug } from "../content/registry";
+import { sameRef } from "../content/edition";
 import { characterEdition, type Edition } from "../core/edition";
 import type { Draft } from "../content/creature-note";
 import type { SpellDraft } from "../content/spell-note";
@@ -224,7 +225,7 @@ export class SheetController {
 
   /** Add one of a compendium item to the pack (a second copy bumps the count) and say what happened. */
   addItem(id: string): boolean {
-    const had = this.character?.inventory.find(e => e.id === id)?.qty ?? 0;
+    const had = this.character?.inventory.find(e => e.id !== undefined && sameRef(e.id, id, characterEdition(this.character!)))?.qty ?? 0;
     if (!this.dispatch({ type: "addItem", id }).ok) return false;
     const name = this.host.registry.get("item", id)?.name ?? id;
     this.host.notify(had ? `Added ${name} (now ${had + 1})` : `Added ${name}.`);

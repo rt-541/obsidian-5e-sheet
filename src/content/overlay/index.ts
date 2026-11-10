@@ -2,6 +2,7 @@ import type { Edition } from "../../core/edition";
 import { readEdition } from "../../core/edition";
 import type { Effects } from "../../core/types";
 import { slug } from "../registry";
+import { splitRef } from "../edition";
 import { isObj, type Errs } from "../check";
 import { validateEffects } from "../types/effects";
 import { validateAction, validateOps, validateOptions, type ActionDef, type Op, type OptionDef } from "../types/ops";
@@ -37,7 +38,7 @@ const OWNER_PREFIX = /^(?:oath-of-the-|oath-of-|path-of-the-|path-of-|way-of-the
 const OWNER_SUFFIX = /-(?:bloodline|domain|patron|tradition|magic)$/;
 /** Class, subclass, race and option-list ids from the SRD, the library and homebrew name the same thing in different ways (`path-of-the-berserker`, `berserker`). */
 export function overlayOwner(id: string): string {
-  const s = overlaySlug(id);
+  const s = overlaySlug(splitRef(id).id);   // `fighter@2014` is the owner `fighter`
   if (s === "*") return s;
   const t = s.replace(OWNER_PREFIX, "").replace(OWNER_SUFFIX, "");
   return t || s;

@@ -1,12 +1,13 @@
+import { canonRef, entryEdition, refFor, refIn, sameRef, splitRef } from "../content/edition";
 import { isOrdinaryItem } from "../content/item-variant";
-import { sourceLabel, type Registry } from "../content/registry";
+import { sourceLabel, type Entry, type Registry } from "../content/registry";
 import type { AbilReq, ClassData, FeatData, GrantsData, ItemData, MasteryData, Op, OptionDef, SpellData, SubclassData, SubraceData } from "../content/types";
 import { abilityMod } from "./abilities";
 import { abilityKey, abilityPickKey, describeDelta, describePattern, increaseDelta, pickDelta } from "./ability-increase";
 import type { Character, HpMethod, LevelEntry } from "./character";
 import { deriveCharacter } from "./derive";
 import { progress, resolveOptionList, type PendingChoice, type Progress } from "./progression";
-import { editionRules, characterEdition } from "./edition";
+import { editionRules, characterEdition, otherEdition, type Edition } from "./edition";
 import { slotTable } from "./slots";
 import { featCategoryWords, titleCase } from "./words";
 import { ABILS, SKILLS, type Abil, type Rng } from "./types";
@@ -52,17 +53,20 @@ function requirementProblems(d: ClassData, c: Character, verb: string): string[]
  * Both the class being left and the class being taken must be satisfied.
  */
 export function levelOptions(c: Character, registry: Registry): LevelOption[] {
-  const all = registry.list<ClassData>("class"), mine = c.classes.map(k => k.class);
-  const ordered = [...mine.flatMap(id => all.filter(e => e.id === id)), ...all.filter(e => !mine.includes(e.id))];
+  const own = characterEdition(c), all = registry.list<ClassData>("class").map(e => ({ e, ref: refFor(e, own) }));
+  // a class the character holds that the list does not carry (one brought in from the other edition) is still a class it can level
+  const held = c.classes.flatMap(k => { const e = registry.get<ClassData>("class", k.class); return e && !all.some(x => sameRef(x.ref, k.class, own)) ? [{ e, ref: k.class }] : []; });
+  const mine = c.classes.map(k => k.class);
+  const ordered = [...mine.flatMap(id => [...held, ...all].filter(x => sameRef(x.ref, id, own))), ...all.filter(x => !mine.some(id => sameRef(x.ref, id, own)))];
   const full = totalLevel(c) >= MAX_TOTAL_LEVEL;
-  return ordered.map(e => {
-    const have = c.classes.find(k => k.class === e.id), reasons: string[] = [];
+  return ordered.map(({ e, ref }) => {
+    const have = c.classes.find(k => sameRef(k.class, ref, own)), reasons: string[] = [];
     if (full) reasons.push("Characters stop at level 20");
     if (!have && c.classes.length) {
       reasons.push(...requirementProblems(e.data, c, `Multiclassing into ${e.name}`));
       for (const k of c.classes) { const d = registry.get<ClassData>("class", k.class)?.data; if (d) reasons.push(...requirementProblems(d, c, `Leaving ${d.name}`)); }
     }
-    return { class: e.id, name: e.name, source: sourceLabel(e), level: (have?.level ?? 0) + 1, current: !!have, allowed: reasons.length === 0, reasons };
+    return { class: have?.class ?? ref, name: e.name, source: sourceLabel(e), level: (have?.level ?? 0) + 1, current: !!have, allowed: reasons.length === 0, reasons };
   });
 }
 
@@ -102,15 +106,26 @@ interface Env { registry: Registry; cand: Character; prog: Progress; mode: Mode;
  * category, which hand-made and brought-in feats are; a `feat` op stays strict.
  */
 export function featOptions(reg: Registry, categories: string[] | undefined, c: Character, totalLevel: number, withUncategorised = false): StepOption[] {
-  const owned = new Set(c.feats);
-  return reg.list<FeatData>("feat")
-    .filter(e => !categories || (e.data.category === undefined ? withUncategorised : categories.includes(e.data.category)))
-    .map(e => ({ id: e.id, name: e.name, source: sourceLabel(e), ...(e.data.prerequisite ? { text: e.data.prerequisite } : {}),
-      ...(owned.has(e.id) ? { disabled: "Already have" } : e.data.minLevel !== undefined && e.data.minLevel > totalLevel ? { disabled: `Needs level ${e.data.minLevel}` } : {}) }));
+  return reg.list<FeatData>("feat").flatMap(e => featOption(e, refFor(e, characterEdition(c)), categories, c, totalLevel, withUncategorised) ?? []);
+}
+/** One feat as a slot lists it, or undefined when the slot does not offer it. `ref` is the reference a pick stores. */
+function featOption(e: Entry<FeatData>, ref: string, categories: string[] | undefined, c: Character, totalLevel: number, withUncategorised: boolean): StepOption | undefined {
+  if (categories && !(e.data.category === undefined ? withUncategorised : categories.includes(e.data.category))) return undefined;
+  const own = characterEdition(c);
+  return { id: ref, name: e.name, source: sourceLabel(e), ...(e.data.prerequisite ? { text: e.data.prerequisite } : {}),
+    ...(c.feats.some(f => sameRef(f, ref, own)) ? { disabled: "Already have" } : e.data.minLevel !== undefined && e.data.minLevel > totalLevel ? { disabled: `Needs level ${e.data.minLevel}` } : {}) };
+}
+/** A feat of the other edition named by a qualified reference (a brought-in pick), offered by the slot on the same terms as its own list. */
+function broughtInFeat(env: Env, ref: string, categories: string[] | undefined, withUncategorised: boolean): StepOption | undefined {
+  if (!splitRef(ref).edition) return undefined;
+  const e = env.registry.get<FeatData>("feat", ref);
+  return e ? featOption(e, canonRef(ref, characterEdition(env.cand)), categories, { ...env.cand, feats: env.owned }, Math.max(1, totalLevel(env.cand)), withUncategorised) : undefined;
 }
 /** A character being built has no level yet; the gate reads as level 1 then. */
 const optionsFor = (env: Env, categories: string[] | undefined, withUncategorised = false) => featOptions(env.registry, categories, { ...env.cand, feats: env.owned }, Math.max(1, totalLevel(env.cand)), withUncategorised);
 
+/** The reference a class level is recorded under: the one the character already stores for that class, else the canonical form of what was asked. */
+const classRef = (c: Character, id: string): string => c.classes.find(k => sameRef(k.class, id, characterEdition(c)))?.class ?? canonRef(id, characterEdition(c));
 const classOfKey = (key: string) => /^class:([^:]+):\d+:/.exec(key)?.[1];
 function optionLists(env: Env, key: string): Record<string, OptionDef[]> | undefined {
   const m = /^(class|subclass):([^:]+):/.exec(key); if (!m) return undefined;
@@ -125,12 +140,20 @@ const classLevelOf = (env: Env, key: string) => {
 };
 
 function spellOptions(env: Env, op: Extract<Op, { op: "spells" }>, maxLevel: number): StepOption[] {
-  const owned = new Set(env.cand.spells.map(s => s.id)), schools = op.schools?.map(s => s.toLowerCase());
-  return env.registry.list<SpellData>("spell")
-    // from "*" is any class list (Magical Secrets); schools limit leveled spells only, cantrips are never restricted by them
-    .filter(e => (Array.isArray(op.from) ? op.from.includes(e.id) : op.from === "*" || e.data.classes.includes(op.from)) && (!schools || e.data.level === 0 || schools.includes(e.data.school.toLowerCase())))
-    .map(e => ({ id: e.id, name: e.name, source: sourceLabel(e), level: e.data.level, school: e.data.school, text: e.data.level === 0 ? `${e.data.school} cantrip` : `Level ${e.data.level} ${e.data.school}`,
-      ...(owned.has(e.id) ? { disabled: "Already known" } : e.data.level > maxLevel ? { disabled: `Needs a level ${e.data.level} slot` } : {}) }));
+  return env.registry.list<SpellData>("spell").flatMap(e => spellOption(env, op, maxLevel, e, refFor(e, characterEdition(env.cand))) ?? []);
+}
+/** One spell as the step lists it (`ref` is what a pick stores), or undefined when the op's list and schools leave it out. */
+function spellOption(env: Env, op: Extract<Op, { op: "spells" }>, maxLevel: number, e: Entry<SpellData>, ref: string): StepOption | undefined {
+  const schools = op.schools?.map(s => s.toLowerCase()), own = characterEdition(env.cand);
+  // from "*" is any class list (Magical Secrets); schools limit leveled spells only, cantrips are never restricted by them
+  if (!((Array.isArray(op.from) ? op.from.includes(e.id) : op.from === "*" || e.data.classes.includes(op.from)) && (!schools || e.data.level === 0 || schools.includes(e.data.school.toLowerCase())))) return undefined;
+  return { id: ref, name: e.name, source: sourceLabel(e), level: e.data.level, school: e.data.school, text: e.data.level === 0 ? `${e.data.school} cantrip` : `Level ${e.data.level} ${e.data.school}`,
+    ...(env.cand.spells.some(s => sameRef(s.id, ref, own)) ? { disabled: "Already known" } : e.data.level > maxLevel ? { disabled: `Needs a level ${e.data.level} slot` } : {}) };
+}
+/** A spell of the other edition named by a qualified reference (a brought-in pick), on the same terms as the step's own list. */
+function broughtInSpell(env: Env, s: Extract<Step, { kind: "spells" }>, ref: string): StepOption | undefined {
+  const e = splitRef(ref).edition ? env.registry.get<SpellData>("spell", ref) : undefined, op = env.prog.pending.find(p => p.key === s.key)?.op;
+  return e && op?.op === "spells" ? spellOption(env, op, s.maxLevel, e, canonRef(ref, characterEdition(env.cand))) : undefined;
 }
 /** Spells known and prepared are worked out per class as if single-classed, so the cap comes from the leveling class's own entry. */
 function maxSpellLevel(env: Env, key: string): number {
@@ -157,9 +180,9 @@ const langKey = (l: string): string => l.trim().toLowerCase().replace(/\s+/g, "-
 export function masteryOptions(registry: Registry, c: Character, from?: string[], markHave = true): StepOption[] {
   const all = registry.list<ItemData>("item");
   const items = from ? from.flatMap(id => all.filter(e => e.id === id).slice(0, 1)) : all.filter(e => !!e.data.weapon?.mastery && isOrdinaryItem(e)).sort((a, b) => a.name.localeCompare(b.name));
-  const have = new Set(c.mastery ?? []);
-  return items.map(e => { const m = e.data.weapon?.mastery, prop = m ? registry.get<MasteryData>("mastery", m)?.name ?? titleCase(m) : undefined;
-    return { id: e.id, name: e.name, ...(prop ? { text: prop } : {}), source: sourceLabel(e), ...(have.has(e.id) && markHave ? { disabled: "Already mastered" } : {}) }; });
+  const own = characterEdition(c);
+  return items.map(e => { const m = e.data.weapon?.mastery, prop = m ? registry.get<MasteryData>("mastery", m)?.name ?? titleCase(m) : undefined, ref = refFor(e, own);
+    return { id: ref, name: e.name, ...(prop ? { text: prop } : {}), source: sourceLabel(e), ...((c.mastery ?? []).some(x => sameRef(x, ref, own)) && markHave ? { disabled: "Already mastered" } : {}) }; });
 }
 
 function stepOf(p: PendingChoice, env: Env, maxScores: () => Record<Abil, number>): Step | undefined {
@@ -168,8 +191,10 @@ function stepOf(p: PendingChoice, env: Env, maxScores: () => Record<Abil, number
   switch (op.op) {
     case "subclass": {
       const cls = classOfKey(key); if (!cls) return undefined;
-      const options = env.registry.list<SubclassData>("subclass").filter(e => e.data.class === cls).map(e => ({ id: e.id, name: e.name, source: sourceLabel(e) }));
-      return options.length ? { kind: "subclass", ...base, options } : undefined;
+      const options = env.registry.list<SubclassData>("subclass").filter(e => e.data.class === splitRef(cls).id).map(e => ({ id: refFor(e, characterEdition(c)), name: e.name, source: sourceLabel(e) }));
+      // a class whose subclasses are all in the other edition still asks (the answer is brought in)
+      const own = characterEdition(c), brought = env.registry.listEdition<SubclassData>("subclass", otherEdition(own)).some(e => e.data.class === splitRef(cls).id);
+      return options.length || brought ? { kind: "subclass", ...base, options } : undefined;
     }
     case "asi": return { kind: "asi", ...base, maxScores: maxScores(), ...(op.feats ? { feats: op.feats } : {}), featOptions: optionsFor(env, op.feats, true) };
     case "feat": return op.categories ? { kind: "feat", ...base, categories: op.categories, options: optionsFor(env, op.categories) } : undefined;
@@ -223,7 +248,7 @@ function abilityPicks(env: Env, c: Character, addedFeats: string[]): Step[] {
 /** One yes / no question for every optional feature of the class level being gained (and of the subclass, at that class level). */
 function optionalFeatures(env: Env): Step[] {
   if (env.mode.kind !== "level") return [];
-  const classId = env.mode.classId, k = env.cand.classes.find(x => x.class === classId), cd = env.registry.get<ClassData>("class", classId);
+  const classId = env.mode.classId, k = env.cand.classes.find(x => sameRef(x.class, classId, characterEdition(env.cand))), cd = env.registry.get<ClassData>("class", classId);
   if (!k || !cd) return [];
   const sub = k.subclass ? env.registry.get<SubclassData>("subclass", k.subclass) : undefined;
   const out: Step[] = [];
@@ -232,29 +257,30 @@ function optionalFeatures(env: Env): Step[] {
       out.push({ kind: "optional", key: `${keyBase}:${k.level}:${op.id}`, label: `Take optional feature ${op.name}?`, source, name: op.name, ...(op.text !== undefined ? { text: op.text } : {}) });
   };
   scan(cd.data.levels?.[k.level], `class:${classId}`, `${cd.name} ${k.level}`);
-  if (sub && sub.data.class === classId) scan(sub.data.levels[k.level], `subclass:${k.subclass}`, `${sub.name} (${cd.name} ${k.level})`);
+  if (sub && sub.data.class === splitRef(classId).id) scan(sub.data.levels[k.level], `subclass:${k.subclass}`, `${sub.name} (${cd.name} ${k.level})`);
   return out;
 }
 
 interface Planned { env: Env; steps: Step[]; ops: Map<string, PendingChoice>; /** Feats a `feat` op added (fixed or picked) in this plan. */ opFeats: string[]; first: boolean; className: string; level: number; die: number; }
 
 /** Build the candidate (class level raised, subclass and feat answers applied so their follow-up steps appear) and its steps. */
-function plan(c: Character, mode: Mode, registry: Registry, choices: Record<string, unknown>): Planned | { error: string } {
-  const cand = structuredClone(c);
+function plan(c: Character, mode0: Mode, registry: Registry, choices: Record<string, unknown>): Planned | { error: string } {
+  const cand = structuredClone(c), own = characterEdition(c);
+  const mode: Mode = mode0.kind === "level" ? { kind: "level", classId: classRef(c, mode0.classId) } : mode0;
   let className = "", level = 0, die = 0, first = false;
   if (mode.kind === "level") {
     const cd = registry.get<ClassData>("class", mode.classId);
     if (!cd) return { error: `Unknown class ${mode.classId}` };
     if (totalLevel(c) >= MAX_TOTAL_LEVEL) return { error: "Characters stop at level 20" };
     first = c.classes.length === 0; className = cd.name; die = cd.data.hitDie;
-    let k = cand.classes.find(x => x.class === mode.classId);
+    let k = cand.classes.find(x => sameRef(x.class, mode.classId, own));
     if (k) k.level++; else { k = { class: mode.classId, level: 1 }; cand.classes.push(k); }
     level = k.level;
   }
   const addedFeats: string[] = [], opFeats: string[] = [], mine = new Map<string, PendingChoice>(), picked = new Set<string>();
   const keyInScope = (key: string) => {
     if (mode.kind === "resolve") return true;
-    const sub = cand.classes.find(k => k.class === mode.classId)?.subclass;
+    const sub = cand.classes.find(k => sameRef(k.class, mode.classId, own))?.subclass;
     return key.startsWith(`class:${mode.classId}:${level}:`) || (!!sub && key.startsWith(`subclass:${sub}:${level}:`)) || addedFeats.some(f => key.startsWith(`feat:${f}:`));
   };
   const inScope = (p: PendingChoice) => keyInScope(p.key);
@@ -264,17 +290,17 @@ function plan(c: Character, mode: Mode, registry: Registry, choices: Record<stri
     let changed = false;
     // a feat op that names its feat gives it when the level is applied
     if (mode.kind === "level") for (const g of prog.grantedFeats)
-      if (g.fixed && keyInScope(g.key) && !cand.feats.includes(g.id) && registry.get<FeatData>("feat", g.id)) { cand.feats.push(g.id); addedFeats.push(g.id); opFeats.push(g.id); changed = true; }
+      if (g.fixed && keyInScope(g.key) && !cand.feats.some(f => sameRef(f, g.id, own)) && registry.get<FeatData>("feat", g.id)) { cand.feats.push(g.id); addedFeats.push(g.id); opFeats.push(g.id); changed = true; }
     for (const p of [...mine.values()]) {
       const v = choices[p.key];
       if (p.op.op === "subclass" && typeof v === "string") {
         const cls = classOfKey(p.key), k = cand.classes.find(x => x.class === cls), sd = registry.get<SubclassData>("subclass", v);
-        if (k && !k.subclass && sd && sd.data.class === cls) { k.subclass = v; changed = true; }
+        if (k && !k.subclass && sd && sd.data.class === splitRef(cls ?? "").id) { k.subclass = canonRef(v, own); changed = true; }
       }
-      if (p.op.op === "asi" && isObj(v) && typeof v.feat === "string" && !cand.feats.includes(v.feat) && registry.get<FeatData>("feat", v.feat)) { cand.feats.push(v.feat); addedFeats.push(v.feat); picked.add(v.feat); changed = true; }
+      if (p.op.op === "asi" && isObj(v) && typeof v.feat === "string" && !cand.feats.some(f => sameRef(f, v.feat as string, own)) && registry.get<FeatData>("feat", v.feat)) { const f = canonRef(v.feat, own); cand.feats.push(f); addedFeats.push(f); picked.add(f); changed = true; }
       // the builder's base character already lists the origin feat its answer names
-      if (p.op.op === "feat" && p.op.categories && typeof v === "string" && mode.kind === "resolve" && c.classes.length === 0 && cand.feats.includes(v)) picked.add(v);
-      if (p.op.op === "feat" && typeof v === "string" && !cand.feats.includes(v) && registry.get<FeatData>("feat", v)) { cand.feats.push(v); addedFeats.push(v); picked.add(v); opFeats.push(v); changed = true; }
+      if (p.op.op === "feat" && p.op.categories && typeof v === "string" && mode.kind === "resolve" && c.classes.length === 0 && cand.feats.some(f => sameRef(f, v, own))) picked.add(canonRef(v, own));
+      if (p.op.op === "feat" && typeof v === "string" && !cand.feats.some(f => sameRef(f, v, own)) && registry.get<FeatData>("feat", v)) { const f = canonRef(v, own); cand.feats.push(f); addedFeats.push(f); picked.add(f); opFeats.push(f); changed = true; }
     }
     if (!changed) break;
     prog = progress(cand, registry);
@@ -293,8 +319,8 @@ function plan(c: Character, mode: Mode, registry: Registry, choices: Record<stri
 }
 
 /** What choosing a class level asks: HP, then every asking op for the new class level (and its subclass and feat follow-ups). */
-export function planLevel(c: Character, classId: string, registry: Registry, choices: Record<string, unknown> = {}): LevelPlan | { error: string } {
-  const p = plan(c, { kind: "level", classId }, registry, choices);
+export function planLevel(c: Character, classId0: string, registry: Registry, choices: Record<string, unknown> = {}): LevelPlan | { error: string } {
+  const classId = classRef(c, classId0), p = plan(c, { kind: "level", classId }, registry, choices);
   if ("error" in p) return p;
   return { class: classId, className: p.className, level: p.level, total: totalLevel(c) + 1, first: p.first, steps: p.steps };
 }
@@ -315,19 +341,22 @@ function checkStep(s: Exclude<Step, { kind: "hp" }>, v: unknown, env: Env, taken
   if (v === undefined) return { error: `${label} still needs an answer` };
   switch (s.kind) {
     case "subclass": {
-      if (typeof v !== "string" || !s.options.some(o => o.id === v)) return { error: `${label}: pick one of the listed subclasses` };
-      return { ok: v };
+      // a subclass of the character's class from the other edition is accepted too (a brought-in pick)
+      const cls = classOfKey(s.key), own = characterEdition(env.cand), brought = typeof v === "string" && splitRef(v).edition ? env.registry.get<SubclassData>("subclass", v) : undefined;
+      if (typeof v !== "string" || !(s.options.some(o => sameRef(o.id, v, own)) || (brought && brought.data.class === splitRef(cls ?? "").id))) return { error: `${label}: pick one of the listed subclasses` };
+      return { ok: canonRef(v, own) };
     }
     case "asi": {
       if (!isObj(v)) return { error: `${label}: pick abilities or a feat` };
       if (typeof v.feat === "string") {
         if (!env.registry.get<FeatData>("feat", v.feat)) return { error: `${label}: unknown feat ${v.feat}` };
-        if (env.cand.feats.filter(f => f === v.feat).length > 1 || taken.feats.has(v.feat)) return { error: `${label}: ${v.feat} is already taken` };
-        const o = s.featOptions.find(x => x.id === v.feat);
+        const own = characterEdition(env.cand), ref = canonRef(v.feat, own);
+        if (env.cand.feats.filter(f => sameRef(f, ref, own)).length > 1 || taken.feats.has(ref)) return { error: `${label}: ${v.feat} is already taken` };
+        const o = s.featOptions.find(x => sameRef(x.id, ref, own)) ?? broughtInFeat(env, ref, s.feats, true);
         if (!o) return { error: `${label}: ${v.feat} is not offered by this slot` };
         if (o.disabled) return { error: `${label}: ${o.name} is not available (${o.disabled.toLowerCase()})` };
-        taken.feats.add(v.feat);
-        return { ok: { feat: v.feat } };
+        taken.feats.add(ref);
+        return { ok: { feat: ref } };
       }
       if (!isObj(v.abilities)) return { error: `${label}: pick abilities or a feat` };
       const entries = Object.entries(v.abilities).filter(([, n]) => n !== 0);
@@ -340,12 +369,13 @@ function checkStep(s: Exclude<Step, { kind: "hp" }>, v: unknown, env: Env, taken
       return { ok: { abilities: Object.fromEntries(entries) } };
     }
     case "feat": {
-      const o = typeof v === "string" ? s.options.find(x => x.id === v) : undefined;
+      const own = characterEdition(env.cand), o = typeof v === "string" ? s.options.find(x => sameRef(x.id, v, own)) ?? broughtInFeat(env, v, s.categories, false) : undefined;
       if (!o) return { error: `${label}: pick one of the listed feats` };
       if (o.disabled) return { error: `${label}: ${o.name} is not available (${o.disabled.toLowerCase()})` };
-      if (taken.feats.has(o.id)) return { error: `${label}: ${o.name} is already taken` };
-      taken.feats.add(o.id);
-      return { ok: o.id };
+      const ref = canonRef(o.id, own);
+      if (taken.feats.has(ref)) return { error: `${label}: ${o.name} is already taken` };
+      taken.feats.add(ref);
+      return { ok: ref };
     }
     case "pattern": {
       const delta = pickDelta({ from: s.from, patterns: s.patterns }, v);
@@ -377,14 +407,17 @@ function checkStep(s: Exclude<Step, { kind: "hp" }>, v: unknown, env: Env, taken
       if (!isStrs(v)) return { error: `${label}: pick spells` };
       if (new Set(v).size !== v.length) return { error: `${label}: picks must be different` };
       let cantrips = 0, spells = 0;
+      const own = characterEdition(env.cand), seen = new Set<string>();
       for (const id of v) {
-        const o = s.options.find(x => x.id === id);
+        const o = s.options.find(x => sameRef(x.id, id, own)) ?? broughtInSpell(env, s, id);
         if (!o) return { error: `${label}: "${id}" is not on the list` };
+        if (seen.has(canonRef(id, own))) return { error: `${label}: picks must be different` };
+        seen.add(canonRef(id, own));
         if (o.disabled) return { error: `${label}: ${o.name} is not available (${o.disabled.toLowerCase()})` };
         if (o.level === 0) cantrips++; else spells++;
       }
       if (cantrips !== s.cantrips || spells !== s.count) return { error: `${label}: pick ${s.cantrips} cantrip${s.cantrips === 1 ? "" : "s"} and ${s.count} spell${s.count === 1 ? "" : "s"}` };
-      return { ok: v };
+      return { ok: v.map(id => canonRef(id, own)) };
     }
   }
 }
@@ -393,9 +426,10 @@ function checkSwaps(s: Extract<Step, { kind: "spells" }>, v: unknown, env: Env):
   if (v === undefined) return { ok: [] };
   const label = `${s.source}: swap`;
   if (!Array.isArray(v) || v.length > s.swap || !v.every(x => isObj(x) && typeof x.out === "string" && typeof x.in === "string")) return { error: `${label}: swap at most ${s.swap} spell${s.swap === 1 ? "" : "s"}` };
-  const pairs = v as { out: string; in: string }[], known = new Set(env.cand.spells.map(x => x.id)), outs = new Set<string>(), ins = new Set<string>();
+  const own = characterEdition(env.cand), pairs = (v as { out: string; in: string }[]).map(p => ({ out: p.out, in: canonRef(p.in, own) }));
+  const known = new Set(env.cand.spells.map(x => x.id)), outs = new Set<string>(), ins = new Set<string>();
   for (const p of pairs) {
-    const o = s.options.find(x => x.id === p.in);
+    const o = s.options.find(x => sameRef(x.id, p.in, own)) ?? broughtInSpell(env, s, p.in);
     if (!known.has(p.out) || outs.has(p.out)) return { error: `${label}: ${p.out} is not a spell you can swap out` };
     if (!o || o.disabled || ins.has(p.in)) return { error: `${label}: ${p.in} is not available` };
     outs.add(p.out); ins.add(p.in);
@@ -470,19 +504,22 @@ function commitSteps(steps: Step[], choices: Record<string, unknown>, env: Env, 
   return { record, summary };
 }
 
+/** Item ids a list of ops grants, each written as the reference that finds the supplying entry's own edition's version. */
+const opItems = (registry: Registry, ops: Op[], from: Entry | undefined, own: Edition): string[] =>
+  ops.flatMap(op => op.op === "grant" ? op.items.map(id => refIn(registry, "item", id, from ? entryEdition(from) : undefined, own)) : []);
 const grantItems = (registry: Registry, c: Character, classId: string, level: number): string[] => {
-  const out: string[] = [], k = c.classes.find(x => x.class === classId);
-  const ops = [...(registry.get<ClassData>("class", classId)?.data.levels?.[level] ?? []),
-    ...(k?.subclass ? registry.get<SubclassData>("subclass", k.subclass)?.data.levels[level] ?? [] : [])];
-  for (const op of ops) if (op.op === "grant") out.push(...op.items);
-  return out;
+  const k = c.classes.find(x => x.class === classId), own = characterEdition(c);
+  const cls = registry.get<ClassData>("class", classId), sub = k?.subclass ? registry.get<SubclassData>("subclass", k.subclass) : undefined;
+  return [...opItems(registry, cls?.data.levels?.[level] ?? [], cls, own), ...opItems(registry, sub?.data.levels[level] ?? [], sub, own)];
 };
-const featItems = (registry: Registry, feat: string): string[] =>
-  (registry.get<FeatData>("feat", feat)?.data.grants ?? []).flatMap(op => op.op === "grant" ? op.items : []);
+const featItems = (registry: Registry, c: Character, feat: string): string[] => {
+  const e = registry.get<FeatData>("feat", feat);
+  return opItems(registry, e?.data.grants ?? [], e, characterEdition(c));
+};
 
 /** Apply one class level. Pure: on any problem returns { error } and the character is untouched. */
-export function applyLevel(c: Character, pl: Pick<LevelPlan, "class">, answers: LevelAnswers, registry: Registry, rng: Rng = Math.random): LevelResult {
-  const choices = answers.choices ?? {};
+export function applyLevel(c: Character, pl0: Pick<LevelPlan, "class">, answers: LevelAnswers, registry: Registry, rng: Rng = Math.random): LevelResult {
+  const choices = answers.choices ?? {}, pl = { class: classRef(c, pl0.class) };
   const p = plan(c, { kind: "level", classId: pl.class }, registry, choices);
   if ("error" in p) return p;
   const { env, steps } = p, value = env.cand, hpStep = steps[0] as Extract<Step, { kind: "hp" }>;
@@ -519,7 +556,7 @@ export function applyLevel(c: Character, pl: Pick<LevelPlan, "class">, answers: 
   }
   const sub = value.classes.find(k => k.class === pl.class)?.subclass;
   if (sub && !c.classes.find(k => k.class === pl.class)?.subclass) record["+subclass"] = sub;
-  const items = [...grantItems(registry, value, pl.class, p.level), ...value.feats.filter(f => !c.feats.includes(f)).flatMap(f => featItems(registry, f))];
+  const items = [...grantItems(registry, value, pl.class, p.level), ...value.feats.filter(f => !c.feats.includes(f)).flatMap(f => featItems(registry, value, f))];
   for (const id of items) value.inventory.push({ id, qty: 1, equipped: false, attuned: false });
   if (items.length) { record["+items"] = items; summary.push(`Gained: ${items.join(", ")}`); }
 

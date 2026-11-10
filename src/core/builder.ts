@@ -1,5 +1,6 @@
 import { titleCase } from "./words";
 import type { Registry } from "../content/registry";
+import { entryEdition, refIn, splitRef } from "../content/edition";
 import type { ClassData, FeatData, GrantsData, SubraceData } from "../content/types";
 import { abilityKey, abilityPickKey, describeDelta, increaseDelta, pickDelta, type AbilityDelta } from "./ability-increase";
 import { editionRules, type Edition } from "./edition";
@@ -60,9 +61,10 @@ export const newDraft = (): BuildDraft => ({ name: "", method: "point-buy", scor
 export function originFeats(d: BuildDraft, r: Registry): string[] {
   const out: string[] = [];
   for (const [kind, id] of [["race", d.race], ["subrace", d.subrace], ["background", d.background]] as const) {
-    for (const op of (id ? r.get<GrantsData>(kind, id)?.data.grants : undefined) ?? []) {
+    const entry = id ? r.get<GrantsData>(kind, id) : undefined;
+    for (const op of entry?.data.grants ?? []) {
       if (op.op !== "feat") continue;
-      const f = op.feat ?? d.choices[`${kind}:${id}:${op.id}`];
+      const f = op.feat !== undefined ? refIn(r, "feat", op.feat, entry ? entryEdition(entry) : undefined, d.edition ?? "2014") : d.choices[`${kind}:${id}:${op.id}`];
       if (typeof f === "string" && r.get<FeatData>("feat", f) && !out.includes(f)) out.push(f);
     }
   }
@@ -129,7 +131,7 @@ export function draftProblems(d: BuildDraft, r: Registry): string[] {
   if (d.subrace) {
     const s = r.get<SubraceData>("subrace", d.subrace);
     if (!s) out.push(`Unknown subrace ${d.subrace}`);
-    else if (s.data.race !== d.race) out.push(`${s.data.name} belongs to ${s.data.race}, not ${d.race ?? "no race"}`);
+    else if (s.data.race !== splitRef(d.race ?? "").id) out.push(`${s.data.name} belongs to ${s.data.race}, not ${d.race ? splitRef(d.race).id : "no race"}`);
   }
   if (d.background && !r.get("background", d.background)) out.push(`Unknown background ${d.background}`);
   if (!d.classId) out.push("Pick a class");

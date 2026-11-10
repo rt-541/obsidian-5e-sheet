@@ -1,7 +1,9 @@
 import type { Customization } from "./customize";
 import { newRowId, type ItemChange, type Character, type Combo, type CompanionEntry, type Npc } from "./character";
 import { validateCombo } from "./combos";
+import { canonRef, sameRef } from "../content/edition";
 import type { ActorStats } from "./derive";
+import { characterEdition } from "./edition";
 import type { ConditionData, ItemData, SpellData } from "../content/types";
 import { isVersatile } from "../content/types/item";
 import type { Registry } from "../content/registry";
@@ -390,7 +392,8 @@ export function apply(c0: Character, a: Action, lim: Limits): Applied {
     }
     case "inspiration": c.inspiration = a.on; break;
     case "addItem": {
-      const reg = lim.ctx?.registry, plain = { id: a.id, qty: 1, equipped: false, attuned: false };
+      // a reference to the character's own edition is stored plain; the other edition's keeps its `@year`
+      const reg = lim.ctx?.registry, own = characterEdition(c), plain = { id: canonRef(a.id, own), qty: 1, equipped: false, attuned: false };
       const item = reg ? entryItem(plain, reg) : undefined;
       if (a.base) {
         const v = reg ? entryVariant(plain, reg) : undefined, b = reg ? entryItem({ ...plain, id: a.base }, reg) : undefined;
@@ -403,7 +406,7 @@ export function apply(c0: Character, a: Action, lim: Limits): Applied {
         index = c.inventory.push({ ...plain, row: newRowId(c.inventory), ...(a.base ? { base: a.base } : {}) }) - 1;
       } else {
         // Potions and other plain items: one more instead of a second row.
-        index = c.inventory.findIndex(x => x.id === a.id);
+        index = c.inventory.findIndex(x => x.id !== undefined && sameRef(x.id, a.id, own));
         if (index >= 0) c.inventory[index].qty += 1; else index = c.inventory.push(plain) - 1;
       }
       if (!a.equip && !a.attune) break;
@@ -471,7 +474,7 @@ export function apply(c0: Character, a: Action, lim: Limits): Applied {
       break;
     }
     case "endConcentration": delete c.concentration; break;
-    case "addSpell": if (!c.spells.some(x => x.id === a.id)) c.spells.push({ id: a.id, prepared: false }); break;
+    case "addSpell": { const own = characterEdition(c); if (!c.spells.some(x => sameRef(x.id, a.id, own))) c.spells.push({ id: canonRef(a.id, own), prepared: false }); break; }
     case "removeSpell": { const gone = c.spells.splice(a.index, 1)[0]; if (gone) c.mainSpells = c.mainSpells.filter(k => k !== gone.id); break; }
     case "pinSpell": c.mainSpells = c.mainSpells.filter(k => k !== a.key); if (a.on) c.mainSpells.push(a.key); break;
     case "pin": c.mainPins = c.mainPins.filter(k => k !== a.ref); if (a.on) c.mainPins.push(a.ref); break;

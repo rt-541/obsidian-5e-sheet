@@ -1,3 +1,4 @@
+import { splitRef } from "../content/edition";
 import type { CompanionEntry, Character, Npc } from "./character";
 import type { ClassData, CreatureData, ItemData } from "../content/types";
 import { collectEffects, damageTraits, itemWorks, missingIds, modifierParts, notes, sumModifier, type EffectContext, type ModOpts, type SourcedEffects } from "./effects";
@@ -51,7 +52,7 @@ export function weaponProficiency(other: string[], known: boolean) {
   const have = new Set(other.map(weaponKey));
   return (name: string, id: string | undefined, category: "simple" | "martial" | undefined): boolean => {
     if (!known || !category) return true;
-    return have.has(`${category} weapon`) || have.has(weaponKey(name)) || (id !== undefined && have.has(weaponKey(id.replace(/-/g, " "))));
+    return have.has(`${category} weapon`) || have.has(weaponKey(name)) || (id !== undefined && have.has(weaponKey(splitRef(id).id.replace(/-/g, " "))));
   };
 }
 export interface ResourceRow { id: string; name: string; max: number; used: number; reset: "short" | "long" | "dawn" | "none"; derived: boolean; source?: string; refill?: DerivedResource["refill"]; unlimited?: string; }

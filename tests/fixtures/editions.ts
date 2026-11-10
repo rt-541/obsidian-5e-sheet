@@ -32,6 +32,18 @@ const cls = (id: string, name: string, extra: Fm = {}): Fm => ({
   type: "5e-class", schema: 1, id, name, source: "TST", hitDie: 8, saves: ["wis", "con"], tags: ["5e/class", ...(extra.tags as string[] ?? [])],
   levels: { 1: [{ id: `${id}-guard`, op: "feature", name: "Guard", text: "Invented." }] },
 });
+const subclass = (id: string, name: string, extra: Fm = {}): Fm => ({
+  type: "5e-subclass", schema: 1, id, name, source: "TST", tags: ["5e/subclass", ...(extra.tags as string[] ?? [])],
+  levels: { 1: [{ id: `${id}-glow`, op: "feature", name: "Glow", text: "Invented." }] },
+});
+const race = (id: string, name: string, extra: Fm = {}): Fm => ({
+  type: "5e-race", schema: 1, id, name, source: "TST", size: "Small", speed: 25, tags: ["5e/race", ...(extra.tags as string[] ?? [])],
+  grants: [{ id: `${id}-hop`, op: "feature", name: "Hop", text: "Invented." }],
+});
+const subrace = (id: string, name: string, of: string, extra: Fm = {}): Fm => ({
+  type: "5e-subrace", schema: 1, id, name, race: of, source: "TST", tags: ["5e/subrace", ...(extra.tags as string[] ?? [])],
+  grants: [{ id: `${id}-sink`, op: "feature", name: "Sink", text: "Invented." }],
+});
 /** Extra frontmatter for a library: the 2024 one always, the plain ones only when stampPlain. */
 const withStamp = (fm: Fm, on: boolean, year: string, replaces?: string[]): Fm => {
   if (!on) return fm;
@@ -51,6 +63,9 @@ export function editionNotes(opts: EditionOpts = {}): Notes {
     put("WotC", "Feats/Keen.md", s(feat("keen", "Keen")));
     put("WotC", "Classes/Warden/Warden.md", s(cls("warden", "Warden"), ["lantern-keeper"]));
     put("WotC", "Classes/Lantern-keeper/Lantern-keeper.md", s(cls("lantern-keeper", "Lantern-keeper")));
+    put("WotC", "Classes/Warden/Subclasses/Lantern.md", s(subclass("lantern", "Lantern")));
+    put("WotC", "Races/Fenling/Fenling.md", s(race("fenling", "Fenling")));
+    put("WotC", "Races/Fenling/Subraces/Marsh-fenling.md", s(subrace("marsh-fenling", "Marsh-fenling", "fenling")));
   }
   if (only.has("WotC 2024")) {
     const s = (fm: Fm, replaces?: string[]) => withStamp(fm, true, "2024", replaces);

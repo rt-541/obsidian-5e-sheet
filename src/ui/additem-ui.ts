@@ -1,3 +1,5 @@
+import { refFor, sameRef } from "../content/edition";
+import { characterEdition } from "../core/edition";
 import type { Entry } from "../content/registry";
 import { sourceLabel } from "../content/registry";
 import type { ItemData } from "../content/types";
@@ -149,7 +151,7 @@ export function itemResults(ctl: SheetController): { hint: boolean; rows: Entry<
 }
 
 function resultRow(ctl: SheetController, e: Entry<ItemData>): HTMLElement {
-  const owned = ctl.character!.inventory.some(x => x.id === e.id), gear = isGear(e.data) || !!e.data.variant;
+  const own = characterEdition(ctl.character!), owned = ctl.character!.inventory.some(x => x.id !== undefined && sameRef(x.id, refFor(e, own), own)), gear = isGear(e.data) || !!e.data.variant;
   const open = ctl.itemSearch.selected === e.id;
   const label = owned && !gear ? "+1" : "Add";
   const toggle = () => { ctl.itemSearch.selected = open ? undefined : e.id; ctl.emit(); };

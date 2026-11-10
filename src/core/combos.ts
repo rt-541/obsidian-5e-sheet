@@ -1,3 +1,5 @@
+import { sameRef } from "../content/edition";
+import { characterEdition } from "./edition";
 import { slug } from "../content/registry";
 import type { ItemData, SpellData } from "../content/types";
 import type { ActionDef } from "../content/types/ops";
@@ -131,7 +133,7 @@ export function comboViews(c: Character, st: ActorStats, companions: (ActorStats
         else { v.feature = f; v.ref = `feature:${f.key}`; v.toggle = st.toggles.find(t => t.ref === `feature:${f.key}`); }
       }
       if (u.item) {
-        const idx = c.inventory.findIndex(e => e.id === u.item || (e.name && same(e.name, u.item!)));
+        const idx = c.inventory.findIndex(e => (e.id !== undefined && sameRef(e.id, u.item!, characterEdition(c))) || (e.name && same(e.name, u.item!)));
         const e = c.inventory[idx], it = e ? entryItem(e, r) : undefined;
         if (!e) problems.push(`${u.item} is not in your inventory`);
         else {

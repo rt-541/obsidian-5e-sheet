@@ -1,4 +1,6 @@
+import { canonRef, refFor, splitRef } from "../content/edition";
 import { sourceLabel } from "../content/registry";
+import { characterEdition } from "../core/edition";
 import type { SpellData } from "../content/types";
 import { castRow, spellRows, type SpellRow } from "../core/spells";
 import type { ActorStats } from "../core/derive";
@@ -233,7 +235,7 @@ export function addSpellPanel(ctl: SheetController, panel: object = fallbackPane
   let s = addStates.get(panel);
   if (!s) { s = initialAddState(ctl, edit); addStates.set(panel, s); }
   const st = s;
-  const c = ctl.character!, mine = new Set(c.classes.map(x => x.class)), owned = new Set(c.spells.map(x => x.id));
+  const c = ctl.character!, own = characterEdition(c), mine = new Set(c.classes.map(x => splitRef(x.class).id)), owned = new Set(c.spells.map(x => canonRef(x.id, own)));
   const canMake = !!ctl.host.saveSpell && !edit;
   const root = h("div", { cls: "fe-add-spell" }), body = h("div", {});
   root.append(body);
@@ -259,7 +261,7 @@ export function addSpellPanel(ctl: SheetController, panel: object = fallbackPane
           h("div", { cls: "fe-tags" }, h("span", { cls: "fe-tag", text: e.data.level === 0 ? "Cantrip" : `Level ${e.data.level}`, data: { badge: "level" } }),
             h("span", { cls: "fe-tag", text: e.data.school, data: { badge: "school" } }),
             ...e.data.classes.map(k => h("span", { cls: `fe-tag ${mine.has(k) ? "is-mine" : ""}`.trim(), text: cap(k), data: { badge: "class" } })))),
-        owned.has(e.id) ? h("button", { cls: "fe-btn", text: "Known", attrs: { disabled: "", "aria-label": `${e.name} is already known` }, data: { known: e.id } })
+        owned.has(refFor(e, own)) ? h("button", { cls: "fe-btn", text: "Known", attrs: { disabled: "", "aria-label": `${e.name} is already known` }, data: { known: e.id } })
           : btn("Add", () => { ctl.dispatch({ type: "addSpell", id: e.id }); ctl.host.notify(`Added ${e.name}`); }, "", { add: e.id })));
       if (rows.length > MAX_ROWS) list.append(h("div", { cls: "fe-faint", data: { more: "" }, text: `${rows.length - MAX_ROWS} more: keep typing.` }));
       if (!rows.length && hidden > 0 && q) {

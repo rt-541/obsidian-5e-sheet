@@ -2,6 +2,7 @@ import type { Registry } from "../content/registry";
 import { slug } from "../content/registry";
 import { findOverlay, overlayOptionList, type OverlayEntry, type OverlayKind } from "../content/overlay";
 import { characterEdition, type Edition } from "./edition";
+import { refIn, sameRef, splitRef } from "../content/edition";
 import { abilityKey } from "./ability-increase";
 import type { ActionDef, AttackOptionDef, ClassData, FeatData, GrantsData, Op, OptionDef, Progression, Reset, SubclassData, SubraceData, TableRow, ToggleDef } from "../content/types";
 import { abilityMod, profBonus } from "./abilities";
@@ -187,8 +188,8 @@ export function progress(c: Character, registry: Registry): Progress {
         const pick = choice(abilityKey("feat", src.keyBase.slice(5), 0));
         const profs = op.proficiencies.flatMap(p => p === "save:<increased>" ? (Array.isArray(pick) && typeof pick[0] === "string" ? [`save:${pick[0]}`] : []) : [p])
           .filter(p => !seen.other.has(p) && !(p.startsWith("save:") && seen.saves.has(p.slice(5) as Abil)));
-        const spells = op.spells.filter(id => !out.grantedSpells.some(g => g.id === id));
-        const items = op.items.filter(id => !out.grantedItems.some(g => g.id === id));
+        const spells = op.spells.map(id => refIn(registry, "spell", id, src.edition, characterEdition(c))).filter(id => !out.grantedSpells.some(g => g.id === id));
+        const items = op.items.map(id => refIn(registry, "item", id, src.edition, characterEdition(c))).filter(id => !out.grantedItems.some(g => g.id === id));
         if (!profs.length && !op.languages.length && !spells.length && !items.length && op.speed === undefined && op.darkvision === undefined && !op.speeds) continue;
         run([{ ...op, proficiencies: profs, spells, items }], withLists);
         continue;
@@ -201,7 +202,7 @@ export function progress(c: Character, registry: Registry): Progress {
   const featsRun = new Set<string>();
   const giveFeat = (id: string, key: string, src: Src, fixed: boolean) => {
     out.grantedFeats.push({ id, key, source: src.label, fixed });
-    if (c.feats.includes(id) || featsRun.has(id)) return;
+    if (c.feats.some(f => sameRef(f, id, characterEdition(c))) || featsRun.has(id)) return;
     featsRun.add(id);
     origin<FeatData>("feat", id);
   };
@@ -213,8 +214,8 @@ export function progress(c: Character, registry: Registry): Progress {
         case "grant":
           addProf(op.proficiencies);
           op.languages.forEach(l => seen.langs.add(l));
-          op.spells.forEach(id => out.grantedSpells.push({ id, source: src.label }));
-          op.items.forEach(id => out.grantedItems.push({ id, source: src.label }));
+          op.spells.forEach(id => out.grantedSpells.push({ id: refIn(registry, "spell", id, src.edition, characterEdition(c)), source: src.label }));
+          op.items.forEach(id => out.grantedItems.push({ id: refIn(registry, "item", id, src.edition, characterEdition(c)), source: src.label }));
           if (op.speed !== undefined) out.speed = op.speed;
           if (op.speeds) out.effects.push({ source: src.label, effects: { speeds: op.speeds } });
           if (op.darkvision !== undefined) out.darkvision = Math.max(out.darkvision ?? 0, op.darkvision);
@@ -273,7 +274,7 @@ export function progress(c: Character, registry: Registry): Progress {
           break;
         }
         case "feat": {
-          if (op.feat !== undefined) { giveFeat(op.feat, key, src, true); break; }
+          if (op.feat !== undefined) { giveFeat(refIn(registry, "feat", op.feat, src.edition, characterEdition(c)), key, src, true); break; }
           const v = choice(key, src.classId, src.level);
           if (typeof v === "string" && registry.get("feat", v)) giveFeat(v, key, src, false);
           else {
@@ -288,7 +289,7 @@ export function progress(c: Character, registry: Registry): Progress {
           break;
         }
         case "choose": {
-          const label = op.what === "option" ? optionListLabel(op.list ?? "", op.count, src.classId) : op.what === "mastery" ? `Choose ${plural(op.count, "weapon")} to master` : `Choose ${plural(op.count, op.what)}`;
+          const label = op.what === "option" ? optionListLabel(op.list ?? "", op.count, src.classId === undefined ? undefined : splitRef(src.classId).id) : op.what === "mastery" ? `Choose ${plural(op.count, "weapon")} to master` : `Choose ${plural(op.count, op.what)}`;
           const v = choice(key, src.classId, src.level);
           const pend = () => out.pending.push({ key, source: src.label, level: src.level, op, label });
           if (!isStrs(v) || v.length !== op.count) { if (v !== undefined) problem(`${src.label}: the saved pick for ${op.id} does not have ${op.count} entries`); pend(); break; }
@@ -340,7 +341,7 @@ export function progress(c: Character, registry: Registry): Progress {
   origin("race", c.race);
   if (c.subrace) {
     const e = origin<SubraceData>("subrace", c.subrace);
-    if (e && c.race && e.data.race !== c.race) problem(`subrace ${e.data.name} belongs to ${e.data.race}, not ${c.race}`);
+    if (e && c.race && e.data.race !== splitRef(c.race).id) problem(`subrace ${e.data.name} belongs to ${e.data.race}, not ${c.race}`);
   }
   origin("background", c.background);
   for (const f of c.feats) origin<FeatData>("feat", f);
@@ -351,8 +352,10 @@ export function progress(c: Character, registry: Registry): Progress {
     const d = e.data, n = k.level;
     const sub = k.subclass ? registry.get<SubclassData>("subclass", k.subclass) : undefined;
     if (k.subclass && !sub) out.unknown.push(`subclass:${k.subclass}`);
-    if (sub && sub.data.class !== k.class) problem(`subclass ${sub.data.name} belongs to ${sub.data.class}, not ${k.class}`);
-    const goodSub = sub && sub.data.class === k.class ? sub : undefined;
+    // a stored class may be qualified (`warden@2014`); a note's own `class` is always plain
+    const classId = splitRef(k.class).id;
+    if (sub && sub.data.class !== classId) problem(`subclass ${sub.data.name} belongs to ${sub.data.class}, not ${classId}`);
+    const goodSub = sub && sub.data.class === classId ? sub : undefined;
     const base = { kind: "class" as const, keyBase: `class:${k.class}`, classId: k.class, classLevel: n, ...(d.options ? { options: d.options } : {}), subclass: k.subclass, ...(d.overlay === false ? { noOverlay: true } : {}), ...(e.edition ? { edition: e.edition } : {}) };
     if (d.spellcasting) casters.set(`${k.class}:class`, { class: k.class, className: d.name, from: "class", abil: d.spellcasting.abil, progression: d.spellcasting.progression, level: n });
     for (let L = 1; L <= n; L++) {

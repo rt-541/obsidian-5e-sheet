@@ -1,6 +1,8 @@
+import { sameRef } from "../content/edition";
 import type { Registry } from "../content/registry";
 import type { ItemData, MasteryData } from "../content/types";
 import type { Character, InventoryEntry } from "./character";
+import { characterEdition } from "./edition";
 
 /**
  * The mastery property to show on an attack row: the row's weapon (or the base a generic variant is made from) is one the character has mastered,
@@ -9,7 +11,8 @@ import type { Character, InventoryEntry } from "./character";
  */
 export function masteryOfRow(c: Character, reg: Registry, e: InventoryEntry, it: ItemData | undefined): { id: string; name: string } | undefined {
   const mastered = c.mastery; if (!mastered?.length) return undefined;
-  if (![e.id, e.base].some(id => id !== undefined && mastered.includes(id))) return undefined;
+  const own = characterEdition(c);
+  if (![e.id, e.base].some(id => id !== undefined && mastered.some(m => sameRef(m, id, own)))) return undefined;
   const pid = it?.weapon?.mastery; if (!pid) return undefined;
   const note = reg.get<MasteryData>("mastery", pid); if (!note) return undefined;
   return { id: pid, name: note.data.name };

@@ -1,3 +1,4 @@
+import { refFor, sameRef, splitRef } from "../content/edition";
 import { editionRules } from "../core/edition";
 import type { GrantsData, SubraceData } from "../content/types";
 import { gearList, STANDARD_ARRAY, POINT_BUY_BUDGET, type ScoreMethod } from "../core/builder";
@@ -29,19 +30,19 @@ const raceWord = (ctl: BuilderController): string => editionRules(ctl.edition())
 
 function racePage(ctl: BuilderController): HTMLElement {
   const reg = ctl.pickers(), d = ctl.draft;
-  const subs = d.race ? reg.list<SubraceData>("subrace").filter(e => e.data.race === d.race) : [];
+  const own = ctl.edition(), subs = d.race ? reg.list<SubraceData>("subrace").filter(e => e.data.race === splitRef(d.race!).id) : [];
   return body("race", hint(`Pick a ${raceWord(ctl).toLowerCase()}.`),
-    ...reg.list<GrantsData>("race").map(e => aboutRow(ctl, "race", e, originPitch(e, reg), d.race === e.id, () => ctl.setRace(e.id))),
+    ...reg.list<GrantsData>("race").map(e => aboutRow(ctl, "race", e, originPitch(e, reg), sameRef(d.race ?? "", refFor(e, own), own) && !!d.race, () => ctl.setRace(e.id))),
     subs.length ? hint("Subrace") : null,
     ...(subs.length ? [choiceButton("No subrace", undefined, !d.subrace, undefined, () => ctl.setSubrace(undefined), { subrace: "" }),
-      ...subs.map(e => choiceButton(e.name, undefined, d.subrace === e.id, undefined, () => ctl.setSubrace(e.id), { subrace: e.id }, sourceLabel(e)))] : []));
+      ...subs.map(e => choiceButton(e.name, undefined, !!d.subrace && sameRef(d.subrace, refFor(e, own), own), undefined, () => ctl.setSubrace(e.id), { subrace: e.id }, sourceLabel(e)))] : []));
 }
 
 function backgroundPage(ctl: BuilderController): HTMLElement {
-  const d = ctl.draft;
+  const d = ctl.draft, own = ctl.edition();
   return body("background", hint("Pick a background."),
     choiceButton("No background", undefined, !d.background, undefined, () => ctl.setBackground(undefined), { background: "" }),
-    ...ctl.pickers().list<GrantsData>("background").map(e => choiceButton(e.name, undefined, d.background === e.id, undefined, () => ctl.setBackground(e.id), { background: e.id }, sourceLabel(e))));
+    ...ctl.pickers().list<GrantsData>("background").map(e => choiceButton(e.name, undefined, !!d.background && sameRef(d.background, refFor(e, own), own), undefined, () => ctl.setBackground(e.id), { background: e.id }, sourceLabel(e))));
 }
 
 const METHODS: [ScoreMethod, string][] = [["point-buy", "Point buy"], ["standard-array", "Standard array"], ["manual", "Manual"]];
@@ -72,9 +73,9 @@ function scoresPage(ctl: BuilderController): HTMLElement {
 }
 
 function classPage(ctl: BuilderController): HTMLElement {
-  const d = ctl.draft;
+  const d = ctl.draft, own = ctl.edition();
   return body("class", hint("Pick a class (level 1)."),
-    ...ctl.pickers().list<ClassData>("class").map(e => aboutRow(ctl, "class", e, classPitch(e), d.classId === e.id, () => ctl.setClass(e.id))));
+    ...ctl.pickers().list<ClassData>("class").map(e => aboutRow(ctl, "class", e, classPitch(e), !!d.classId && sameRef(d.classId, refFor(e, own), own), () => ctl.setClass(e.id))));
 }
 
 /** `5d4*10` read as "roll 5d4 × 10 gp". */

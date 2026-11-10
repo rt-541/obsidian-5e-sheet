@@ -1,3 +1,4 @@
+import { splitRef } from "../content/edition";
 import type { GrantedSpell, ItemData, SpellData } from "../content/types";
 import type { Character } from "./character";
 import type { ActorStats } from "./derive";
@@ -35,7 +36,7 @@ function spellExtra(id: string, data: SpellData, stats: ActorStats): string {
   const vars: Record<string, number> = { ...numericScales(stats.progress.scales), ...stats.mods, prof: stats.prof, level: stats.level, total: stats.level };
   let out = "";
   for (const s of stats.effects) for (const d of s.effects.spellDamage ?? []) {
-    if (d.spell !== undefined && d.spell !== id) continue;
+    if (d.spell !== undefined && d.spell !== splitRef(id).id) continue;
     if (d.level !== undefined && d.level !== data.level) continue;
     if (d.school !== undefined && simple(d.school) !== simple(data.school)) continue;
     if (d.damageType && !d.damageType.map(simple).includes(simple(data.damage?.type))) continue;
