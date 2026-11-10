@@ -4,7 +4,7 @@ import { gearList, STANDARD_ARRAY, POINT_BUY_BUDGET, type ScoreMethod } from "..
 import { ABILS, type Abil } from "../core/types";
 import type { BuilderController, BuilderPage } from "./builder";
 import { clear, h } from "./h";
-import { asiPage, choiceButton, optionalPage, pickPage, spellsPage, stepCounter, subclassPage } from "./levelup-ui";
+import { asiPage, choiceButton, optionalPage, patternPage, pickPage, spellsPage, stepCounter, subclassPage } from "./levelup-ui";
 import { btn } from "./widgets";
 import { classPitch, originPitch } from "./builder-pitch";
 import { entryCard } from "./details";
@@ -61,14 +61,14 @@ function scoresPage(ctl: BuilderController): HTMLElement {
             on: { change: (e: Event) => ctl.setScore(a, +(e.target as HTMLInputElement).value) } });
     const bLess = btn("-", () => ctl.nudgeBonus(a, -1)), bMore = btn("+", () => ctl.nudgeBonus(a, 1));
     bLess.setAttribute("aria-label", `Less ${ABIL_NAME[a]} bonus`); bMore.setAttribute("aria-label", `More ${ABIL_NAME[a]} bonus`);
-    const bonus = d.bonus[a] ?? 0, fromRace = ctl.originBonus()[a] ?? 0, total = ctl.character.abilities[a];
+    const bonus = d.bonus[a] ?? 0, parts = ctl.originParts().filter(p => p.delta[a]), total = ctl.character.abilities[a];
     return h("div", { cls: "fe-kv", data: { abil: a } }, h("span", { cls: "fe-grow", text: ABIL_NAME[a] }), base,
       h("span", { cls: "fe-kv" }, bLess, h("span", { cls: "fe-faint", text: bonus ? sgn(bonus) : "+0", data: { bonus: a } }), bMore),
-      fromRace ? h("span", { cls: "fe-faint", text: `${raceWord(ctl).toLowerCase()} ${sgn(fromRace)}`, data: { origin: a } }) : null,
+      parts.length ? h("span", { cls: "fe-faint", text: parts.map(p => `${p.source === "race" ? raceWord(ctl).toLowerCase() : "background"} ${sgn(p.delta[a]!)}`).join(", "), data: { origin: a } }) : null,
       h("span", { cls: "fe-name", text: `= ${total}`, data: { final: a } }));
   });
   return body("scores", h("div", { cls: "fe-filters" }, ...METHODS.map(([m, label]) => choiceButton(label, undefined, d.method === m, undefined, () => ctl.setMethod(m), { method: m }))),
-    hint(note), hint(`Right-hand buttons add bonuses by hand; a ${raceWord(ctl).toLowerCase()}'s own ability increases are added for you.`), ...rows);
+    hint(note), hint(`Right-hand buttons add bonuses by hand; a ${raceWord(ctl).toLowerCase()}'s own ability increases are added for you${ctl.originParts().some(p => p.source === "background") ? ", and so are the background's" : ""}.`), ...rows);
 }
 
 function classPage(ctl: BuilderController): HTMLElement {
@@ -124,6 +124,7 @@ function stepPage(ctl: BuilderController, p: Extract<BuilderPage, { id: "step" }
     case "subclass": return subclassPage(ctl, s, st);
     case "asi": return asiPage(ctl, s, st);
     case "pick": return pickPage(ctl, s, st);
+    case "pattern": return patternPage(ctl, s, st);
     case "optional": return optionalPage(ctl, s, st);
     case "spells": return spellsPage(ctl, s, st);
   }

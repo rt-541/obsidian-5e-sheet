@@ -10,7 +10,7 @@ export type { ConditionData } from "./condition";
 export type { ItemData, GrantedSpell, ArmorData, WeaponData } from "./item";
 export type { CreatureData, CreatureAttack } from "./creature";
 export type { ClassData, AbilReq } from "./class";
-export type { SubclassData, GrantsData, SubraceData, FeatData, AbilityIncrease, AbilityChoose } from "./origin";
+export type { SubclassData, GrantsData, SubraceData, FeatData, AbilityIncrease, AbilityChoose, AbilityPick } from "./origin";
 export type { Op, OpName, ActionDef, OptionDef, TableRow, Progression, Reset } from "./ops";
 export type { ToggleDef, ToggleCost } from "./toggle";
 export type { AttackOptionDef } from "./attack-option";

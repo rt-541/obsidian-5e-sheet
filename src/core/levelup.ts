@@ -1,7 +1,7 @@
 import { sourceLabel, type Registry } from "../content/registry";
 import type { AbilReq, ClassData, FeatData, GrantsData, Op, OptionDef, SpellData, SubclassData, SubraceData } from "../content/types";
 import { abilityMod } from "./abilities";
-import { abilityKey, describeDelta, increaseDelta } from "./ability-increase";
+import { abilityKey, abilityPickKey, describeDelta, describePattern, increaseDelta, pickDelta } from "./ability-increase";
 import type { Character, HpMethod, LevelEntry } from "./character";
 import { deriveCharacter } from "./derive";
 import { progress, resolveOptionList, type PendingChoice, type Progress } from "./progression";
@@ -73,6 +73,8 @@ export type Step =
   | { kind: "subclass"; key: string; label: string; source: string; options: StepOption[] }
   | { kind: "asi"; key: string; label: string; source: string; maxScores: Record<Abil, number> }
   | { kind: "pick"; key: string; label: string; source: string; what: "skills" | "expertise" | "tools" | "languages" | "option" | "abilities"; count: number; /** Option list name when `what` is option. */ list?: string; options: StepOption[]; /** No list to choose from: type the names. */ free: boolean }
+  /** A background's (or race's) ability pick: choose a pattern, then an ability for each number. `scores` are the scores before it applies. */
+  | { kind: "pattern"; key: string; label: string; source: string; from: Abil[]; patterns: number[][]; scores: Record<Abil, number> }
   | { kind: "optional"; key: string; label: string; source: string; name: string; text?: string }
   | { kind: "spells"; key: string; label: string; source: string; count: number; cantrips: number; swap: number; maxLevel: number; options: StepOption[] };
 export interface LevelPlan { class: string; className: string; /** Class level after this level. */ level: number; total: number; first: boolean; steps: Step[]; }
@@ -169,13 +171,16 @@ function stepOf(p: PendingChoice, env: Env, maxScores: () => Record<Abil, number
  */
 function abilityPicks(env: Env, c: Character, addedFeats: string[]): Step[] {
   const out: Step[] = [], reg = env.registry;
-  const add = (kind: "race" | "subrace" | "feat", id: string | undefined) => {
+  const kindWord = (k: string) => (k === "race" ? editionRules(characterEdition(c)).raceWord : titleCase(k));
+  const add = (kind: "race" | "subrace" | "background" | "feat", id: string | undefined) => {
     const e = id ? reg.get<GrantsData | SubraceData | FeatData>(kind, id) : undefined;
+    if (e?.data.abilityPick && kind !== "feat") out.push({ kind: "pattern", key: abilityPickKey(kind, id!), label: `Ability score increase: ${e.data.abilityPick.patterns.map(describePattern).join(" or ")}`,
+      source: `${kindWord(kind)}: ${e.name}`, from: e.data.abilityPick.from, patterns: e.data.abilityPick.patterns, scores: { ...c.abilities } });
     e?.data.ability?.choose.forEach((g, i) => out.push({ kind: "pick", key: abilityKey(kind, id!, i), what: "abilities", count: g.count, free: false,
-      label: `Ability score increase: +${g.amount} to ${g.count === 1 ? "one ability" : `${g.count} abilities`}`, source: `${titleCase(kind)}: ${e.name}`,
+      label: `Ability score increase: +${g.amount} to ${g.count === 1 ? "one ability" : `${g.count} abilities`}`, source: `${kindWord(kind)}: ${e.name}`,
       options: g.from.map(a => ({ id: a, name: ABIL_NAME[a] })) }));
   };
-  if (env.mode.kind === "resolve" && c.classes.length === 0) { add("race", c.race); add("subrace", c.subrace); }
+  if (env.mode.kind === "resolve" && c.classes.length === 0) { add("race", c.race); add("subrace", c.subrace); add("background", c.background); }
   if (env.mode.kind === "level") for (const f of addedFeats) add("feat", f);
   return out;
 }
@@ -288,6 +293,12 @@ function checkStep(s: Exclude<Step, { kind: "hp" }>, v: unknown, env: Env, taken
       }
       return { ok: { abilities: Object.fromEntries(entries) } };
     }
+    case "pattern": {
+      const delta = pickDelta({ from: s.from, patterns: s.patterns }, v);
+      if (!delta) return { error: `${label}: pick one of the patterns and a different listed ability for each number` };
+      const a = v as { pattern: number; to: Abil[] };
+      return { ok: { pattern: a.pattern, to: [...a.to] } };
+    }
     case "optional": {
       if (typeof v !== "boolean") return { error: `${label}: answer yes or no` };
       return { ok: v };
@@ -355,6 +366,7 @@ function commitSteps(steps: Step[], choices: Record<string, unknown>, env: Env, 
     }
     record[s.key] = r.ok;
     if (s.kind === "subclass") summary.push(`Subclass: ${optionName(s, r.ok as string)}`);
+    else if (s.kind === "pattern") summary.push(`${s.source}: ${describeDelta(pickDelta({ from: s.from, patterns: s.patterns }, r.ok)!)}`);
     else if (s.kind === "optional") summary.push(`Optional feature: ${s.name} (${r.ok === true ? "taken" : "not taken"})`);
     else if (s.kind === "pick") summary.push(`${s.what === "option" ? titleCase(s.list ?? "choice") : titleCase(s.what)}: ${(r.ok as string[]).map(id => optionName(s, id)).join(", ")}`);
     else if (s.kind === "asi") {

@@ -1,8 +1,8 @@
 import { titleCase } from "./words";
 import type { Registry } from "../content/registry";
 import type { ClassData, GrantsData, SubraceData } from "../content/types";
-import { abilityKey, describeDelta, increaseDelta, type AbilityDelta } from "./ability-increase";
-import type { Edition } from "./edition";
+import { abilityKey, abilityPickKey, describeDelta, increaseDelta, pickDelta, type AbilityDelta } from "./ability-increase";
+import { editionRules, type Edition } from "./edition";
 import { newCharacter, writeInto, type Character, type InventoryEntry } from "./character";
 import { applyLevel, applyResolve, planLevel, planResolve, type Step } from "./levelup";
 import { ABILS, type Abil, type Rng } from "./types";
@@ -54,19 +54,34 @@ export interface BuildDraft {
 export const newDraft = (): BuildDraft => ({ name: "", method: "point-buy", scores: defaultScores("point-buy"), bonus: {}, choices: {} });
 
 /**
- * Increases from the race's and subrace's `ability` field: fixed amounts plus the abilities picked in `choices` (`race:<id>:ability`).
- * Groups still unanswered add nothing yet.
+ * Increases from the race's, subrace's and background's `ability` field (fixed amounts plus the abilities picked in `choices`, `race:<id>:ability`)
+ * and their `abilityPick` (the answer under `<kind>:<id>:pick`). Groups and picks still unanswered add nothing yet.
  */
-export function originBonus(d: BuildDraft, r?: Registry): AbilityDelta {
-  const out: AbilityDelta = {};
+export function originParts(d: BuildDraft, r?: Registry): { source: "race" | "background"; delta: AbilityDelta }[] {
+  const out: { source: "race" | "background"; delta: AbilityDelta }[] = [];
   if (!r) return out;
-  for (const [kind, id] of [["race", d.race], ["subrace", d.subrace]] as const) {
-    const inc = id ? r.get<GrantsData>(kind, id)?.data.ability : undefined;
+  for (const [kind, id] of [["race", d.race], ["subrace", d.subrace], ["background", d.background]] as const) {
+    const data = id ? r.get<GrantsData>(kind, id)?.data : undefined, inc = data?.ability;
     const { delta } = increaseDelta(inc, (inc?.choose ?? []).map((_g, i) => d.choices[abilityKey(kind, id!, i)]));
-    for (const [a, n] of Object.entries(delta)) out[a as Abil] = (out[a as Abil] ?? 0) + (n as number);
+    const picked = data?.abilityPick ? pickDelta(data.abilityPick, d.choices[abilityPickKey(kind, id!)]) : undefined;
+    const sum: AbilityDelta = {};
+    for (const [a, n] of [...Object.entries(delta), ...Object.entries(picked ?? {})]) sum[a as Abil] = (sum[a as Abil] ?? 0) + (n as number);
+    if (Object.keys(sum).length) out.push({ source: kind === "background" ? "background" : "race", delta: sum });
   }
   return out;
 }
+
+export function originBonus(d: BuildDraft, r?: Registry): AbilityDelta {
+  const out: AbilityDelta = {};
+  for (const p of originParts(d, r)) for (const [a, n] of Object.entries(p.delta)) out[a as Abil] = (out[a as Abil] ?? 0) + (n as number);
+  return out;
+}
+
+/** "race", "background" or "species and background": only the sources that added something, for the summary. */
+const originWords = (d: BuildDraft, r: Registry): string => {
+  const word = editionRules(d.edition).raceWord.toLowerCase();
+  return [...new Set(originParts(d, r).map(p => p.source === "race" ? word : "background"))].join(" and ");
+};
 
 /** Base scores plus the manual bonus and the race's own increases; the increases stop at 20 (a manual score already above stays as it is). */
 export const finalScores = (d: BuildDraft, r?: Registry): Scores => {
@@ -139,7 +154,11 @@ export function baseCharacter(d: BuildDraft, r?: Registry): Character {
  */
 export function buildSteps(d: BuildDraft, r: Registry): { origin: Step[]; level: Step[]; error?: string } {
   if (!d.race && !d.classId) return { origin: [], level: [] };
-  const base = baseCharacter(d, r), origin = planResolve(base, r, d.choices);
+  const base = baseCharacter(d, r), origin = planResolve(base, r, d.choices).map(s => {
+    if (s.kind !== "pattern") return s;
+    const { [s.key]: _own, ...others } = d.choices;
+    return { ...s, scores: finalScores({ ...d, choices: others }, r) };
+  });
   if (!d.classId) return { origin, level: [] };
   const p = planLevel(base, d.classId, r, d.choices);
   if ("error" in p) return { origin, level: [], error: p.error };
@@ -165,12 +184,13 @@ function addItems(c: Character, r: Registry, ids: string[]) {
 export function buildCharacter(d: BuildDraft, r: Registry, rng: Rng = Math.random): { value: Character; summary: string[] } | { error: string } {
   const problems = draftProblems(d, r);
   if (problems.length) return { error: problems[0] };
-  const open = buildSteps(d, r).origin.find((s): s is Extract<Step, { kind: "pick" }> => s.kind === "pick" && s.what === "abilities" && !(s.key in d.choices));
-  if (open) return { error: `${open.source}: ${open.label} still needs an answer` };
+  const open = buildSteps(d, r).origin.find(s => (s.kind === "pick" && s.what === "abilities" && !(s.key in d.choices))
+    || (s.kind === "pattern" && pickDelta({ from: s.from, patterns: s.patterns }, d.choices[s.key]) === undefined));
+  if (open && open.kind !== "hp") return { error: `${open.source}: ${open.label} still needs an answer` };
   let c = baseCharacter(d, r);
   const summary: string[] = [];
   const gained = originBonus(d, r);
-  if (Object.keys(gained).length) summary.push(`Ability scores from race: ${describeDelta(gained)}`);
+  if (Object.keys(gained).length) summary.push(`Ability scores from ${originWords(d, r)}: ${describeDelta(gained)}`);
   if (planResolve(c, r, d.choices).length) {
     const o = applyResolve(c, { choices: d.choices }, r);
     if ("error" in o) return o;

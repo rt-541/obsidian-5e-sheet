@@ -8,8 +8,10 @@ export interface SubclassData { name: string; class: string; options?: Record<st
 /** Ability score increase of a race, subrace or feat: fixed amounts plus "pick `count` of `from`, +`amount` each" groups. */
 export interface AbilityChoose { from: Abil[]; count: number; amount: number; }
 export interface AbilityIncrease { fixed: Partial<Record<Abil, number>>; choose: AbilityChoose[]; }
+/** "Pick one pattern, then give each number of it to a different ability of `from`" (a background's ability scores). */
+export interface AbilityPick { from: Abil[]; patterns: number[][]; }
 /** Race, subrace, background and feat: a flat list of grants. */
-export interface GrantsData { name: string; grants: Op[]; ability?: AbilityIncrease; /** false: the built-in mechanics never fill in this note. */ overlay?: false; }
+export interface GrantsData { name: string; grants: Op[]; ability?: AbilityIncrease; abilityPick?: AbilityPick; /** false: the built-in mechanics never fill in this note. */ overlay?: false; }
 export interface SubraceData extends GrantsData { race: string; }
 export interface FeatData extends GrantsData { prerequisite?: string; }
 
@@ -43,6 +45,18 @@ export function parseAbilityIncrease(v: unknown, at: string, e: Errs): AbilityIn
   return Object.keys(fixed).length || choose.length ? { fixed, choose } : undefined;
 }
 
+/** `abilityPick: { from: [<abil>, ...], patterns: [[2, 1], [1, 1, 1]] }`. */
+export function parseAbilityPick(v: unknown, at: string, e: Errs): AbilityPick | undefined {
+  if (v === undefined) return undefined;
+  if (!isObj(v)) { e.push(`${at}: must be a mapping with from and patterns`); return undefined; }
+  const from = Array.isArray(v.from) && v.from.length && v.from.every(a => ABILS.includes(a as Abil)) ? [...new Set(v.from as Abil[])] : undefined;
+  if (!from) { e.push(`${at}.from: must be a list of abilities`); return undefined; }
+  const ok = Array.isArray(v.patterns) && v.patterns.length > 0 && v.patterns.every(p => Array.isArray(p) && p.length >= 1 && p.length <= 4 && p.length <= from.length
+    && p.every(n => typeof n === "number" && Number.isInteger(n) && n >= 1 && n <= 4));
+  if (!ok) { e.push(`${at}.patterns: each pattern must be 1 to 4 whole numbers from 1 to 4, no longer than from`); return undefined; }
+  return { from, patterns: (v.patterns as number[][]).map(p => [...p]) };
+}
+
 const sizes = (o: Record<string, OptionDef[]>) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, v.length]));
 
 export const subclassType: TypeDef<SubclassData> = {
@@ -58,7 +72,7 @@ export const subclassType: TypeDef<SubclassData> = {
   },
 };
 
-function grantsType<T extends GrantsData>(type: string, more: (raw: Raw, e: string[]) => Partial<T>, withAbility = false): TypeDef<T> {
+function grantsType<T extends GrantsData>(type: string, more: (raw: Raw, e: string[]) => Partial<T>, withAbility = false, withPick = false): TypeDef<T> {
   return {
     type,
     validate(raw: Raw) {
@@ -66,16 +80,17 @@ function grantsType<T extends GrantsData>(type: string, more: (raw: Raw, e: stri
       const name = str(raw.name, "name", e), extra = more(raw, e);
       const grants = validateOps(raw.grants, "grants", { kind: "grants", options: {} }, e);
       const ability = withAbility ? parseAbilityIncrease(raw.ability, "ability", e) : undefined;
+      const abilityPick = withPick ? parseAbilityPick(raw.abilityPick, "abilityPick", e) : undefined;
       const overlay = optOut(raw.overlay, "overlay", e);
       if (e.length || !name) return { errors: e };
-      return { errors: e, value: { name, grants, ...extra, ...(ability ? { ability } : {}), ...(overlay === false ? { overlay } : {}) } as T };
+      return { errors: e, value: { name, grants, ...extra, ...(ability ? { ability } : {}), ...(abilityPick ? { abilityPick } : {}), ...(overlay === false ? { overlay } : {}) } as T };
     },
   };
 }
 
-export const raceType = grantsType<GrantsData>("race", () => ({}), true);
-export const backgroundType = grantsType<GrantsData>("background", () => ({}));
-export const subraceType = grantsType<SubraceData>("subrace", (raw, e) => ({ race: str(raw.race, "race", e) ?? "" }), true);
+export const raceType = grantsType<GrantsData>("race", () => ({}), true, true);
+export const backgroundType = grantsType<GrantsData>("background", () => ({}), true, true);
+export const subraceType = grantsType<SubraceData>("subrace", (raw, e) => ({ race: str(raw.race, "race", e) ?? "" }), true, true);
 export const featType = grantsType<FeatData>("feat", (raw, e) => {
   const p = str(raw.prerequisite, "prerequisite", e, true);
   return p ? { prerequisite: p } : {};

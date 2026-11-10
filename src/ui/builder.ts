@@ -1,7 +1,8 @@
 import type { Registry } from "../content/registry";
 import type { SourceSwitches } from "../content/sources";
 import type { ClassData } from "../content/types";
-import { baseCharacter, buildCharacter, originBonus, buildSteps, characterFrontmatter, defaultScores, draftProblems, newDraft, notePath, pointBuyCost, rollGold, scoreProblems, POINT_BUY_BUDGET, POINT_BUY_COST,
+import { pickDelta } from "../core/ability-increase";
+import { baseCharacter, buildCharacter, originBonus, originParts, buildSteps, characterFrontmatter, defaultScores, draftProblems, newDraft, notePath, pointBuyCost, rollGold, scoreProblems, POINT_BUY_BUDGET, POINT_BUY_COST,
   type BuildDraft, type EquipmentChoice, type ScoreMethod } from "../core/builder";
 import type { Character } from "../core/character";
 import { editionRules, readEdition, type Edition } from "../core/edition";
@@ -89,6 +90,7 @@ export class BuilderController {
   // The same shape the level-up pages use.
   get character(): Character { return baseCharacter(this.resolved(), this.reg()); }
   /** Increases the race and subrace give on their own (shown next to the manual bonus). */
+  originParts() { return originParts(this.resolved(), this.reg()); }
   originBonus() { return originBonus(this.resolved(), this.reg()); }
   pick(key: string, value: unknown) { this.draft = { ...this.draft, choices: { ...this.draft.choices, [key]: value } }; this.touch(); }
 
@@ -190,6 +192,7 @@ export class BuilderController {
     switch (s.kind) {
       case "subclass": return typeof v === "string";
       case "asi": return typeof v === "object" && v !== null && ("feat" in v || Object.values((v as { abilities?: Record<string, number> }).abilities ?? {}).reduce((a, n) => a + n, 0) === 2);
+      case "pattern": return pickDelta({ from: s.from, patterns: s.patterns }, v) !== undefined;
       case "optional": return typeof v === "boolean";
       case "pick": return isStrs(v) && v.length === s.count && v.every(x => x.trim() !== "");
       case "spells": return isStrs(v) && v.length === s.cantrips + s.count;

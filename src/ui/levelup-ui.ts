@@ -1,6 +1,7 @@
 import { sourceLabel, type Registry } from "../content/registry";
 import type { FeatData } from "../content/types";
 import type { Character } from "../core/character";
+import { describePattern, pickDelta } from "../core/ability-increase";
 import { levelOptions, type LevelOption, type Step, type StepOption } from "../core/levelup";
 import { ABILS, type Abil } from "../core/types";
 import type { LevelUpState, LevelUpView, SheetController } from "./controller";
@@ -25,6 +26,7 @@ export function answered(s: Step, st: { choices: Record<string, unknown>; hp?: u
     case "hp": return s.first || !!st.hp;
     case "subclass": return typeof v === "string";
     case "asi": return isObj(v) && (typeof v.feat === "string" || (isObj(v.abilities) && Object.values(v.abilities).reduce<number>((a, n) => a + (typeof n === "number" ? n : 0), 0) === 2));
+    case "pattern": return pickDelta({ from: s.from, patterns: s.patterns }, v) !== undefined;
     case "optional": return typeof v === "boolean";
     case "pick": return isStrs(v) && v.length === s.count && v.every(x => x.trim() !== "");
     case "spells": return isStrs(v) && v.length === s.cantrips + s.count;
@@ -113,6 +115,28 @@ export function asiPage(ctl: PageCtl, s: Pick<"asi">, st: PageState): HTMLElemen
       choiceButton("Ability scores", undefined, !feat, undefined, () => { st.view.featOpen.delete(s.key); ctl.pick(s.key, { abilities: {} }); }, { mode: "abilities" }),
       choiceButton("Feat", undefined, feat, undefined, () => { st.view.featOpen.add(s.key); ctl.pick(s.key, { abilities: {} }); }, { mode: "feat" })),
     feat ? featList(ctl, s, st) : abilityRows(ctl, s, st));
+}
+
+/**
+ * A background's ability pick: one button per pattern, then one select per number of the chosen pattern (an ability each, none twice),
+ * and a result row per ability that shows the score before and after (scores stop at 20).
+ */
+export function patternPage(ctl: PageCtl, s: Pick<"pattern">, st: PageState): HTMLElement {
+  const v = st.choices[s.key], pattern = isObj(v) && typeof v.pattern === "number" && s.patterns[v.pattern] ? v.pattern : undefined;
+  const nums = pattern === undefined ? [] : s.patterns[pattern], to = isObj(v) && isStrs(v.to) ? v.to : [];
+  const answer = (i: number, a: string) => { const next = nums.map((_n, j) => (j === i ? a : to[j] ?? "")); ctl.pick(s.key, { pattern, to: next }); };
+  const delta = pickDelta({ from: s.from, patterns: s.patterns }, v) ?? {};
+  return h("div", { cls: "fe-lu-body", data: { step: s.key } }, h("div", { cls: "fe-muted", text: "Pick one way to split the increase, then say which ability gets each number. An ability can get only one of them." }),
+    ...s.patterns.map((p, i) => choiceButton(describePattern(p), undefined, pattern === i, undefined, () => ctl.pick(s.key, { pattern: i, to: [] }), { pattern: String(i) })),
+    ...nums.map((n, i) => h("div", { cls: "fe-kv" },
+      h("span", { cls: "fe-grow", text: `+${n} to` }),
+      h("select", { data: { pick: String(i) }, attrs: { "aria-label": `Which ability gets +${n}` }, on: { change: (e: Event) => answer(i, (e.target as HTMLSelectElement).value) } },
+        h("option", { text: "Choose an ability", attrs: { value: "", ...(!to[i] ? { selected: "" } : {}) } }),
+        ...s.from.map(a => h("option", { text: ABIL_NAME[a], attrs: { value: a, ...(to[i] === a ? { selected: "" } : {}), ...(to.some((x, j) => j !== i && x === a) ? { disabled: "" } : {}) } }))))),
+    nums.length ? h("div", {}, ...ABILS.map(a => {
+      const before = s.scores[a], d = delta[a] ?? 0, after = d ? Math.max(before, Math.min(20, before + d)) : before;
+      return h("div", { cls: "fe-name", data: { result: a }, text: after !== before ? `${ABIL_NAME[a]} ${before} -> ${after}` : `${ABIL_NAME[a]} ${before}` });
+    })) : null);
 }
 
 /** An optional class feature: its text and a Yes / No. */
@@ -228,7 +252,7 @@ export function levelUpPanel(ctl: SheetController): HTMLElement {
   else if (step) {
     ready = answered(step, st);
     body = step.kind === "hp" ? hpPage(ctl, step, st) : step.kind === "subclass" ? subclassPage(ctl, step, st) : step.kind === "asi" ? asiPage(ctl, step, st)
-      : step.kind === "pick" ? pickPage(ctl, step, st) : step.kind === "optional" ? optionalPage(ctl, step, st) : spellsPage(ctl, step, st);
+      : step.kind === "pick" ? pickPage(ctl, step, st) : step.kind === "pattern" ? patternPage(ctl, step, st) : step.kind === "optional" ? optionalPage(ctl, step, st) : spellsPage(ctl, step, st);
   } else { body = h("div", { cls: "fe-faint", text: error ?? "Pick a class first." }); ready = false; }
   const back = btn(page === 0 ? "Cancel" : "Back", () => { if (page === 0) ctl.cancelLevelUp(); else ctl.setLevelUp({ page: page - 1 }); }, "", );
   back.dataset.act = "lu-back";
