@@ -8,16 +8,16 @@ in what order, and how to check the result.
 Everything imported stays private. It lives in your vault and nowhere else. Never commit imported
 notes to git and never publish them. This plugin ships no book content, and neither should you.
 
-The importer is a separate tool (it lives in the `dnd-compendium` scripts of the owner's homelab
-repo), not part of this plugin. Commands below use placeholders in angle brackets: replace them with
-your own paths and host.
+The importer lives in this repo as `importer/`; it is separate from the plugin and ships nothing
+with it. For a first install see [INSTALL.md](INSTALL.md). Commands below use placeholders in angle
+brackets: replace them with your own paths and host.
 
 ## What you need
 
 - The books. Either you own them as PDFs, or you own the WotC books and use the public 5e.tools data
   mirror as the source of the same text. Only import what you own, for your own use.
 - A Python environment for the importer, written below as `<python>`, and the importer folder,
-  written as `<importer>` (the `scripts/dnd-compendium` folder of its checkout). Run every importer
+  written as `<importer>` (the `importer/` folder of this repo). Run every importer
   command as `<python> -I <importer>/compendium.py ...`.
 - A data folder for clones, work files and output, written as `<data-dir>`. Keep it private (mode
   700). Nothing in it goes into git. Set `DNDC_ROOT=<data-dir>` for every importer command. The
@@ -29,9 +29,9 @@ your own paths and host.
 - An Obsidian vault with this plugin installed. The importer writes into `compendium/5e/` in that vault.
 - To sync into the vault: the vault on a Windows machine that the importer can reach with `scp` and
   `ssh` (OpenSSH and PowerShell on that machine). `sync` always copies with `scp` and then runs a
-  PowerShell swap over `ssh`; there is no local mode. Set `DNDC_VAULT_HOST` (required; a comma list
-  of hosts tries each in order; its default is the owner's host). Set the vault path too: the
-  importer reads `DNDC_VAULT_PATH`, and its default is the owner's path.
+  PowerShell swap over `ssh`; there is no local mode. Set `DNDC_VAULT_HOST` (one or more SSH hosts,
+  comma separated, tried in order; its default is the owner's host) and `DNDC_VAULT_PATH` (the vault
+  folder on that host; its default is the owner's path, `C:/obsidian/dnd`).
 - Optional: a local language model to repair OCR words in third-party PDFs, named by
   `DNDC_LLM_URL` (its default is a private host). Skip it if you only import WotC data.
 
@@ -74,13 +74,21 @@ The two editions are separate clones built into separate folders, so they never 
 git clone --depth 1 https://github.com/5etools-mirror-3/5etools-2014-src.git <data-dir>/5etools-2014
 ```
 
-The 2024 data is a second clone at `<data-dir>/5etools-2024`. The importer docs do not name its
-repository; it sits in the same mirror organisation as the 2014 one, so clone it the same way from there.
+The 2024 data is a second clone at `<data-dir>/5etools-2024`, pinned to the tag the importer was
+checked against:
+
+```
+git clone --depth 1 --branch v2.41.0 https://github.com/5etools-mirror-3/5etools-src.git <data-dir>/5etools-2024
+```
+
 Then build both:
 
 ```
 <python> -I <importer>/compendium.py build --libs "WotC,WotC 2024"
 ```
+
+The environment variables are `DNDC_ROOT` (the data folder, `<data-dir>`), `DNDC_VAULT_HOST` and
+`DNDC_VAULT_PATH` (both used by `sync` and `vault-count`).
 
 Every generated note carries an `edition` stamp, `edition: "2014"` or `edition: "2024"` (quoted),
 and the tag `5e/edition/<year>`. The sheet reads that stamp to show each character the right
@@ -159,6 +167,9 @@ If Obsidian Sync is on, it carries the new folders to your other devices. Import
 vault; do not add the vault's `compendium/` folder to a git repository or publish it anywhere.
 
 ## Check it worked
+
+- The importer's own tests and the output checker: `<python> -m unittest discover -s tests -t .` from
+  `importer/`, and `<python> -I <importer>/verify.py` (see `importer/README.md` for its modes).
 
 - The build log gives counts per library. `Index/Needs Review` should be empty or known.
 - After syncing, count what landed. This is read-only, and a folder not in the vault prints `absent=True`:

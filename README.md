@@ -8,6 +8,17 @@ Includes material from the System Reference Document 5.1 by Wizards of the Coast
 licensed under CC-BY 4.0 (https://creativecommons.org/licenses/by/4.0/legalcode).
 No other published content is included; add your own as notes under `Compendium/`.
 
+## Install
+
+See `docs/INSTALL.md`: the plugin, the importer and the source books, on a new machine.
+
+## Repo layout
+
+- `src/`, `tests/`: the plugin (TypeScript).
+- `importer/`: the Python importer that builds the private game library (its own tests; no book text).
+- `scripts/`: `install-plugin.sh`, `deploy-vault.sh` and helpers.
+- `docs/`: `INSTALL.md`, `IMPORTING.md`, `USING.md`, `STATE.md`, specs and plans.
+
 ## Use
 
 - A note with frontmatter `type: 5e-character` (or `5e-npc` with a `creature:` id) opens as a sheet. See `examples/`.

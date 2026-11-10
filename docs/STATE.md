@@ -38,6 +38,8 @@ Started 2026-11-10 on branch `feat/edition-2024`. The owner parked Daggerheart f
   5. The scattered "2014" defaults could be one constant.
   - Importer side: emit a base id for named magic weapons so mastery matches a mastered base weapon; document `DNDC_VAULT_PATH` in the importer README.
 
+- The importer moved into `importer/` on 2026-11-10 from homelab-config `worktree-dnd-compendium` at a15b464, by the owner's decision. The copy there is frozen and will be retired. `docs/INSTALL.md` is the single guide.
+
 ## Parked: Daggerheart
 
 The owner plays a Daggerheart one-shot in **November 2026** (said on 2026-10-24: "next month") and wants it working by then. Check the date with them first. They are a player with a character, and may GM it later. Product: Daggerheart Core Set.
