@@ -65,6 +65,7 @@ export function editionNotes(opts: EditionOpts = {}): Notes {
     put("Test Press", "Spells/Glint.md", s(spell("glint", "Glint", 3)));
     put("Test Press", "Items/Tin-blade.md", s(weapon("tin-blade", "Tin-blade", "1d8")));
     put("Test Press", "Feats/Keen.md", s(feat("keen", "Keen")));
+    put("Test Press", "Items/Pewter-blade.md", s(weapon("pewter-blade", "Pewter-blade", "1d4")));
   }
   // Homebrew: hand-made notes, no edition.
   n[`${ROOT}/Homebrew/Spells/Spark.md`] = { fm: { type: "5e-spell", name: "Spark", level: 1, school: "Evocation", classes: ["wizard"] }, body: "" };

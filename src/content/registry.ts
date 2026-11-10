@@ -1,5 +1,5 @@
 import type { Edition } from "../core/edition";
-import { entryEdition } from "./edition";
+import { entryEdition, splitRef } from "./edition";
 import { libraryBody, type Raw as LibRaw } from "./library";
 import { compareSources, HOMEBREW_SOURCE, LIBRARY_SOURCE, SRD_SOURCE, sourceOn, type SourceSwitches } from "./sources";
 
@@ -28,7 +28,11 @@ export interface Entry<T = unknown> {
 export interface Problem { path: string; errors: string[]; }
 export interface TypeDef<T> { type: string; validate(raw: Record<string, unknown>): { value?: T; errors: string[] }; }
 export interface AddMeta { path?: string; body?: string; sourceName?: string; library?: boolean; book?: string; needsReview?: string[]; mapped?: boolean; edition?: Edition; replaces?: string[]; }
-export interface ListOpts { /** Campaign source switches: entries of sources set to false are left out. */ sources?: SourceSwitches; }
+export interface ListOpts {
+  /** Campaign source switches: entries of sources set to false are left out. */ sources?: SourceSwitches;
+  /** Only entries of this edition (or with none) count; overrides the lens of a `forEdition` view for this call. */ edition?: Edition;
+}
+interface Pick extends ListOpts { /** Match `edition` strictly: an entry with no edition does not count. */ exact?: boolean; }
 
 /** User-facing source badge text: `WotC · PHB` for a library note with a book, else the source name. */
 export const sourceLabel = (e: { sourceName: string; library?: boolean; book?: string }): string => (e.library && e.book ? `${e.sourceName} · ${e.book}` : e.sourceName);
@@ -103,8 +107,8 @@ export class Registry {
   private put(entry: Entry, path?: string) {
     const key = `${entry.type}/${entry.id}`;
     const list = this.all.get(key) ?? [];
-    // Bundled entries have no path: replace the one of the same source; vault entries were dropped by path before.
-    const kept = entry.path ? list : list.filter(e => e.path !== undefined || e.sourceName !== entry.sourceName);
+    // Bundled entries have no path: replace the one of the same source and edition; vault entries were dropped by path before.
+    const kept = entry.path ? list : list.filter(e => e.path !== undefined || e.sourceName !== entry.sourceName || e.edition !== entry.edition);
     kept.push(entry); this.all.set(key, kept);
     if (path) this.byPath.set(path, key);
     if (entry.referenceOnly) this.refOnly++;
@@ -131,11 +135,39 @@ export class Registry {
    */
   scoped(sources: SourceSwitches): Registry {
     if (!sources || !Object.values(sources).includes(false)) return this;
-    return Object.create(this, { list: { value: <T>(type: string, o?: ListOpts) => this.list<T>(type, { ...o, sources: { ...sources, ...o?.sources } }) } }) as Registry;
+    return Object.create(this, {
+      list: { value: <T>(type: string, o?: ListOpts) => this.list<T>(type, { ...o, sources: { ...sources, ...o?.sources } }) },
+      listEdition: { value: <T>(type: string, e: Edition, o?: ListOpts) => this.listEdition<T>(type, e, { ...o, sources: { ...sources, ...o?.sources } }) },
+    }) as Registry;
+  }
+
+  private lens?: Edition;
+  /**
+   * A view that reads one rules edition: `get` and `list` consider only entries of that edition or with none, then apply the usual winner rules.
+   * Composes with `scoped` in both orders. `undefined` is this registry. `getAll`, `listAll` and `srdEntry` stay unfiltered.
+   */
+  forEdition(e: Edition | undefined): Registry {
+    if (!e) return this;
+    return Object.create(this, {
+      lens: { value: e },
+      list: { value: <T>(type: string, o?: ListOpts) => this.list<T>(type, { ...o, edition: o?.edition ?? e }) },
+      get: { value: <T>(type: string, id: string, o?: ListOpts) => this.get<T>(type, id, { ...o, edition: o?.edition ?? e }) },
+    }) as Registry;
+  }
+  /** Entries whose edition is exactly `e`, one winner per id, sorted by name (the "Bring in" list). */
+  listEdition<T>(type: string, e: Edition, o?: ListOpts): Entry<T>[] { return this.list<T>(type, { ...o, edition: e, exact: true } as Pick); }
+  /** The other edition's winner for an id, when this view's lens has none. */
+  otherEditionHas(type: string, id: string): Edition | undefined {
+    if (!this.lens) return undefined;
+    const other: Edition = this.lens === "2024" ? "2014" : "2024";
+    if (this.get(type, id)) return undefined;
+    return this.winner(this.all.get(`${type}/${id}`), { edition: other, exact: true } as Pick) ? other : undefined;
   }
 
   /** Highest-precedence usable entry among `list` (reference-only entries and switched-off sources are skipped). */
-  private winner(list: Entry[] | undefined, o?: ListOpts): Entry | undefined {
+  private winner(all: Entry[] | undefined, o?: Pick): Entry | undefined {
+    const ed = o?.edition;
+    const list = ed ? (all ?? []).filter(e => e.edition === ed || (!o?.exact && e.edition === undefined)) : all;
     let best: Entry | undefined;
     for (const e of list ?? []) {
       if (e.referenceOnly || !sourceOn(o?.sources, e.sourceName)) continue;
@@ -151,9 +183,12 @@ export class Registry {
   }
 
   /** The entry the sheet uses for this id: user sources (Homebrew first) > library > WotC (SRD); a library entry with no mapped mechanics yields to the SRD one. */
-  get<T>(type: string, id: string, o?: ListOpts): Entry<T> | undefined { return this.winner(this.all.get(`${type}/${id}`), o) as Entry<T> | undefined; }
+  get<T>(type: string, id: string, o?: ListOpts): Entry<T> | undefined {
+    const q = splitRef(id);   // `id@2014` resolves that edition exactly, whatever the lens
+    return (q.edition ? this.winner(this.all.get(`${type}/${q.id}`), { ...o, edition: q.edition, exact: true } as Pick) : this.winner(this.all.get(`${type}/${id}`), o)) as Entry<T> | undefined;
+  }
   /** Usable entries of a type, one per id (the winner), sorted by name. */
-  list<T>(type: string, o?: ListOpts): Entry<T>[] {
+  list<T>(type: string, o?: ListOpts): Entry<T>[] {   // `exact` (listEdition only) is read by winner
     const out: Entry[] = [];
     for (const [k, l] of this.all) if (k.startsWith(type + "/")) { const w = this.winner(l, o); if (w && w.type === type) out.push(w); }
     return out.sort((a, b) => a.name.localeCompare(b.name)) as Entry<T>[];
