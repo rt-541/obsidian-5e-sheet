@@ -1,0 +1,263 @@
+[
+ {
+  "name": "Blinded",
+  "effects": {
+   "dis": [
+    "attack"
+   ],
+   "note": "Fails checks that need sight; attacks against you have advantage."
+  }
+ },
+ {
+  "name": "Charmed",
+  "effects": {
+   "note": "Can't attack the charmer; the charmer has advantage on social checks against you."
+  }
+ },
+ {
+  "name": "Deafened",
+  "effects": {
+   "note": "Fails checks that need hearing."
+  }
+ },
+ {
+  "name": "Exhaustion",
+  "levels": 6,
+  "effects": {},
+  "levelEffects": [
+   {},
+   {
+    "modifiers": [
+     {
+      "target": "check",
+      "value": -2
+     },
+     {
+      "target": "attack",
+      "value": -2
+     },
+     {
+      "target": "save",
+      "value": -2
+     },
+     {
+      "target": "speed",
+      "value": -5
+     }
+    ]
+   },
+   {
+    "modifiers": [
+     {
+      "target": "check",
+      "value": -4
+     },
+     {
+      "target": "attack",
+      "value": -4
+     },
+     {
+      "target": "save",
+      "value": -4
+     },
+     {
+      "target": "speed",
+      "value": -10
+     }
+    ]
+   },
+   {
+    "modifiers": [
+     {
+      "target": "check",
+      "value": -6
+     },
+     {
+      "target": "attack",
+      "value": -6
+     },
+     {
+      "target": "save",
+      "value": -6
+     },
+     {
+      "target": "speed",
+      "value": -15
+     }
+    ]
+   },
+   {
+    "modifiers": [
+     {
+      "target": "check",
+      "value": -8
+     },
+     {
+      "target": "attack",
+      "value": -8
+     },
+     {
+      "target": "save",
+      "value": -8
+     },
+     {
+      "target": "speed",
+      "value": -20
+     }
+    ]
+   },
+   {
+    "modifiers": [
+     {
+      "target": "check",
+      "value": -10
+     },
+     {
+      "target": "attack",
+      "value": -10
+     },
+     {
+      "target": "save",
+      "value": -10
+     },
+     {
+      "target": "speed",
+      "value": -25
+     }
+    ]
+   },
+   {
+    "note": "Death."
+   }
+  ]
+ },
+ {
+  "name": "Frightened",
+  "effects": {
+   "dis": [
+    "attack",
+    "check"
+   ],
+   "note": "Only while the source of fear is in sight; can't willingly move closer to it."
+  }
+ },
+ {
+  "name": "Grappled",
+  "effects": {
+   "modifiers": [
+    {
+     "target": "speed",
+     "value": "zero"
+    }
+   ],
+   "note": "Disadvantage on attacks against anyone but the grappler."
+  }
+ },
+ {
+  "name": "Incapacitated",
+  "effects": {
+   "note": "No actions, bonus actions or reactions; concentration ends; disadvantage on initiative."
+  }
+ },
+ {
+  "name": "Invisible",
+  "effects": {
+   "adv": [
+    "attack"
+   ],
+   "note": "Attacks against you have disadvantage; advantage on initiative. Both end against anyone who sees you."
+  }
+ },
+ {
+  "name": "Paralyzed",
+  "effects": {
+   "autofail": [
+    "save:str",
+    "save:dex"
+   ],
+   "modifiers": [
+    {
+     "target": "speed",
+     "value": "zero"
+    }
+   ],
+   "note": "Incapacitated. Attacks against you have advantage; hits from within 5 feet are critical."
+  }
+ },
+ {
+  "name": "Petrified",
+  "effects": {
+   "autofail": [
+    "save:str",
+    "save:dex"
+   ],
+   "modifiers": [
+    {
+     "target": "speed",
+     "value": "zero"
+    }
+   ],
+   "note": "Incapacitated; resistance to all damage; immune to poisoned; attacks against you have advantage."
+  }
+ },
+ {
+  "name": "Poisoned",
+  "effects": {
+   "dis": [
+    "attack",
+    "check"
+   ]
+  }
+ },
+ {
+  "name": "Prone",
+  "effects": {
+   "dis": [
+    "attack"
+   ],
+   "note": "Crawl only; standing costs half your speed. Attacks within 5 feet have advantage, others disadvantage."
+  }
+ },
+ {
+  "name": "Restrained",
+  "effects": {
+   "dis": [
+    "attack",
+    "save:dex"
+   ],
+   "modifiers": [
+    {
+     "target": "speed",
+     "value": "zero"
+    }
+   ],
+   "note": "Attacks against you have advantage."
+  }
+ },
+ {
+  "name": "Stunned",
+  "effects": {
+   "autofail": [
+    "save:str",
+    "save:dex"
+   ],
+   "note": "Incapacitated; attacks against you have advantage."
+  }
+ },
+ {
+  "name": "Unconscious",
+  "effects": {
+   "autofail": [
+    "save:str",
+    "save:dex"
+   ],
+   "modifiers": [
+    {
+     "target": "speed",
+     "value": "zero"
+    }
+   ],
+   "note": "Incapacitated, prone, drops what it holds. Attacks against you have advantage; hits from within 5 feet are critical."
+  }
+ }
+]

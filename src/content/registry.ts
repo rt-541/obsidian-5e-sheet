@@ -1,4 +1,4 @@
-import { otherEdition, type Edition } from "../core/edition";
+import { characterEdition, otherEdition, type Edition } from "../core/edition";
 import { entryEdition, splitRef } from "./edition";
 import { libraryBody, type Raw as LibRaw } from "./library";
 import { compareSources, HOMEBREW_SOURCE, LIBRARY_SOURCE, SRD_SOURCE, sourceOn, type SourceSwitches } from "./sources";
@@ -178,7 +178,8 @@ export class Registry {
     // A library entry carries only what its frontmatter maps (no effects, dice or attacks), so the bundled SRD entry of the same id
     // keeps the sheet numbers unless the library entry says its mechanics are complete. The library text still shows in the browser.
     if (best?.library && !best.mapped) {
-      const srd = (list ?? []).find(e => e.source === "srd" && !e.referenceOnly && sourceOn(o?.sources, e.sourceName));
+      const srds = (list ?? []).filter(e => e.source === "srd" && !e.referenceOnly && sourceOn(o?.sources, e.sourceName));
+      const srd = srds.find(e => e.edition === (best!.edition ?? characterEdition({}))) ?? srds[0];
       if (srd) return srd;
     }
     return best;
@@ -205,8 +206,8 @@ export class Registry {
   getAll<T>(type: string, id: string): Entry<T>[] {
     return [...(this.all.get(`${type}/${id}`) ?? [])].sort((a, b) => this.cmp(a.sourceName, b.sourceName)) as Entry<T>[];
   }
-  /** The bundled SRD entry for an id, even when something else outranks it. */
-  srdEntry<T>(type: string, id: string): Entry<T> | undefined { return this.all.get(`${type}/${id}`)?.find(e => e.source === "srd") as Entry<T> | undefined; }
+  /** The bundled SRD entry of the given edition for an id, even when something else outranks it (the default edition unless asked). */
+  srdEntry<T>(type: string, id: string, edition: Edition = "2014"): Entry<T> | undefined { return this.all.get(`${type}/${id}`)?.find(e => e.source === "srd" && e.edition === edition) as Entry<T> | undefined; }
   /** Source names that currently have at least one entry, user sources first. */
   sources(): string[] {
     const s = new Set<string>();

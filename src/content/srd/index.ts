@@ -1,5 +1,6 @@
 import type { Problem, Registry } from "../registry";
 import conditions from "./conditions.json";
+import conditions2024 from "./conditions-2024.json";
 import classes from "./classes.json";
 import items from "./items.json";
 import creatures from "./creatures.json";
@@ -21,6 +22,8 @@ const SETS: [string, Record<string, unknown>[]][] = [
 
 export function loadSrd(r: Registry): Problem[] {
   const out: Problem[] = [];
+  // The 2024 conditions go in first: when nothing picks an edition, a tie between bundled entries goes to the later one, which is 2014.
+  for (const raw of conditions2024 as Record<string, unknown>[]) { const p = r.add("srd", "condition", raw, { edition: "2024" }); if (p) out.push(p); }
   for (const [type, list] of SETS) for (const raw of list) { const p = r.add("srd", type, raw); if (p) out.push(p); }
   return out;
 }

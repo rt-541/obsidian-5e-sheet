@@ -47,7 +47,7 @@ describe("built-in mechanics: subclass and class features", () => {
     const f = stats(pc("paladin", 2, { str: 16 }), R).progress.features.find(x => x.name === "Divine Smite")!;
     expect(f.action).toMatchObject({ name: "Divine Smite", damage: "2d8 radiant" });
     expect(f.action!.text).toMatch(/spell slot/);
-    expect(f.overlay).toBe("class:paladin:divine-smite");
+    expect(f.overlay).toBe("class:paladin:divine-smite@2014");
   });
 
   it("17. Improved Divine Smite: +1d8 radiant on every melee weapon hit from level 11", () => {

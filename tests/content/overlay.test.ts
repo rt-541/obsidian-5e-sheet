@@ -30,7 +30,7 @@ describe("built-in mechanics data", () => {
     expect(findOverlay("class", ["fighter"], "Rage")).toBeUndefined();
     expect(findOverlay("option", ["fighter-fighting-style"], "Archery")?.key).toBe("option:*:archery");
     expect(findOverlay("subrace", ["hill-dwarf", "dwarf"], "Dwarven Toughness")?.key).toBe("race:*:dwarven-toughness");
-    expect(findOverlay("feat", [], "Great Weapon Master")?.key).toBe("feat::great-weapon-master");
+    expect(findOverlay("feat", [], "Great Weapon Master", undefined, "2014")?.key).toBe("feat::great-weapon-master@2014");
     expect(findOverlay("subclass", ["path-of-the-berserker"], "Rage")).toBeUndefined();
   });
 });

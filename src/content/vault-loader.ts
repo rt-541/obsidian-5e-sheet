@@ -1,4 +1,5 @@
 import { readEdition, type Edition } from "../core/edition";
+import { entryEdition } from "./edition";
 import { adaptUserNote, libraryMeta } from "./library";
 import { slug, type Registry } from "./registry";
 import { classFolder, isLibrarySkip, LIBRARY_MARKER, LIBRARY_SOURCE, locate, type Located } from "./sources";
@@ -102,7 +103,7 @@ export class VaultLoader {
     let mapped = false;
     if ((type === "condition" || type === "injury") && typeof m.raw.name === "string") {
       const id = typeof m.raw.id === "string" ? m.raw.id : slug(m.raw.name);
-      const srd = this.registry.srdEntry<{ effects?: unknown; levels?: unknown; levelEffects?: unknown }>(type, id);
+      const srd = this.registry.srdEntry<{ effects?: unknown; levels?: unknown; levelEffects?: unknown }>(type, id, edMeta(fm).edition ?? entryEdition({ source: "vault", library: true }));
       if (srd) { mapped = true; for (const k of ["effects", "levels", "levelEffects"] as const) if (srd.data[k] !== undefined) m.raw[k] = srd.data[k]; }
     }
     return this.registry.add("vault", type, m.raw, { path, sourceName, library: true, ...(mapped ? { mapped } : {}),
