@@ -5,7 +5,7 @@ import { pickDelta } from "../core/ability-increase";
 import { baseCharacter, buildCharacter, originBonus, originParts, buildSteps, characterFrontmatter, defaultScores, draftProblems, newDraft, notePath, pointBuyCost, rollGold, scoreProblems, POINT_BUY_BUDGET, POINT_BUY_COST,
   type BuildDraft, type EquipmentChoice, type ScoreMethod } from "../core/builder";
 import type { Character } from "../core/character";
-import { editionRules, readEdition, type Edition } from "../core/edition";
+import { noneFoundLine, readEdition, type Edition } from "../core/edition";
 import type { Step } from "../core/levelup";
 import { ABILS, type Abil, type Rng } from "../core/types";
 import type { LevelUpView } from "./controller";
@@ -31,7 +31,7 @@ export interface BuilderHost {
 }
 
 export type BuilderPage =
-  | { id: "race" } | { id: "background" } | { id: "scores" } | { id: "class" } | { id: "equipment" } | { id: "name" }
+  | { id: "edition" } | { id: "race" } | { id: "background" } | { id: "scores" } | { id: "class" } | { id: "equipment" } | { id: "name" }
   | { id: "step"; step: Exclude<Step, { kind: "hp" }> };
 
 const stepsOf = (s: Step[]) => s.filter((x): x is Exclude<Step, { kind: "hp" }> => x.kind !== "hp");
@@ -66,7 +66,28 @@ export class BuilderController {
   setEdition(e: Edition) {
     const next: BuildDraft = { ...this.draft, edition: e, choices: {} };
     for (const k of ["race", "subrace", "background", "classId", "equipment"] as const) delete next[k];
-    this.draft = next; delete this.view.other; this.touch();
+    this.draft = next; delete this.view.other; delete this.view.switchTo; this.touch();
+  }
+  /** Names of what the draft holds that a switch of edition would clear, in words the page can show. */
+  pickedKinds(raceWord: string): string[] {
+    const d = this.draft, out: string[] = [];
+    if (d.race || d.subrace) out.push(raceWord);
+    if (d.background) out.push("background");
+    if (d.classId) out.push("class");
+    if (d.equipment) out.push("equipment");
+    if (Object.keys(d.choices).length) out.push("other");
+    return out;
+  }
+  /** Tap on an edition button: the current one cancels a pending switch; another one switches at once, or after a second tap when picks would be lost. */
+  chooseEdition(e: Edition) {
+    if (e === this.edition()) {
+      delete this.view.switchTo;
+      if (this.draft.edition === undefined) this.draft = { ...this.draft, edition: e };   // accepting the default drops nothing
+      this.touch();
+      return;
+    }
+    if (this.view.switchTo !== e && this.pickedKinds("x").length) { this.view.switchTo = e; this.emit(); return; }
+    this.setEdition(e);
   }
   /** The host registry read through the draft's edition. */
   private reg(): Registry { return this.host.registry; }
@@ -75,7 +96,7 @@ export class BuilderController {
   /** Why a list is empty, when the edition has none of that kind (undefined otherwise). */
   emptyReason(type: "class" | "race" | "background"): string | undefined {
     if (this.pickers().list(type).length) return undefined;
-    return `No ${this.edition()} ${type === "class" ? "classes" : type === "race" ? `${editionRules(this.edition()).raceWord.toLowerCase()}${/s$/.test(editionRules(this.edition()).raceWord) ? "" : "s"}` : "backgrounds"} were found in your compendium. docs/IMPORTING.md explains how to import them.`;
+    return noneFoundLine(this.edition(), type);
   }
 
   /** The registry the pickers list from: this edition only, and sources the draft's campaign switched off are left out. */
@@ -169,15 +190,21 @@ export class BuilderController {
   }
   pages(): BuilderPage[] {
     const s = this.steps(), c = this.classData();
-    return [{ id: "race" }, { id: "background" }, { id: "scores" }, { id: "class" },
+    return [{ id: "edition" }, { id: "race" }, { id: "background" }, { id: "scores" }, { id: "class" },
       ...s.origin.map(step => ({ id: "step", step }) as BuilderPage), ...s.level.map(step => ({ id: "step", step }) as BuilderPage),
       ...(c && (c.equipment?.length || c.gold !== undefined) ? [{ id: "equipment" } as BuilderPage] : []), { id: "name" }];
   }
-  go(page: number) { this.page = Math.max(0, Math.min(page, this.pages().length - 1)); this.touch(); }
+  go(page: number) {
+    delete this.view.switchTo;
+    // Moving on from the edition page accepts the default: it is recorded, so a campaign typed later cannot switch it under the picks.
+    if (page > this.page && this.pages()[this.page]?.id === "edition" && this.draft.edition === undefined) this.draft = { ...this.draft, edition: this.edition() };
+    this.page = Math.max(0, Math.min(page, this.pages().length - 1)); this.touch();
+  }
   /** Has the current page everything it needs before Next? */
   ready(p: BuilderPage): boolean {
     const d = this.draft;
     switch (p.id) {
+      case "edition": return true;   // the default counts as chosen
       case "race": return !!d.race && !!this.reg().get("race", d.race);
       case "background": return true;
       case "scores": return scoreProblems(d.method, d.scores).length === 0 && ABILS.every(a => (d.method === "manual" || d.scores[a] + (d.bonus[a] ?? 0) <= 20) && Number.isInteger(d.bonus[a] ?? 0));

@@ -91,7 +91,7 @@ describe.each([["desktop", false], ["mobile", true]] as const)("pickers on the %
       const ctl = new BuilderController({ registry: r, rng: seeded(4), folder: "", exists: () => false, notify: () => {}, createNote: async p => p, open: () => {}, close: () => {},
         campaignSources: name => (name === "Ekron Campaign" ? { Roll20: false } : undefined) });
       if (campaign) ctl.setCampaign(campaign);
-      const root = document.createElement("div"); document.body.append(root); mountBuilder(root, ctl, mobile);
+      const root = document.createElement("div"); document.body.append(root); mountBuilder(root, ctl, mobile); ctl.go(1);   // page 0 is the edition page
       return root;
     };
     const plain = mk(), scoped = mk("Ekron Campaign");

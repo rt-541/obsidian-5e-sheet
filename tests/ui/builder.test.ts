@@ -32,6 +32,7 @@ function setup(mobile = false, fail = false) {
 describe.each([["desktop", false], ["mobile", true]] as const)("character builder on the %s layout", (_n, mobile) => {
   it("walks race, background, scores, class, choices and name, then writes a valid note", async () => {
     const s = setup(mobile);
+    expect(s.at()).toBe("edition"); expect(s.nextOn()).toBe(true); s.next();
     expect(s.at()).toBe("race"); expect(s.nextOn()).toBe(false);
     s.click('[data-race="skink"]'); expect(s.nextOn()).toBe(true);
     expect(s.qa("[data-subrace]").map(b => b.dataset.subrace)).toEqual(["", "cave-skink"]);
@@ -68,7 +69,7 @@ describe.each([["desktop", false], ["mobile", true]] as const)("character builde
   });
 
   it("point buy: + stops at 15 and at the 27 point budget, - gives points back", () => {
-    const s = setup(mobile);
+    const s = setup(mobile); s.next();   // past the edition page
     s.click('[data-race="skink"]'); s.next(); s.next();
     const plus = (a: string) => s.click(`[aria-label="More ${a.toUpperCase()}"]`);
     for (let i = 0; i < 9; i++) plus("str");
@@ -86,7 +87,7 @@ describe.each([["desktop", false], ["mobile", true]] as const)("character builde
   });
 
   it("the standard array swaps values and manual accepts typed scores", () => {
-    const s = setup(mobile);
+    const s = setup(mobile); s.next();   // past the edition page
     s.click('[data-race="skink"]'); s.next(); s.next(); s.click('[data-method="standard-array"]');
     const str = s.q('[data-abil="str"] select') as HTMLSelectElement; str.value = "8"; str.dispatchEvent(new Event("change", { bubbles: true }));
     expect(s.ctl.draft.scores).toMatchObject({ str: 8, cha: 15 });
@@ -131,9 +132,10 @@ describe.each([["desktop", false], ["mobile", true]] as const)("character builde
   });
 
   it("Back returns a page and Cancel on the first page closes", () => {
-    const s = setup(mobile);
+    const s = setup(mobile); s.next();   // past the edition page
     s.click('[data-race="skink"]'); s.next(); expect(s.at()).toBe("background");
     s.click('[data-act="bd-back"]'); expect(s.at()).toBe("race");
+    s.click('[data-act="bd-back"]'); expect(s.at()).toBe("edition");
     s.click('[data-act="bd-back"]'); expect(s.closed()).toBe(1);
   });
 });

@@ -7,7 +7,7 @@ import type { LevelUpState, LevelUpView, SheetController } from "./controller";
 import { featCategoryWords, plural } from "../core/words";
 import { clear, h } from "./h";
 import { btn, playBadge, titleCase } from "./widgets";
-import { characterEdition, otherEdition, type Edition } from "../core/edition";
+import { characterEdition, noneFoundLine, otherEdition, type Edition } from "../core/edition";
 import { bringBackButton, bringInButton, editionChip } from "./bring-in";
 
 const ABIL_NAME: Record<Abil, string> = { str: "STR", dex: "DEX", con: "CON", int: "INT", wis: "WIS", cha: "CHA" };
@@ -70,6 +70,7 @@ function classPage(ctl: SheetController, st: LevelUpState): HTMLElement {
   const shared = no.length ? no[0].reasons.filter(r => no.every(o => o.reasons.includes(r))) : [];
   const own = (o: LevelOption): LevelOption => ({ ...o, reasons: o.reasons.filter(r => !shared.includes(r)) });
   return h("div", { cls: "fe-lu-body", data: { step: "class" } }, h("div", { cls: "fe-muted", text: c.classes.length ? "Which class takes this level?" : "Pick the first class." }),
+    ctl.pickers().list("class").length ? null : h("div", { cls: "fe-warn", data: { empty: "class" }, text: noneFoundLine(characterEdition(c), "class") }),
     ...opts.filter(o => o.allowed).map(rowOf),
     no.length ? h("details", { data: { ineligible: "" }, attrs: st.classId && no.some(o => o.class === st.classId) ? { open: "" } : {} },
       h("summary", { text: ["Other classes (need higher scores)", ...shared].join(". ") }),

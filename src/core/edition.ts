@@ -52,3 +52,10 @@ export const EDITION_RULES: Record<Edition, EditionRules> = {
 };
 /** The rules table for an edition; no edition is 2014. */
 export const editionRules = (e: Edition | undefined): EditionRules => EDITION_RULES[e ?? "2014"];
+
+/** The plain sentence for a pick list the edition's books left empty (builder pages and the level-up class page). */
+export function noneFoundLine(e: Edition, kind: "class" | "race" | "background"): string {
+  const word = editionRules(e).raceWord.toLowerCase();
+  const what = kind === "class" ? "classes" : kind === "race" ? (/s$/.test(word) ? word : `${word}s`) : "backgrounds";
+  return `No ${e} ${what} were found in your compendium. docs/IMPORTING.md explains how to import them.`;
+}

@@ -1,5 +1,6 @@
 import { refFor, sameRef, splitRef } from "../content/edition";
-import { editionRules, otherEdition } from "../core/edition";
+import { EDITIONS, editionRules, otherEdition, type Edition } from "../core/edition";
+import { generalChangeList } from "./edition-ui";
 import { bringBackButton, bringInButton, editionChip } from "./bring-in";
 import type { GrantsData, SubraceData } from "../content/types";
 import { gearList, STANDARD_ARRAY, POINT_BUY_BUDGET, type ScoreMethod } from "../core/builder";
@@ -22,7 +23,7 @@ const hint = (text: string) => h("div", { cls: "fe-muted", text });
 /** A choice with its one-line pitch and an About button that opens the full card under it. */
 function aboutRow(ctl: BuilderController, kind: string, e: Entry, pitch: string, on: boolean, pick: () => void): HTMLElement {
   const own = ctl.edition(), ref = refFor(e, own), open = ctl.view.about === ref;
-  const about = h("button", { cls: `fe-btn fe-about ${open ? "is-on" : ""}`.trim(), text: "About", data: { act: "about", about: ref }, attrs: { "aria-expanded": String(open), "aria-label": `About ${e.name}` }, on: { click: () => ctl.toggleAbout(ref) } });
+  const about = h("button", { cls: `fe-btn fe-about ${open ? "is-on" : ""}`.trim(), text: "About", data: { act: "about", about: ref }, attrs: { type: "button", "aria-expanded": String(open), "aria-label": `About ${e.name}` }, on: { click: () => ctl.toggleAbout(ref) } });
   return h("div", { data: { row: kind } }, h("div", { cls: "fe-subclass" }, choiceButton(e.name, pitch || undefined, on, undefined, pick, { [kind]: ref }, sourceLabel(e)), editionChip(ref, own), about), open ? entryCard(ctl.pickers(), e) : null);
 }
 
@@ -34,17 +35,30 @@ function setOther(ctl: BuilderController, key: string, on: boolean): void {
   ctl.emit();
 }
 /** One picker list: the rows, then (own list) the Bring in button as its last child, or (other list) a Back link first. */
-function pickList(ctl: BuilderController, key: string, what: string, lead: (HTMLElement | null)[], rows: HTMLElement[]): HTMLElement {
+function pickList(ctl: BuilderController, key: string, what: string, lead: (HTMLElement | null)[], rows: HTMLElement[], reason?: string): HTMLElement {
   const on = isOther(ctl, key), own = ctl.edition();
   return h("div", { cls: "fe-pick-list", data: { list: key } },
     on ? h("div", { cls: "fe-cf-row", data: { brought: "" } }, h("span", { cls: "fe-muted", text: `${what} from the ${otherEdition(own)} books` }), bringBackButton(own, () => setOther(ctl, key, false))) : null,
     ...lead, ...rows,
+    !on && reason ? h("div", { cls: "fe-warn", data: { empty: key }, text: reason }) : null,
     on && !rows.length ? h("div", { cls: "fe-faint", data: { empty: "" }, text: `Nothing of this kind in the ${otherEdition(own)} books.` }) : null,
     on ? null : bringInButton(otherEdition(own), () => setOther(ctl, key, true)));
 }
 
 /** The word for a race in the draft's edition. */
 const raceWord = (ctl: BuilderController): string => editionRules(ctl.edition()).raceWord;
+
+/** The first page: which rules the table uses. The default is pre-highlighted; the difference is explained inline (no sheet yet, so no panel). */
+function editionPage(ctl: BuilderController): HTMLElement {
+  const own = ctl.edition(), open = ctl.view.about === "edition";
+  const about = h("button", { cls: `fe-btn fe-about ${open ? "is-on" : ""}`.trim(), text: "What is the difference?", data: { act: "about", about: "edition" }, attrs: { type: "button", "aria-expanded": String(open) }, on: { click: () => ctl.toggleAbout("edition") } });
+  const target = ctl.view.switchTo as Edition | undefined, kinds = target ? ctl.pickedKinds(editionRules(target).raceWord.toLowerCase()) : [];
+  const list = kinds.length > 1 ? `${kinds.slice(0, -1).join(", ")} and ${kinds[kinds.length - 1]}` : kinds.join("");
+  return body("edition", h("div", { cls: "fe-name", text: "Which rules does your table use?" }),
+    ...EDITIONS.map(e => choiceButton(e === target ? "Tap again to switch" : editionRules(e).label, e === target ? editionRules(e).label : undefined, e === own, undefined, () => ctl.chooseEdition(e), { edition: e })),
+    target && kinds.length ? h("div", { cls: "fe-muted", data: { confirm: "edition" }, attrs: { role: "status" }, text: `Switching to the ${editionRules(target).label} clears your ${list} picks.` }) : null,
+    about, open ? generalChangeList(own) : null);
+}
 
 function racePage(ctl: BuilderController): HTMLElement {
   const reg = ctl.pickers(), d = ctl.draft, own = ctl.edition(), word = raceWord(ctl);
@@ -54,7 +68,7 @@ function racePage(ctl: BuilderController): HTMLElement {
   const subs = isOther(ctl, "subrace") ? otherSubs : ownSubs;
   const pick = (e: Entry<SubraceData>) => { const ref = refFor(e, own); return choiceButton(e.name, undefined, !!d.subrace && sameRef(d.subrace, ref, own), undefined, () => ctl.setSubrace(ref), { subrace: ref }, sourceLabel(e)); };
   return body("race", hint(`Pick a ${word.toLowerCase()}.`),
-    pickList(ctl, "race", `${word}${/s$/.test(word) ? "" : "s"}`, [], races.map(e => aboutRow(ctl, "race", e, originPitch(e, reg), sameRef(d.race ?? "", refFor(e, own), own) && !!d.race, () => ctl.setRace(refFor(e, own))))),
+    pickList(ctl, "race", `${word}${/s$/.test(word) ? "" : "s"}`, [], races.map(e => aboutRow(ctl, "race", e, originPitch(e, reg), sameRef(d.race ?? "", refFor(e, own), own) && !!d.race, () => ctl.setRace(refFor(e, own)))), ctl.emptyReason("race")),
     ownSubs.length || otherSubs.length ? hint("Subrace") : null,
     ...(ownSubs.length || otherSubs.length ? [pickList(ctl, "subrace", "Subraces", [choiceButton("No subrace", undefined, !d.subrace, undefined, () => ctl.setSubrace(undefined), { subrace: "" })], subs.map(e => h("div", { cls: "fe-subclass" }, pick(e), editionChip(refFor(e, own), own))))] : []));
 }
@@ -64,7 +78,7 @@ function backgroundPage(ctl: BuilderController): HTMLElement {
   const list = isOther(ctl, "background") ? reg.listEdition<GrantsData>("background", otherEdition(own)) : reg.list<GrantsData>("background");
   return body("background", hint("Pick a background."),
     pickList(ctl, "background", "Backgrounds", [choiceButton("No background", undefined, !d.background, undefined, () => ctl.setBackground(undefined), { background: "" })],
-      list.map(e => { const ref = refFor(e, own); return h("div", { cls: "fe-subclass" }, choiceButton(e.name, undefined, !!d.background && sameRef(d.background, ref, own), undefined, () => ctl.setBackground(ref), { background: ref }, sourceLabel(e)), editionChip(ref, own)); })));
+      list.map(e => { const ref = refFor(e, own); return h("div", { cls: "fe-subclass" }, choiceButton(e.name, undefined, !!d.background && sameRef(d.background, ref, own), undefined, () => ctl.setBackground(ref), { background: ref }, sourceLabel(e)), editionChip(ref, own)); }), ctl.emptyReason("background")));
 }
 
 const METHODS: [ScoreMethod, string][] = [["point-buy", "Point buy"], ["standard-array", "Standard array"], ["manual", "Manual"]];
@@ -98,7 +112,7 @@ function classPage(ctl: BuilderController): HTMLElement {
   const d = ctl.draft, own = ctl.edition(), reg = ctl.pickers();
   const list = isOther(ctl, "class") ? reg.listEdition<ClassData>("class", otherEdition(own)) : reg.list<ClassData>("class");
   return body("class", hint("Pick a class (level 1)."),
-    pickList(ctl, "class", "Classes", [], list.map(e => aboutRow(ctl, "class", e, classPitch(e), !!d.classId && sameRef(d.classId, refFor(e, own), own), () => ctl.setClass(refFor(e, own))))));
+    pickList(ctl, "class", "Classes", [], list.map(e => aboutRow(ctl, "class", e, classPitch(e), !!d.classId && sameRef(d.classId, refFor(e, own), own), () => ctl.setClass(refFor(e, own)))), ctl.emptyReason("class")));
 }
 
 /** `5d4*10` read as "roll 5d4 × 10 gp". */
@@ -155,13 +169,13 @@ function stepPage(ctl: BuilderController, p: Extract<BuilderPage, { id: "step" }
   }
 }
 
-const TITLES: Record<string, string> = { background: "Background", scores: "Ability scores", class: "Class", equipment: "Equipment", name: "Name" };
+const TITLES: Record<string, string> = { edition: "Rules", background: "Background", scores: "Ability scores", class: "Class", equipment: "Equipment", name: "Name" };
 
 /** The builder wizard: one page per screen, Back and Next at the bottom, Create on the last page. */
 export function builderView(ctl: BuilderController): HTMLElement {
   const create = createButton(ctl);
   const pages = ctl.pages(), page = Math.max(0, Math.min(ctl.page, pages.length - 1)), cur = pages[page], last = page === pages.length - 1;
-  const content = cur.id === "race" ? racePage(ctl) : cur.id === "background" ? backgroundPage(ctl) : cur.id === "scores" ? scoresPage(ctl) : cur.id === "class" ? classPage(ctl)
+  const content = cur.id === "edition" ? editionPage(ctl) : cur.id === "race" ? racePage(ctl) : cur.id === "background" ? backgroundPage(ctl) : cur.id === "scores" ? scoresPage(ctl) : cur.id === "class" ? classPage(ctl)
     : cur.id === "equipment" ? equipmentPage(ctl) : cur.id === "name" ? namePage(ctl, create) : stepPage(ctl, cur);
   const back = btn(page === 0 ? "Cancel" : "Back", () => { if (page === 0) ctl.host.close(); else ctl.go(page - 1); });
   back.dataset.act = "bd-back";

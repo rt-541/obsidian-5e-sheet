@@ -258,7 +258,7 @@ describe("cards and the builder", () => {
   async function builder() {
     const { r } = await editionRegistry(); extras(r);
     const ctl = new BuilderController({ ...host(r), defaultEdition: () => "2024" }), root = document.createElement("div");
-    document.body.append(root); mountBuilder(root, ctl, false);
+    document.body.append(root); mountBuilder(root, ctl, false); ctl.go(1);   // page 0 is the edition page
     const q = (sel: string) => root.querySelector(sel) as HTMLElement, qa = (sel: string) => [...root.querySelectorAll<HTMLElement>(sel)];
     const click = (el: Element | null | undefined) => { if (!el) throw new Error("missing element"); el.dispatchEvent(new MouseEvent("click", { bubbles: true })); };
     return { ctl, root, q, qa, click, r };
@@ -274,10 +274,10 @@ describe("cards and the builder", () => {
     const sub = b.q('[data-list="subrace"]'); expect(isBring(last(sub), "2014")).toBe(true);
     b.click(last(sub)); b.click(b.q('[data-subrace="marsh-fenling@2014"]'));
     expect(b.ctl.draft.subrace).toBe("marsh-fenling@2014");
-    b.ctl.go(1); expect(isBring(last(b.q('[data-list="background"]')), "2014")).toBe(true);
+    b.ctl.go(2); expect(isBring(last(b.q('[data-list="background"]')), "2014")).toBe(true);
     b.click(last(b.q('[data-list="background"]'))); b.click(b.q('[data-background="drifter@2014"]'));
     expect(b.ctl.draft.background).toBe("drifter@2014");
-    b.ctl.go(3); expect(isBring(last(b.q('[data-list="class"]')), "2014")).toBe(true);
+    b.ctl.go(4); expect(isBring(last(b.q('[data-list="class"]')), "2014")).toBe(true);
     b.click(last(b.q('[data-list="class"]'))); b.click(b.q('[data-class="lantern-keeper@2014"]'));
     expect(b.ctl.draft.classId).toBe("lantern-keeper@2014");
     // the built note keeps the qualified ids

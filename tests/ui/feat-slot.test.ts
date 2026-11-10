@@ -83,7 +83,7 @@ describe.each([["desktop", false], ["mobile", true]] as const)("the builder and 
   function builder() {
     const host: BuilderHost = { registry: reg, rng: seeded(4), folder: "Characters", exists: () => false, notify: () => {}, createNote: async p => p, open: () => {}, close: () => {} };
     const ctl = new BuilderController(host), root = document.createElement("div");
-    document.body.append(root); mountBuilder(root, ctl, mobile);
+    document.body.append(root); mountBuilder(root, ctl, mobile); ctl.go(1);   // page 0 is the edition page
     const q = (sel: string) => root.querySelector(sel) as HTMLElement;
     const qa = (sel: string) => [...root.querySelectorAll<HTMLElement>(sel)];
     const click = (sel: string) => { const el = q(sel); if (!el) throw new Error("missing " + sel); el.dispatchEvent(new MouseEvent("click", { bubbles: true })); };

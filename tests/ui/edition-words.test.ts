@@ -74,7 +74,7 @@ describe("the builder says species for a 2024 draft", () => {
   function setup(reg: Registry) {
     const host: BuilderHost = { registry: reg, rng: seeded(4), folder: "Characters", exists: () => false, notify: () => undefined, createNote: async p => p, open: () => undefined, close: () => undefined };
     const ctl = new BuilderController(host), root = document.createElement("div");
-    document.body.append(root); mountBuilder(root, ctl, false);
+    document.body.append(root); mountBuilder(root, ctl, false); ctl.go(1);   // page 0 is the edition page
     return { ctl, root, text: () => root.textContent!, titles: () => [...root.querySelectorAll(".fe-levelup *")].map(e => e.textContent) };
   }
   afterEach(() => document.body.replaceChildren());
@@ -98,7 +98,7 @@ describe("the About card on the builder race page", () => {
   function open(edition: "2014" | "2024") {
     const host: BuilderHost = { registry: withSpark(edition), rng: seeded(4), folder: "Characters", exists: () => false, notify: () => undefined, createNote: async p => p, open: () => undefined, close: () => undefined };
     const ctl = new BuilderController(host), root = document.createElement("div");
-    document.body.append(root); mountBuilder(root, ctl, false);
+    document.body.append(root); mountBuilder(root, ctl, false); ctl.go(1);   // page 0 is the edition page
     ctl.setEdition(edition);
     root.querySelector<HTMLElement>('[data-row="race"] [aria-label="About Spark"]')!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     const row = [...root.querySelectorAll('[data-row="race"]')].find(r => r.querySelector('[aria-label="About Spark"]'))!;

@@ -32,14 +32,16 @@ export function editionPanelTitle(ctl: SheetController): string {
   return isNewer(other, own) ? `What would change under ${other}` : `What changed from ${other}`;
 }
 
-/** Part one of the panel: every general change, each side labelled by its year. */
-export function editionChangesPanel(ctl: SheetController): HTMLElement {
-  const own = editionOf(ctl);
+/** The general changes, each side labelled by its year and the `own` edition marked: the panel's part one, and the builder's inline answer. */
+export function generalChangeList(own: Edition): HTMLElement {
   return h("div", { cls: "fe-edition-changes" },
     ...generalChanges().map(n => h("div", { cls: "fe-change", data: { change: n.id } },
       h("div", { cls: "fe-name", text: n.title }),
       ...EDITIONS.map(e => h("div", { cls: `fe-detail-line ${e === own ? "is-yours" : ""}`.trim(), text: `${e === own ? `${e} (yours)` : e}: ${n[e]}` })))));
 }
+
+/** Part one of the panel: every general change. */
+export function editionChangesPanel(ctl: SheetController): HTMLElement { return generalChangeList(editionOf(ctl)); }
 
 /** The Settings row: the edition in use and the button to the panel. */
 export function editionRow(ctl: SheetController): HTMLElement {
