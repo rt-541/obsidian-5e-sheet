@@ -11,6 +11,7 @@ import { diceAt } from "../core/spells";
 import type { SheetController } from "./controller";
 import { actionWords, describeEffects, effectParts, sourceBadge, wordsCtx, type WordsCtx } from "./widgets";
 import { h, sgn } from "./h";
+import { backgroundPitch } from "./builder-pitch";
 import { identityCard } from "./identity-cards";
 import { withProvenance } from "./bring-in";
 import { editionCard } from "./edition-ui";
@@ -118,7 +119,10 @@ function featCard(e: Entry<FeatData>): HTMLElement {
 }
 function grantsCard(e: Entry<GrantsData | SubraceData>, kind: string, reg: Registry): HTMLElement {
   const race = "race" in e.data ? reg.get<GrantsData>("race", e.data.race)?.name : undefined;
-  return opsCard(e.name, race ? `${race} subrace` : kind, [["", e.data.grants]], e.source === "vault" ? e.path : undefined, sourceLabel(e));
+  const el = opsCard(e.name, race ? `${race} subrace` : kind, [["", e.data.grants]], e.source === "vault" ? e.path : undefined, sourceLabel(e));
+  // A background's skills, tools, feat and ability picks are not features, so list them first.
+  if (e.type === "background") for (const part of backgroundPitch(e as Entry<GrantsData>, reg).split(" · ").filter(Boolean).reverse()) el.querySelector(".fe-muted")?.after(h("div", { cls: "fe-detail-line", text: part }));
+  return el;
 }
 function classCard(e: Entry<ClassData>): HTMLElement {
   const d = e.data, lines = [`Hit die: d${d.hitDie}`, `Saving throws: ${d.saves.map(a => ABIL[a]).join(", ")}`,

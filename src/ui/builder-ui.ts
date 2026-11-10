@@ -9,7 +9,7 @@ import type { BuilderController, BuilderPage } from "./builder";
 import { clear, h } from "./h";
 import { asiPage, choiceButton, featPage, optionalPage, patternPage, pickPage, spellsPage, stepCounter, subclassPage } from "./levelup-ui";
 import { btn } from "./widgets";
-import { classPitch, originPitch } from "./builder-pitch";
+import { backgroundPitch, classPitch, originPitch } from "./builder-pitch";
 import { entryCard } from "./details";
 import type { Entry } from "../content/registry";
 import type { ClassData } from "../content/types";
@@ -66,11 +66,11 @@ function racePage(ctl: BuilderController): HTMLElement {
   const subOf = (list: Entry<SubraceData>[]) => d.race ? list.filter(e => e.data.race === splitRef(d.race!).id) : [];
   const ownSubs = subOf(reg.list<SubraceData>("subrace")), otherSubs = subOf(reg.listEdition<SubraceData>("subrace", otherEdition(own)));
   const subs = isOther(ctl, "subrace") ? otherSubs : ownSubs;
-  const pick = (e: Entry<SubraceData>) => { const ref = refFor(e, own); return choiceButton(e.name, undefined, !!d.subrace && sameRef(d.subrace, ref, own), undefined, () => ctl.setSubrace(ref), { subrace: ref }, sourceLabel(e)); };
+  const pick = (e: Entry<SubraceData>) => aboutRow(ctl, "subrace", e, originPitch(e, reg), !!d.subrace && sameRef(d.subrace, refFor(e, own), own), () => ctl.setSubrace(refFor(e, own)));
   return body("race", hint(`Pick a ${word.toLowerCase()}.`),
     pickList(ctl, "race", `${word}${/s$/.test(word) ? "" : "s"}`, [], races.map(e => aboutRow(ctl, "race", e, originPitch(e, reg), sameRef(d.race ?? "", refFor(e, own), own) && !!d.race, () => ctl.setRace(refFor(e, own)))), ctl.emptyReason("race")),
     ownSubs.length || otherSubs.length ? hint("Subrace") : null,
-    ...(ownSubs.length || otherSubs.length ? [pickList(ctl, "subrace", "Subraces", [choiceButton("No subrace", undefined, !d.subrace, undefined, () => ctl.setSubrace(undefined), { subrace: "" })], subs.map(e => h("div", { cls: "fe-subclass" }, pick(e), editionChip(refFor(e, own), own))))] : []));
+    ...(ownSubs.length || otherSubs.length ? [pickList(ctl, "subrace", "Subraces", [choiceButton("No subrace", undefined, !d.subrace, undefined, () => ctl.setSubrace(undefined), { subrace: "" })], subs.map(pick))] : []));
 }
 
 function backgroundPage(ctl: BuilderController): HTMLElement {
@@ -78,7 +78,7 @@ function backgroundPage(ctl: BuilderController): HTMLElement {
   const list = isOther(ctl, "background") ? reg.listEdition<GrantsData>("background", otherEdition(own)) : reg.list<GrantsData>("background");
   return body("background", hint("Pick a background."),
     pickList(ctl, "background", "Backgrounds", [choiceButton("No background", undefined, !d.background, undefined, () => ctl.setBackground(undefined), { background: "" })],
-      list.map(e => { const ref = refFor(e, own); return h("div", { cls: "fe-subclass" }, choiceButton(e.name, undefined, !!d.background && sameRef(d.background, ref, own), undefined, () => ctl.setBackground(ref), { background: ref }, sourceLabel(e)), editionChip(ref, own)); }), ctl.emptyReason("background")));
+      list.map(e => aboutRow(ctl, "background", e, backgroundPitch(e, reg), !!d.background && sameRef(d.background, refFor(e, own), own), () => ctl.setBackground(refFor(e, own)))), ctl.emptyReason("background")));
 }
 
 const METHODS: [ScoreMethod, string][] = [["point-buy", "Point buy"], ["standard-array", "Standard array"], ["manual", "Manual"]];
