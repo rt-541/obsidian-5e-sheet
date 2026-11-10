@@ -1,3 +1,4 @@
+import { splitRef } from "../content/edition";
 import { itemPinRef } from "../core/actions";
 import { entryItem, entryRef, entryVariant, isGear } from "../core/item-entry";
 import type { ItemData } from "../content/types";
@@ -6,7 +7,7 @@ import type { SheetController } from "./controller";
 import { coinsRow } from "./coins-ui";
 import { customizeButton } from "./customize-ui";
 import { h } from "./h";
-import { chipFor } from "./bring-in";
+import { chipFor, missingLine } from "./bring-in";
 import { btn, card, pips } from "./widgets";
 
 /** Pin key for an inventory entry: the compendium id, or the name of a custom item. */
@@ -27,7 +28,7 @@ export function itemPinButton(ctl: SheetController, ref: string): HTMLElement {
  */
 export function itemState(ctl: SheetController, index: number) {
   const e = ctl.character!.inventory[index], it = entryItem(e, ctl.host.registry);
-  const name = it?.name ?? e.name ?? `${e.id} (missing from compendium)`;
+  const name = it?.name ?? e.name ?? `${splitRef(e.id ?? "").id} (missing from compendium)`;
   const charges = it?.charges && (!it.attunement || e.attuned) ? it.charges : undefined;
   const consumable = e.consumable ?? (it?.kind === "consumable");
   const outOfStock = consumable && e.qty <= 0, outOfCharges = !!charges && (e.charges?.used ?? 0) >= charges.max;
@@ -110,6 +111,7 @@ export function inventoryFeature(ctl: SheetController, st: ActorStats): HTMLElem
     return h("div", { cls: `fe-inv ${it || e.name ? "" : "is-missing"} ${s.usedUp ? "is-used-up" : ""}`.replace(/\s+/g, " ").trim(), data: { item: String(i) } },
       h("div", { cls: "fe-grow" }, h("span", { cls: "fe-inv-name", text: name, ...(it && e.id ? { data: { ref: entryRef(e) } } : {}) }), chipFor(e.id, c), (e.id && ctl.host.registry.get("item", e.id)?.source) === "vault" ? h("span", { cls: "fe-src", text: "Homebrew" }) : null,
         askBase(ctl, i),
+        !it && !e.name && e.id ? missingLine(ctl, "item", e.id, { field: "item", index: i }) : null,
         h("div", { cls: "fe-faint", text: [!stack && e.qty > 1 ? `x${e.qty}` : "", s.upWord, it?.rarity ?? "", it?.attunement ? (e.attuned ? "attuned" : "requires attunement") : ""].filter(Boolean).join(" · ") })),
       stack ? qtyStepper(ctl, i, name) : null,
       s.useBtn(),

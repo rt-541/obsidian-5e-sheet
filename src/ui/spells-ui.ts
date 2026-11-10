@@ -3,7 +3,7 @@ import { sourceLabel } from "../content/registry";
 import { characterEdition } from "../core/edition";
 import type { SpellData } from "../content/types";
 import { castRow, spellRows, type SpellRow } from "../core/spells";
-import { bringBackButton, bringInButton, chipFor, editionChip } from "./bring-in";
+import { bringBackButton, bringInButton, chipFor, editionChip, missingLine, type RepointAt } from "./bring-in";
 import { otherEdition } from "../core/edition";
 import type { ActorStats } from "../core/derive";
 import type { SheetController } from "./controller";
@@ -33,9 +33,10 @@ export function rolls(ctl: SheetController, r: SpellRow): (Node | null)[] {
   ];
 }
 
-function nameCell(ctl: SheetController, r: SpellRow, lead?: HTMLElement | null): HTMLElement {
-  return h("div", { cls: "fe-grow" }, lead ?? null, h("span", { cls: `fe-spell-name ${r.known ? "" : "is-missing"}`, text: r.known ? r.name : `${r.id} (missing from compendium)`, ...(r.known ? { data: { ref: `spell:${r.id}` } } : {}) }),
+function nameCell(ctl: SheetController, r: SpellRow, lead?: HTMLElement | null, at?: RepointAt): HTMLElement {
+  return h("div", { cls: "fe-grow" }, lead ?? null, h("span", { cls: `fe-spell-name ${r.known ? "" : "is-missing"}`, text: r.known ? r.name : `${splitRef(r.id).id} (missing from compendium)`, ...(r.known ? { data: { ref: `spell:${r.id}` } } : {}) }),
     r.known ? chipFor(r.id, ctl.character) : null,
+    !r.known && at ? missingLine(ctl, "spell", r.id, at) : null,
     r.concentration ? h("span", { cls: "fe-tag", text: "Concentration", data: { badge: "concentration" } }) : null);
 }
 
@@ -107,7 +108,7 @@ function ownRow(ctl: SheetController, r: SpellRow, index: number): HTMLElement {
   const key = `own:${r.id}`;
   const row = h("div", { cls: "fe-inv", data: { spell: r.id } },
     nameCell(ctl, r, r.level >= 1 && r.known ? h("button", { cls: `fe-dot ${prepared ? "is-prof" : ""}`, title: always ? "Always prepared" : prepared ? "Prepared" : "Not prepared", attrs: { "aria-label": `Prepared: ${r.name}` },
-      data: { act: "prepare" }, on: { click: () => { if (!always) ctl.dispatch({ type: "prepare", index, on: !prepared }); } } }) : null), ...rolls(ctl, r), castButton(ctl, r), r.known ? pinButton(ctl, r) : null, menuButton(ctl, key, r.known ? r.name : r.id),
+      data: { act: "prepare" }, on: { click: () => { if (!always) ctl.dispatch({ type: "prepare", index, on: !prepared }); } } }) : null, { field: "spell", index }), ...rolls(ctl, r), castButton(ctl, r), r.known ? pinButton(ctl, r) : null, menuButton(ctl, key, r.known ? r.name : r.id),
     ctl.editing ? btn("Remove", () => ctl.dispatch({ type: "removeSpell", index }), "", { act: "remove-spell" }) : null);
   return menuState(ctl).open === key ? h("div", { cls: "fe-spell-wrap" }, row, ownMenu(ctl, r, index)) : row;
 }
@@ -175,7 +176,8 @@ export function concentrationFeature(ctl: SheetController): HTMLElement {
   const id = ctl.character?.concentration;
   if (!id) return h("div", { cls: "fe-conc fe-faint", text: "Not concentrating" });
   const sp = ctl.host.registry.get<SpellData>("spell", id), chk = ctl.concentrationCheck;
-  return h("div", { cls: "fe-conc" }, h("span", { cls: `fe-chip ${sp ? "" : "is-missing"}`, text: sp ? `Concentrating: ${sp.name}` : `${id} (missing from compendium)`, ...(sp ? { data: { ref: `spell:${id}` } } : {}) }),
+  return h("div", { cls: "fe-conc" }, h("span", { cls: `fe-chip ${sp ? "" : "is-missing"}`, text: sp ? `Concentrating: ${sp.name}` : `${splitRef(id).id} (missing from compendium)`, ...(sp ? { data: { ref: `spell:${id}` } } : {}) }),
+    sp ? null : missingLine(ctl, "spell", id, { field: "concentration" }),
     btn("End", () => ctl.dispatch({ type: "endConcentration" }), "", { act: "end-concentration" }),
     chk && chk.spell === id ? h("div", { cls: "fe-conc-check" }, h("div", { text: `Make a Constitution save to keep concentrating (DC ${chk.dc})` }),
       btn("Roll Constitution save", () => ctl.rollConcentration(), "mod-cta", { act: "concentration-roll" }),

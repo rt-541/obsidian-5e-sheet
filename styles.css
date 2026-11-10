@@ -406,3 +406,6 @@
 .fe-sheet .fe-chip.fe-edition { display: inline-block; flex: none; margin: 0 6px; padding: 0 8px; border-radius: 10px; font-size: var(--font-ui-smaller); line-height: 1.5; background: var(--background-modifier-hover); color: var(--text-muted); }
 .fe-sheet .fe-detail-prov { margin-bottom: 4px; }
 .fe-mobile button.fe-bring-in, .fe-tablet button.fe-bring-in, .fe-mobile button.fe-bring-back, .fe-tablet button.fe-bring-back { min-height: 44px; }
+.fe-sheet .fe-missing-line { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; font-size: var(--font-ui-smaller); }
+.fe-sheet .fe-identity-label .fe-missing-line { display: inline-flex; vertical-align: middle; }
+.fe-sheet .fe-missing-line button.fe-bring-in { margin-top: 0; }

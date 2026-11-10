@@ -61,6 +61,7 @@ export function editionNotes(opts: EditionOpts = {}): Notes {
     put("WotC", "Spells/Hush.md", s(spell("hush", "Hush", 2)));
     put("WotC", "Items/Tin-blade.md", s(weapon("tin-blade", "Tin-blade", "1d6")));
     put("WotC", "Feats/Keen.md", s(feat("keen", "Keen")));
+    put("WotC", "Feats/Hum.md", s(feat("hum", "Hum")));
     put("WotC", "Classes/Warden/Warden.md", s(cls("warden", "Warden"), ["lantern-keeper"]));
     put("WotC", "Classes/Lantern-keeper/Lantern-keeper.md", s(cls("lantern-keeper", "Lantern-keeper")));
     put("WotC", "Classes/Warden/Subclasses/Lantern.md", s(subclass("lantern", "Lantern")));

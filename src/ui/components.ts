@@ -1,6 +1,6 @@
 import { characterEdition, editionRules } from "../core/edition";
 import { refName, splitRef } from "../content/edition";
-import { chipFor } from "./bring-in";
+import { chipFor, missingLine, type RepointAt } from "./bring-in";
 import { titleCase } from "../core/words";
 import { entryItem, entryRef } from "../core/item-entry";
 import type { ConditionData, CreatureData, ItemData } from "../content/types";
@@ -113,19 +113,22 @@ function pinnedItems(ctl: SheetController): { index: number; row: HTMLElement }[
  */
 function identityParts(ctl: SheetController): HTMLElement {
   const c = ctl.character!, r = ctl.host.registry;
-  // a pick that is missing from the compendium stays plain text, marked so it is not mistaken for a name
-  const part = (text: string, ref: string, missing = false) => { const [type, id] = ref.split(":"); return missing ? h("span", { cls: "fe-id-part is-missing", text: `${text} (missing from compendium)` }) : h("span", { cls: "fe-id-part", text, ...(r.get(type, id ?? (type === "race" ? c.race! : type === "subrace" ? c.subrace! : c.background!)) ? { data: { ref: `identity:${ref}` } } : {}) }); };
-  const named = (type: string, id: string) => { const e = r.get<{ name: string }>(type, id); return part(e?.name ?? id, `${type}:${id}`, !e); };
+  // a pick that is missing from the compendium stays plain text, marked so it is not mistaken for a name; when the other edition has it, one line and a button follow
+  const part = (text: string, ref: string) => { const [type, id] = ref.split(":"); return h("span", { cls: "fe-id-part", text, ...(r.get(type, id ?? (type === "race" ? c.race! : type === "subrace" ? c.subrace! : c.background!)) ? { data: { ref: `identity:${ref}` } } : {}) }); };
+  const gone = (id: string, type: string, at: RepointAt): (HTMLElement | null)[] => [h("span", { cls: "fe-id-part is-missing", text: `${splitRef(id).id} (missing from compendium)` }), missingLine(ctl, type, id, at)];
+  const named = (type: string, id: string, at: RepointAt): (HTMLElement | null)[] => { const e = r.get<{ name: string }>(type, id); return e ? [part(e.name, `${type}:${id}`)] : gone(id, type, at); };
   const chip = (ref: string | undefined) => chipFor(ref, c);
   const out: (Node | string | null)[] = [];
   c.classes.forEach((k, i) => {
     if (i) out.push(" / ");
     // a brought-in class shows its name (a plain one keeps the id, as the plain label always did); the chip follows the level
-    out.push(part(`${splitRef(k.class).edition ? refName(r, "class", k.class) : k.class} ${k.level}`, `class:${k.class}`), chip(k.class));
-    if (k.subclass) out.push(" (", named("subclass", k.subclass), chip(k.subclass), ")");
+    const label = `${splitRef(k.class).edition ? refName(r, "class", k.class) : k.class} ${k.level}`;
+    // a missing class keeps its level but is marked like a missing race, so the id is not mistaken for a name
+    out.push(...(r.get("class", k.class) ? [part(label, `class:${k.class}`)] : [h("span", { cls: "fe-id-part is-missing", text: `${splitRef(k.class).id} (missing from compendium)` }), ` ${k.level}`]), chip(k.class), r.get("class", k.class) ? null : missingLine(ctl, "class", k.class, { field: "class", index: i }));
+    if (k.subclass) out.push(" (", ...named("subclass", k.subclass, { field: "subclass", index: i }), chip(k.subclass), ")");
   });
   const origin: (Node | null)[][] = [];
-  const one = (type: "race" | "subrace" | "background", id: string | undefined) => { if (!id) return; const e = r.get<{ name: string }>(type, id); origin.push([part(e?.name ?? id, type, !e), chip(id)]); };
+  const one = (type: "race" | "subrace" | "background", id: string | undefined) => { if (!id) return; const e = r.get<{ name: string }>(type, id); origin.push([...(e ? [part(e.name, type)] : gone(id, type, { field: type })), chip(id)]); };
   one("race", c.race); one("subrace", c.subrace); one("background", c.background);
   origin.forEach(o => out.push(" · ", ...o));
   return h("span", { cls: "fe-muted fe-identity-label" }, ...out);
@@ -226,7 +229,7 @@ export const RENDER: Record<string, Render> = {
   companions: ctl => { const c = ctl.character!, sts = ctl.companionStats(), r = ctl.host.registry;
     return card("Companions", ...c.companions.map((comp, i) => {
       const st = sts[i];
-      if (!st) return h("div", { cls: "fe-comp is-missing", data: { companion: String(i) } }, h("span", { text: `${comp.name}: ${comp.creature} (missing from compendium)` }),
+      if (!st) return h("div", { cls: "fe-comp is-missing", data: { companion: String(i) } }, h("span", { text: `${comp.name}: ${splitRef(comp.creature).id} (missing from compendium)` }), missingLine(ctl, "creature", comp.creature, { field: "companion", index: i }),
         companionMenuButton(ctl, i, comp.name), ctl.companionMenu === i ? companionMenu(ctl, i, comp.name) : null);
       const ch = checks(ctl, st, i);
       const traits = r.get<CreatureData>("creature", comp.creature)?.data.traits ?? [];

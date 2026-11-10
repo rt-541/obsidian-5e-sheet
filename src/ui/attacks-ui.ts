@@ -1,3 +1,4 @@
+import { splitRef } from "../content/edition";
 import type { Entry } from "../content/registry";
 import type { ItemData, MasteryData } from "../content/types";
 import { masteryOptions } from "../core/levelup";
@@ -5,7 +6,7 @@ import { entryItem } from "../core/item-entry";
 import type { ActorStats, AttackStat } from "../core/derive";
 import type { Abil } from "../core/types";
 import type { SheetController } from "./controller";
-import { chipFor } from "./bring-in";
+import { chipFor, missingLine } from "./bring-in";
 import { h, sgn } from "./h";
 import { btn } from "./widgets";
 
@@ -83,12 +84,13 @@ export function masteryEdit(ctl: SheetController): HTMLElement | null {
   const reg = ctl.host.registry;
   return h("div", { cls: "fe-mastery-edit", data: { block: "weapon-mastery" } },
     h("div", { cls: "fe-muted", text: "Weapon mastery" }),
-    ...c.mastery.flatMap(id => {
+    ...c.mastery.flatMap((id, mi) => {
       // untyped on purpose: c.mastery names library weapons, not inventory rows
       const item = reg.get("item", id) as Entry<ItemData> | undefined, prop = item?.data.weapon?.mastery, note = prop ? reg.get<MasteryData>("mastery", prop) : undefined;
       const open = ctl.masteryChanging === id;
       const row = h("div", { cls: "fe-kv", data: { masteryRow: id } },
-        h("span", { cls: "fe-grow", text: item?.name ?? id }),
+        h("span", { cls: "fe-grow", text: item?.name ?? splitRef(id).id }),
+        item ? null : missingLine(ctl, "item", id, { field: "mastery", index: mi }),
         note ? h("span", { cls: "fe-faint", text: note.data.name }) : null,
         h("button", { cls: "fe-mastery-change", text: open ? "Cancel" : "Change", attrs: { type: "button", "aria-label": `Change mastery of ${item?.name ?? id}` },
           on: { click: () => ctl.changeMastery(open ? null : id) } }));

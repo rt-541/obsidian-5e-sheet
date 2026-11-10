@@ -1,9 +1,9 @@
 import type { Customization } from "./customize";
 import { newRowId, type ItemChange, type Character, type Combo, type CompanionEntry, type Npc } from "./character";
 import { validateCombo } from "./combos";
-import { canonRef, sameRef } from "../content/edition";
+import { canonRef, qualifyRef, sameRef, splitRef } from "../content/edition";
 import type { ActorStats } from "./derive";
-import { characterEdition } from "./edition";
+import { characterEdition, type Edition } from "./edition";
 import type { ConditionData, ItemData, SpellData } from "../content/types";
 import { isVersatile } from "../content/types/item";
 import type { Registry } from "../content/registry";
@@ -37,6 +37,9 @@ export type Action =
   | { type: "cast"; spell: string; level?: number; item?: number } | { type: "endConcentration" }
   | { type: "addSpell"; id: string } | { type: "removeSpell"; index: number } | { type: "prepare"; index: number; on: boolean } | { type: "alwaysPrepared"; index: number; on: boolean }
   | { type: "pinSpell"; key: string; on: boolean }
+  /** Point one stored reference whose thing only the other edition has at that edition's version (`id@<to>`); nothing else on the character changes. */
+  | { type: "repoint"; field: "race" | "subrace" | "background" | "concentration"; to: Edition }
+  | { type: "repoint"; field: "class" | "subclass" | "feat" | "spell" | "item" | "companion" | "mastery"; index: number; to: Edition }
   | { type: "pin"; ref: string; on: boolean }
   | { type: "itemQty"; index: number; qty: number }
   /** Set or clear what the player changed on one row, and optionally the armor or weapon a generic item is made from. */
@@ -311,6 +314,18 @@ function dropGone(c: Character, lim: Limits, isToggle: (t: ActorStats["toggles"]
   if (gone.length && c.optionsOn) { c.optionsOn = c.optionsOn.filter(id => !gone.includes(id)); if (!c.optionsOn.length) delete c.optionsOn; }
 }
 
+/** After a re-point: saved picks, customizations and pins were keyed by the old ref, and the level log keeps ids as values for undo; move them all to the new ref. */
+function rekeyRef(c: Character, kind: string, old: string, neu: string, values: boolean): void {
+  if (old === neu) return;
+  const from = `${kind}:${old}:`, to = `${kind}:${neu}:`, pin = (k: string) => k.startsWith(from) ? to + k.slice(from.length) : k.startsWith(`feature:${from}`) ? `feature:${to}${k.slice(8 + from.length)}` : k === `${kind}:${old}` ? `${kind}:${neu}` : k;
+  const keys = <T>(o: Record<string, T>): Record<string, T> => Object.fromEntries(Object.entries(o).map(([k, v]) => [pin(k), v]));
+  c.choices = keys(c.choices); c.customize = keys(c.customize); c.mainPins = c.mainPins.map(pin);
+  for (const l of c.levelLog) l.choices = keys(l.choices);
+  if (!values) return;
+  const sw = (x: unknown) => x === old ? neu : x;
+  for (const l of c.levelLog) for (const k of ["+spells", "+feats", "+mastery", "+items"]) if (Array.isArray(l.choices[k])) l.choices[k] = (l.choices[k] as unknown[]).map(sw);
+}
+
 export function apply(c0: Character, a: Action, lim: Limits): Applied {
   const c = structuredClone(c0);
   const who = "who" in a ? a.who : undefined;
@@ -476,6 +491,23 @@ export function apply(c0: Character, a: Action, lim: Limits): Applied {
     case "endConcentration": delete c.concentration; break;
     case "addSpell": { const own = characterEdition(c); if (!c.spells.some(x => sameRef(x.id, a.id, own))) c.spells.push({ id: canonRef(a.id, own), prepared: false }); break; }
     case "removeSpell": { const gone = c.spells.splice(a.index, 1)[0]; if (gone) c.mainSpells = c.mainSpells.filter(k => k !== gone.id); break; }
+    case "repoint": {
+      const own = characterEdition(c), fix = (old: string) => canonRef(qualifyRef(splitRef(old).id, a.to), own);
+      if (!("index" in a)) { const old = c[a.field]; if (!old) return { value: c0, error: "Nothing to bring in" }; c[a.field] = fix(old); if (a.field !== "concentration") rekeyRef(c, a.field, old, c[a.field]!, false); break; }
+      const i = a.index;
+      switch (a.field) {
+        case "class": { const k = c.classes[i]; if (!k) return { value: c0, error: "No such class" }; const old = k.class; k.class = fix(old); for (const l of c.levelLog) if (l.class === old) l.class = k.class; rekeyRef(c, "class", old, k.class, false); break; }
+        case "subclass": { const k = c.classes[i]; if (!k?.subclass) return { value: c0, error: "No such subclass" }; const old = k.subclass; k.subclass = fix(old); rekeyRef(c, "subclass", old, k.subclass, false); for (const l of c.levelLog) if (l.choices["+subclass"] === old) l.choices["+subclass"] = k.subclass; break; }
+        case "feat": if (c.feats[i] === undefined) return { value: c0, error: "No such feat" }; { const old = c.feats[i]; c.feats[i] = fix(old); rekeyRef(c, "feat", old, c.feats[i], true); for (const l of c.levelLog) for (const v of Object.values(l.choices)) if (v && typeof v === "object" && !Array.isArray(v) && (v as { feat?: unknown }).feat === old) (v as { feat?: unknown }).feat = c.feats[i]; } break;
+        case "spell": { const sp = c.spells[i]; if (!sp) return { value: c0, error: "No such spell" }; const old = sp.id; sp.id = fix(old); c.mainSpells = c.mainSpells.map(k => k === old ? sp.id : k); for (const l of c.levelLog) for (const k of ["+spells"]) if (Array.isArray(l.choices[k])) l.choices[k] = (l.choices[k] as unknown[]).map(x => x === old ? sp.id : x);
+          for (const l of c.levelLog) if (Array.isArray(l.choices["+swaps"])) for (const w of l.choices["+swaps"] as { out?: unknown; in?: unknown }[]) { if (w.out === old) w.out = sp.id; if (w.in === old) w.in = sp.id; } break; }
+        case "item": { const e = c.inventory[i]; if (!e?.id) return { value: c0, error: "No such item" }; const was = itemPinRef(e), oldId = e.id; e.id = fix(oldId); c.mainPins = c.mainPins.map(k => k === was ? itemPinRef(e) : k); c.mainSpells = c.mainSpells.map(k => k.startsWith(`${oldId}/`) ? `${e.id}/${k.slice(oldId.length + 1)}` : k);
+          for (const l of c.levelLog) if (Array.isArray(l.choices["+items"])) l.choices["+items"] = (l.choices["+items"] as unknown[]).map(x => x === oldId ? e.id : x); break; }
+        case "companion": { const comp = c.companions[i]; if (!comp) return { value: c0, error: "No such companion" }; comp.creature = fix(comp.creature); break; }
+        case "mastery": if (c.mastery?.[i] === undefined) return { value: c0, error: "No such weapon" }; { const old = c.mastery[i]; c.mastery[i] = fix(old); for (const l of c.levelLog) if (Array.isArray(l.choices["+mastery"])) l.choices["+mastery"] = (l.choices["+mastery"] as unknown[]).map(x => x === old ? c.mastery![i] : x); } break;
+      }
+      break;
+    }
     case "pinSpell": c.mainSpells = c.mainSpells.filter(k => k !== a.key); if (a.on) c.mainSpells.push(a.key); break;
     case "pin": c.mainPins = c.mainPins.filter(k => k !== a.ref); if (a.on) c.mainPins.push(a.ref); break;
     case "itemQty": { const e = c.inventory[a.index]; if (e) e.qty = Math.max(0, Math.floor(a.qty)); break; }

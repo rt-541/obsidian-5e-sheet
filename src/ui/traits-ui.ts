@@ -7,7 +7,7 @@ import type { FeatureRow } from "../core/progression";
 import type { SheetController } from "./controller";
 import { customizeButton } from "./customize-ui";
 import { h } from "./h";
-import { chipFor } from "./bring-in";
+import { chipFor, missingLine } from "./bring-in";
 import { refLabel, splitRef } from "../content/edition";
 import { btn, card, describeEffects, usesPips, wordsCtx, type WordsCtx } from "./widgets";
 
@@ -125,12 +125,16 @@ export function pinnedTraits(ctl: SheetController, st: ActorStats): { rows: HTML
 export function traitsFeature(ctl: SheetController, st: ActorStats): HTMLElement {
   const c = ctl.character;
   const groups = c ? traitGroups(c, st.progress.features, ctl.host.registry, wordsCtx(c, st)) : [];
+  // a feat the compendium lacks has no features to list, but it still gets a row so it can be brought in from the other edition
+  const reg = ctl.host.registry, lost = (c?.feats ?? []).map((id, index) => ({ id, index })).filter(f => !reg.get("feat", f.id));
+  if (lost.length && !groups.some(g => g.id === "feats")) groups.push({ id: "feats", heading: "Feats", rows: [] });
   if (!groups.length) return card("Features & traits", h("div", { cls: "fe-faint", text: "No features yet." }));
   return card("Features & traits", ...groups.map(g => {
-    const open = !ctl.isCollapsed(g.id);
+    const open = !ctl.isCollapsed(g.id), gone = g.id === "feats" ? lost : [];
     return h("div", { cls: `fe-trait-group ${open ? "" : "is-collapsed"}`.trim(), data: { group: g.id } },
       h("button", { cls: "fe-trait-head", attrs: { "aria-expanded": String(open) }, on: { click: () => ctl.toggleCollapsed(g.id) } },
-        h("span", { cls: "fe-trait-caret", text: open ? "v" : ">" }), h("span", { cls: "fe-grow", text: g.heading }), h("span", { cls: "fe-faint", text: String(g.rows.length) })),
-      open ? h("div", { cls: "fe-trait-body" }, ...g.rows.map(t => traitRow(ctl, st, t, g.id.startsWith("class:") || g.id.startsWith("subclass:")))) : null);
+        h("span", { cls: "fe-trait-caret", text: open ? "v" : ">" }), h("span", { cls: "fe-grow", text: g.heading }), h("span", { cls: "fe-faint", text: String(g.rows.length + gone.length) })),
+      open ? h("div", { cls: "fe-trait-body" }, ...g.rows.map(t => traitRow(ctl, st, t, g.id.startsWith("class:") || g.id.startsWith("subclass:"))),
+        ...gone.map(f => h("div", { cls: "fe-trait is-missing", data: { missingFeat: String(f.index) } }, h("span", { cls: "fe-grow is-missing", text: `${splitRef(f.id).id} (missing from compendium)` }), missingLine(ctl, "feat", f.id, { field: "feat", index: f.index })))) : null);
   }));
 }
