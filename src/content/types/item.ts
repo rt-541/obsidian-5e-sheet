@@ -3,6 +3,7 @@ import { parseDice } from "../../core/dice";
 import { bool, isObj, num, oneOf, str, type Errs, type Raw } from "../check";
 import type { TypeDef } from "../registry";
 import { validateEffects } from "./effects";
+import { readEdition } from "../../core/edition";
 import { findOverlay } from "../overlay";
 import { optOut } from "./ops";
 import { validateToggle, type ToggleDef } from "./toggle";
@@ -130,7 +131,7 @@ export const itemType: TypeDef<ItemData> = {
     const overlay = optOut(raw.overlay, "overlay", e); if (overlay === false) out.overlay = overlay;
     if (e.length || !name) return { errors: e };
     // Built-in mechanics fill in an item whose note has no effects and no switch of its own; the note always wins.
-    const hit = overlay !== false && name && !Object.keys(out.effects ?? {}).length && !out.toggle && !out.attackOption ? findOverlay("item", [], name) : undefined;
+    const hit = overlay !== false && name && !Object.keys(out.effects ?? {}).length && !out.toggle && !out.attackOption ? findOverlay("item", [], name, undefined, readEdition(raw.edition)) : undefined;
     if (hit) { out.effects = hit.effects; if (hit.toggle) out.toggle = hit.toggle; if (hit.attackOption) out.attackOption = hit.attackOption; out.builtIn = hit.key; }
     return { errors: e, value: out as ItemData };
   },

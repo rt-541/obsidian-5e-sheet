@@ -1,6 +1,7 @@
 import type { Registry } from "../content/registry";
 import { slug } from "../content/registry";
 import { findOverlay, overlayOptionList, type OverlayEntry, type OverlayKind } from "../content/overlay";
+import { characterEdition, type Edition } from "./edition";
 import { abilityKey } from "./ability-increase";
 import type { ActionDef, AttackOptionDef, ClassData, FeatData, GrantsData, Op, OptionDef, Progression, Reset, SubclassData, SubraceData, TableRow, ToggleDef } from "../content/types";
 import { abilityMod, profBonus } from "./abilities";
@@ -86,6 +87,7 @@ interface Src {
   kind: FeatureRow["sourceKind"]; label: string; keyBase: string; classId?: string; classLevel: number; level: number;
   options?: Record<string, OptionDef[]>; fallbackOptions?: Record<string, OptionDef[]>; subclass?: string | undefined;
   /** The note that owns these rows has `overlay: false`. */ noOverlay?: boolean;
+  /** Edition of the entry supplying the rows; the character's own when the entry has none. */ edition?: Edition;
 }
 
 /** Another class's option list, written `<class id>:<list id>` (Fighting Initiate takes a Fighter fighting style), or a list a built-in entry carries. */
@@ -157,7 +159,7 @@ export function progress(c: Character, registry: Registry): Progress {
   const withOverlay = (src: Src, kind: OverlayKind, list: string | undefined, name: string, id: string | undefined, off: boolean | undefined,
     effects: Effects, action: ActionDef | undefined, toggle: ToggleDef | undefined, attackOption?: AttackOptionDef) => {
     const same = { effects, action, toggle, attackOption, entry: undefined as OverlayEntry | undefined, key: undefined as string | undefined, toggleName: undefined as string | undefined };
-    const entry = off || src.noOverlay ? undefined : findOverlay(kind, ownerOf(src, kind, list), name, id);
+    const entry = off || src.noOverlay ? undefined : findOverlay(kind, ownerOf(src, kind, list), name, id, src.edition ?? characterEdition(c));
     if (!entry) return same;
     const first = !overlayDone.has(entry.key);
     overlayDone.add(entry.key);
@@ -303,13 +305,13 @@ export function progress(c: Character, registry: Registry): Progress {
     let best = 0; for (const k of Object.keys(t ?? {})) { const n = Number(k); if (n <= level && n > best) best = n; }
     return best ? t![best] : undefined;
   };
-  const originSrc = (kind: "race" | "subrace" | "background" | "feat", id: string, name: string, noOverlay?: boolean): Src =>
-    ({ kind, label: `${kind[0].toUpperCase()}${kind.slice(1)}: ${name}`, keyBase: `${kind}:${id}`, classLevel: total, level: 0, ...(noOverlay ? { noOverlay } : {}) });
+  const originSrc = (kind: "race" | "subrace" | "background" | "feat", id: string, name: string, noOverlay?: boolean, edition?: Edition): Src =>
+    ({ kind, label: `${kind[0].toUpperCase()}${kind.slice(1)}: ${name}`, keyBase: `${kind}:${id}`, classLevel: total, level: 0, ...(noOverlay ? { noOverlay } : {}), ...(edition ? { edition } : {}) });
   const origin = <T extends GrantsData>(kind: "race" | "subrace" | "background" | "feat", id: string | undefined) => {
     if (!id) return undefined;
     const e = registry.get<T>(kind, id);
     if (!e) { out.unknown.push(`${kind}:${id}`); return undefined; }
-    run(e.data.grants, originSrc(kind, id, e.data.name, e.data.overlay === false));
+    run(e.data.grants, originSrc(kind, id, e.data.name, e.data.overlay === false, e.edition));
     return e;
   };
 
@@ -329,7 +331,7 @@ export function progress(c: Character, registry: Registry): Progress {
     if (k.subclass && !sub) out.unknown.push(`subclass:${k.subclass}`);
     if (sub && sub.data.class !== k.class) problem(`subclass ${sub.data.name} belongs to ${sub.data.class}, not ${k.class}`);
     const goodSub = sub && sub.data.class === k.class ? sub : undefined;
-    const base = { kind: "class" as const, keyBase: `class:${k.class}`, classId: k.class, classLevel: n, ...(d.options ? { options: d.options } : {}), subclass: k.subclass, ...(d.overlay === false ? { noOverlay: true } : {}) };
+    const base = { kind: "class" as const, keyBase: `class:${k.class}`, classId: k.class, classLevel: n, ...(d.options ? { options: d.options } : {}), subclass: k.subclass, ...(d.overlay === false ? { noOverlay: true } : {}), ...(e.edition ? { edition: e.edition } : {}) };
     if (d.spellcasting) casters.set(`${k.class}:class`, { class: k.class, className: d.name, from: "class", abil: d.spellcasting.abil, progression: d.spellcasting.progression, level: n });
     for (let L = 1; L <= n; L++) {
       const src: Src = { ...base, label: `${d.name} ${L}`, level: L };
@@ -343,7 +345,7 @@ export function progress(c: Character, registry: Registry): Progress {
       run(d.levels?.[L] ?? [], src);
       if (goodSub) {
         const ssrc: Src = { ...src, kind: "subclass", keyBase: `subclass:${k.subclass}`, label: `${goodSub.data.name} (${d.name} ${L})`,
-          ...(goodSub.data.options ? { options: goodSub.data.options } : {}), ...(d.options ? { fallbackOptions: d.options } : {}), ...(goodSub.data.overlay === false ? { noOverlay: true } : { noOverlay: false }) };
+          ...(goodSub.data.options ? { options: goodSub.data.options } : {}), ...(d.options ? { fallbackOptions: d.options } : {}), ...(goodSub.data.overlay === false ? { noOverlay: true } : { noOverlay: false }), ...(goodSub.edition ? { edition: goodSub.edition } : {}) };
         run(goodSub.data.levels[L] ?? [], ssrc);
       }
     }

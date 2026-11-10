@@ -81,11 +81,13 @@ export class Registry {
     };
     if (!def) return fail([`unknown content type ${type}`]);
     const withBody = meta.body && raw.rules === undefined ? { ...raw, rules: meta.body } : raw;
-    const { value, errors } = def.validate(withBody);
+    // The validators see the edition the entry will carry (item overlays pick their numbers by it) when the note does not say.
+    const edition = meta.edition ?? entryEdition({ source, library });
+    const seen = edition && withBody.edition === undefined ? { ...withBody, edition } : withBody;
+    const { value, errors } = def.validate(seen);
     if (!value || errors.length) return fail(errors.length ? errors : ["invalid"]);
     const name = String((value as { name: string }).name);
     const id = typeof raw.id === "string" && raw.id ? raw.id : slug(name);
-    const edition = meta.edition ?? entryEdition({ source, library });
     const entry: Entry = { type, id, name, source, sourceName, data: value, ...(edition ? { edition } : {}), ...(meta.replaces?.length ? { replaces: meta.replaces } : {}), ...(meta.path ? { path: meta.path } : {}), ...(meta.body ? { body: meta.body } : {}),
       ...(library ? { library: true } : {}), ...(meta.mapped ? { mapped: true } : {}), ...(meta.book ? { book: meta.book } : {}), ...(meta.needsReview ? { needsReview: meta.needsReview } : {}) };
     if (library) this.raws.set(entry, raw);
@@ -235,7 +237,8 @@ export class Registry {
     this.hydrated.add(entry);
     const body = await this.bodyOf(entry);
     const def = this.defs.get(entry.type); if (!def) return entry;
-    const { value, errors } = def.validate(libraryBody(entry.type, raw, body));
+    const lb = libraryBody(entry.type, raw, body);
+    const { value, errors } = def.validate(entry.edition && lb.edition === undefined ? { ...lb, edition: entry.edition } : lb);
     if (value && !errors.length) { entry.data = value; this.emit(); }
     return entry;
   }

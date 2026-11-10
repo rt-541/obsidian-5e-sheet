@@ -1,3 +1,5 @@
+import type { Edition } from "../../core/edition";
+import { readEdition } from "../../core/edition";
 import type { Effects } from "../../core/types";
 import { slug } from "../registry";
 import { isObj, type Errs } from "../check";
@@ -5,7 +7,7 @@ import { validateEffects } from "../types/effects";
 import { validateAction, validateOps, validateOptions, type ActionDef, type Op, type OptionDef } from "../types/ops";
 import { validateToggle, type ToggleDef } from "../types/toggle";
 import { validateAttackOption, type AttackOptionDef } from "../types/attack-option";
-import raw from "./mechanics.json";
+import bundled from "./mechanics.json";
 
 /**
  * Built-in mechanics: numbers and switches for features whose source note has none (the SRD text, the WotC library, most homebrew).
@@ -53,20 +55,30 @@ export function overlayNames(name: string, id?: string): string[] {
   return out;
 }
 
+/** A key is `kind:owner:feature`, optionally ending in `@2014` or `@2024` to limit the entry to that edition. `badEdition` holds a suffix that is neither. */
 const idOf = (key: string) => {
-  const m = /^([a-z]+):([^:]*):([a-z0-9-]+)$/.exec(key);
-  return m && (KINDS as string[]).includes(m[1]) ? { kind: m[1] as OverlayKind, owner: m[2], feature: m[3] } : undefined;
+  const m = /^([a-z]+):([^:]*):([a-z0-9-]+)(?:@([a-z0-9]+))?$/.exec(key);
+  if (!m || !(KINDS as string[]).includes(m[1])) return undefined;
+  const edition = m[4] === undefined ? undefined : readEdition(m[4]);
+  return { kind: m[1] as OverlayKind, owner: m[2], feature: m[3], edition, badEdition: m[4] !== undefined && edition === undefined };
 };
-const composite = (kind: OverlayKind, owner: string, feature: string) => `${kind}|${owner === "" ? "" : overlayOwner(owner)}|${feature}`;
+const composite = (kind: OverlayKind, owner: string, feature: string, edition?: Edition) => `${kind}|${owner === "" ? "" : overlayOwner(owner)}|${feature}${edition ? `@${edition}` : ""}`;
+
+let data: { entries: Record<string, unknown> } = bundled as { entries: Record<string, unknown> };
+/** Tests only: replace the bundled entries; `undefined` restores the bundled file. */
+export function useOverlayData(next: { entries: Record<string, unknown> } | undefined): void {
+  data = next ?? (bundled as { entries: Record<string, unknown> });
+  loaded = undefined;
+}
 
 let loaded: { entries: Map<string, OverlayEntry>; problems: string[] } | undefined;
 
 function build(): NonNullable<typeof loaded> {
   const entries = new Map<string, OverlayEntry>(), problems: string[] = [];
-  const data = raw as { entries: Record<string, unknown> };
   for (const [key, v] of Object.entries(data.entries)) {
     const at = key, e: Errs = [], id = idOf(key);
     if (!id) { problems.push(`${key}: the key must look like kind:owner:feature`); continue; }
+    if (id.badEdition) { problems.push(`${key}: the edition must be 2014 or 2024`); continue; }
     if (!isObj(v)) { problems.push(`${key}: must be a mapping`); continue; }
     const effects = validateEffects(v.effects, `${at}.effects`, e);
     const toggle = validateToggle(v.toggle, `${at}.toggle`, id.feature, e);
@@ -84,7 +96,7 @@ function build(): NonNullable<typeof loaded> {
     const entry: OverlayEntry = { key, ...(typeof v.name === "string" && v.name.trim() ? { name: v.name.trim() } : {}), effects, ops: ops.map((op, i) => ({ op, ...(atOf[i] !== undefined ? { at: atOf[i] } : {}) })),
       ...(toggle ? { toggle } : {}), ...(attackOption ? { attackOption } : {}), ...(action ? { action } : {}), ...(Object.keys(options).length ? { options } : {}) };
     if (!Object.keys(effects).length && !toggle && !attackOption && !action && !ops.length) { problems.push(`${key}: the entry changes nothing`); continue; }
-    entries.set(composite(id.kind, id.owner, id.feature), entry);
+    entries.set(composite(id.kind, id.owner, id.feature, id.edition), entry);
   }
   return { entries, problems };
 }
@@ -98,16 +110,19 @@ export const overlayKeys = (): string[] => [...load().entries.values()].map(e =>
 
 /**
  * The built-in entry for a feature, option or item. `owners` are tried in order, then the `*` owner. A subrace trait is also looked up as a race trait.
- * Feats, backgrounds, items and conditions have no owner.
+ * Feats, backgrounds, items and conditions have no owner. `edition` is the rules edition of the caller: entries limited to it win over general ones.
  */
-export function findOverlay(kind: OverlayKind, owners: string[], name: string, id?: string): OverlayEntry | undefined {
+export function findOverlay(kind: OverlayKind, owners: string[], name: string, id?: string, edition?: Edition): OverlayEntry | undefined {
   if (!enabled) return undefined;
   const { entries } = load();
   const kinds: OverlayKind[] = kind === "subrace" ? ["subrace", "race"] : [kind];
   const own = kind === "feat" || kind === "background" || kind === "item" || kind === "condition" ? [""] : [...owners.filter(Boolean), "*"];
-  for (const n of overlayNames(name, id)) for (const k of kinds) for (const o of own) {
-    const hit = entries.get(composite(k, o, n));
-    if (hit) return hit;
+  // Entries limited to the edition are tried over every candidate first, then the general ones; a limited entry never matches another edition or none.
+  for (const ed of [edition, undefined]) {
+    for (const n of overlayNames(name, id)) for (const k of kinds) for (const o of own) {
+      const hit = entries.get(composite(k, o, n, ed));
+      if (hit) return hit;
+    }
   }
   return undefined;
 }
