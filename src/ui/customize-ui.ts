@@ -1,3 +1,4 @@
+import { characterEdition, editionRules } from "../core/edition";
 import { DAMAGE_TYPES } from "../content/creature-note";
 import { dcChoices, resourceChoices } from "../core/combos";
 import type { ActorStats } from "../core/derive";
@@ -122,5 +123,5 @@ export function customizePanel(ctl: SheetController, st: ActorStats): HTMLElemen
       h("button", { cls: "fe-btn mod-cta", text: "Save", data: { act: "cz-save" }, attrs: { type: "button" }, on: { click: () => { ctl.saveCustomize(); } } }),
       h("button", { cls: "fe-btn", text: "Cancel", data: { act: "cz-cancel" }, attrs: { type: "button" }, on: { click: () => ctl.cancelCustomize() } }),
       mine ? h("button", { cls: "fe-btn", text: "Reset to the note", data: { act: "cz-reset" }, attrs: { type: "button" }, on: { click: () => { ctl.resetCustomize(); } } }) : null),
-    mine ? h("div", { cls: "fe-faint", text: "Removes your changes. The class, race, feat or item note is never changed." }) : null);
+    mine ? h("div", { cls: "fe-faint", text: `Removes your changes. The class, ${editionRules(characterEdition(c)).raceWord.toLowerCase()}, feat or item note is never changed.` }) : null);
 }

@@ -1,3 +1,4 @@
+import { characterEdition, editionRules } from "../core/edition";
 import type { Registry } from "../content/registry";
 import { slug } from "../content/registry";
 import type { ClassData, GrantsData, SubclassData } from "../content/types";
@@ -36,7 +37,8 @@ export function traitGroups(c: Character, features: FeatureRow[], reg: Registry,
   const race = features.filter(f => f.sourceKind === "race" || f.sourceKind === "subrace");
   if (race.length) {
     const r = name("race", c.race), s = name("subrace", c.subrace);
-    groups.push({ id: "race", heading: `Race · ${r ?? "Race"}${s ? ` (${s})` : ""}`, rows: race.map(one) });
+    const word = editionRules(characterEdition(c)).raceWord;
+    groups.push({ id: "race", heading: `${word} · ${r ?? word}${s ? ` (${s})` : ""}`, rows: race.map(one) });
   }
   for (const k of c.classes) {
     const rows = byPrefix(`class:${k.class}:`).sort((a, b) => a.level - b.level);

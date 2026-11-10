@@ -1,3 +1,4 @@
+import { editionRules } from "../core/edition";
 import type { GrantsData, SubraceData } from "../content/types";
 import { gearList, STANDARD_ARRAY, POINT_BUY_BUDGET, type ScoreMethod } from "../core/builder";
 import { ABILS, type Abil } from "../core/types";
@@ -23,10 +24,13 @@ function aboutRow(ctl: BuilderController, kind: string, e: Entry, pitch: string,
   return h("div", { data: { row: kind } }, h("div", { cls: "fe-subclass" }, choiceButton(e.name, pitch || undefined, on, undefined, pick, { [kind]: e.id }, sourceLabel(e)), about), open ? entryCard(ctl.pickers(), e) : null);
 }
 
+/** The word for a race in the draft's edition. */
+const raceWord = (ctl: BuilderController): string => editionRules(ctl.edition()).raceWord;
+
 function racePage(ctl: BuilderController): HTMLElement {
   const reg = ctl.pickers(), d = ctl.draft;
   const subs = d.race ? reg.list<SubraceData>("subrace").filter(e => e.data.race === d.race) : [];
-  return body("race", hint("Pick a race."),
+  return body("race", hint(`Pick a ${raceWord(ctl).toLowerCase()}.`),
     ...reg.list<GrantsData>("race").map(e => aboutRow(ctl, "race", e, originPitch(e, reg), d.race === e.id, () => ctl.setRace(e.id))),
     subs.length ? hint("Subrace") : null,
     ...(subs.length ? [choiceButton("No subrace", undefined, !d.subrace, undefined, () => ctl.setSubrace(undefined), { subrace: "" }),
@@ -60,11 +64,11 @@ function scoresPage(ctl: BuilderController): HTMLElement {
     const bonus = d.bonus[a] ?? 0, fromRace = ctl.originBonus()[a] ?? 0, total = ctl.character.abilities[a];
     return h("div", { cls: "fe-kv", data: { abil: a } }, h("span", { cls: "fe-grow", text: ABIL_NAME[a] }), base,
       h("span", { cls: "fe-kv" }, bLess, h("span", { cls: "fe-faint", text: bonus ? sgn(bonus) : "+0", data: { bonus: a } }), bMore),
-      fromRace ? h("span", { cls: "fe-faint", text: `race ${sgn(fromRace)}`, data: { origin: a } }) : null,
+      fromRace ? h("span", { cls: "fe-faint", text: `${raceWord(ctl).toLowerCase()} ${sgn(fromRace)}`, data: { origin: a } }) : null,
       h("span", { cls: "fe-name", text: `= ${total}`, data: { final: a } }));
   });
   return body("scores", h("div", { cls: "fe-filters" }, ...METHODS.map(([m, label]) => choiceButton(label, undefined, d.method === m, undefined, () => ctl.setMethod(m), { method: m }))),
-    hint(note), hint("Right-hand buttons add bonuses by hand; a race's own ability increases are added for you."), ...rows);
+    hint(note), hint(`Right-hand buttons add bonuses by hand; a ${raceWord(ctl).toLowerCase()}'s own ability increases are added for you.`), ...rows);
 }
 
 function classPage(ctl: BuilderController): HTMLElement {
@@ -125,7 +129,7 @@ function stepPage(ctl: BuilderController, p: Extract<BuilderPage, { id: "step" }
   }
 }
 
-const TITLES: Record<string, string> = { race: "Race", background: "Background", scores: "Ability scores", class: "Class", equipment: "Equipment", name: "Name" };
+const TITLES: Record<string, string> = { background: "Background", scores: "Ability scores", class: "Class", equipment: "Equipment", name: "Name" };
 
 /** The builder wizard: one page per screen, Back and Next at the bottom, Create on the last page. */
 export function builderView(ctl: BuilderController): HTMLElement {
@@ -136,7 +140,7 @@ export function builderView(ctl: BuilderController): HTMLElement {
   const back = btn(page === 0 ? "Cancel" : "Back", () => { if (page === 0) ctl.host.close(); else ctl.go(page - 1); });
   back.dataset.act = "bd-back";
   const next = btn("Next", () => ctl.go(page + 1), "mod-cta"); next.dataset.act = "bd-next"; next.disabled = !ctl.ready(cur); next.hidden = last;
-  const title = cur.id === "step" ? `${cur.step.source}: ${cur.step.label}` : TITLES[cur.id];
+  const title = cur.id === "step" ? `${cur.step.source}: ${cur.step.label}` : cur.id === "race" ? raceWord(ctl) : TITLES[cur.id];
   return h("div", { cls: "fe-levelup", data: { page: String(page), builder: cur.id } },
     h("div", { cls: "fe-kv" }, h("span", { cls: "fe-name", text: `New character: ${title}` }), h("span", { cls: "fe-faint", text: stepCounter(page, pages.length, !!ctl.draft.classId) })),
     content, h("div", { cls: "fe-kv fe-lu-nav" }, back, ...(last ? [create] : [next])));

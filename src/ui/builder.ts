@@ -4,7 +4,7 @@ import type { ClassData } from "../content/types";
 import { baseCharacter, buildCharacter, originBonus, buildSteps, characterFrontmatter, defaultScores, draftProblems, newDraft, notePath, pointBuyCost, rollGold, scoreProblems, POINT_BUY_BUDGET, POINT_BUY_COST,
   type BuildDraft, type EquipmentChoice, type ScoreMethod } from "../core/builder";
 import type { Character } from "../core/character";
-import { readEdition, type Edition } from "../core/edition";
+import { editionRules, readEdition, type Edition } from "../core/edition";
 import type { Step } from "../core/levelup";
 import { ABILS, type Abil, type Rng } from "../core/types";
 import type { LevelUpView } from "./controller";
@@ -74,7 +74,7 @@ export class BuilderController {
   /** Why a list is empty, when the edition has none of that kind (undefined otherwise). */
   emptyReason(type: "class" | "race" | "background"): string | undefined {
     if (this.pickers().list(type).length) return undefined;
-    return `No ${this.edition()} ${type === "class" ? "classes" : type === "race" ? "races" : "backgrounds"} were found in your compendium. docs/IMPORTING.md explains how to import them.`;
+    return `No ${this.edition()} ${type === "class" ? "classes" : type === "race" ? `${editionRules(this.edition()).raceWord.toLowerCase()}${/s$/.test(editionRules(this.edition()).raceWord) ? "" : "s"}` : "backgrounds"} were found in your compendium. docs/IMPORTING.md explains how to import them.`;
   }
 
   /** The registry the pickers list from: this edition only, and sources the draft's campaign switched off are left out. */

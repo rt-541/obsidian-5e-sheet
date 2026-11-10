@@ -1,3 +1,4 @@
+import { characterEdition, editionRules } from "../core/edition";
 import { titleCase } from "../core/words";
 import { entryItem, entryRef } from "../core/item-entry";
 import type { ConditionData, CreatureData, ItemData } from "../content/types";
@@ -153,7 +154,7 @@ function companionMenu(ctl: SheetController, index: number, name: string): HTMLE
 export const RENDER: Record<string, Render> = {
   identity: (ctl, st) => h("div", { cls: "fe-identity" }, h("span", { cls: "fe-name", text: st.name }),
     ctl.character && st.kind === "character" ? identityParts(ctl) : h("span", { cls: "fe-muted", text: st.label })),
-  inspiration: ctl => btn("Inspiration", () => ctl.dispatch({ type: "inspiration", on: !ctl.character!.inspiration }), ctl.character?.inspiration ? "is-on" : ""),
+  inspiration: ctl => btn(editionRules(ctl.character ? characterEdition(ctl.character) : undefined).inspiration.name, () => ctl.dispatch({ type: "inspiration", on: !ctl.character!.inspiration }), ctl.character?.inspiration ? "is-on" : ""),
   prof: (ctl, st) => h("span", { cls: "fe-kv" }, h("span", { cls: "fe-muted", text: "Proficiency bonus ", ...gl("proficiency-bonus") }), sgn(st.prof)),
   xp: ctl => xpFeature(ctl),
   "level-up": ctl => levelUpFeature(ctl),
@@ -169,7 +170,7 @@ export const RENDER: Record<string, Render> = {
   "hit-dice": (ctl, st) => {
     const el = card("Hit Dice", ...st.hitDice.map(d => h("div", { cls: "fe-kv" },
       h("span", { text: `${d.die} ${d.max - d.used} / ${d.max}` }), btn("Spend 1", () => ctl.spendHitDie(d.die)))),
-      h("div", { cls: "fe-faint fe-hd-recharge", text: hitDiceRecharge(st.hitDice.reduce((n, d) => n + d.max, 0), !!ctl.rules()["rest-excursion"]) }));
+      h("div", { cls: "fe-faint fe-hd-recharge", text: hitDiceRecharge(st.hitDice.reduce((n, d) => n + d.max, 0), !!ctl.rules()["rest-excursion"], ctl.character ? characterEdition(ctl.character) : undefined) }));
     const title = el.querySelector<HTMLElement>(".fe-card-title"); if (title) title.dataset.ref = "glossary:hit-dice";
     return el; },
   "death-saves": ctl => { const ds = ctl.character!.deathSaves;

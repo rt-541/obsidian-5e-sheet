@@ -1,3 +1,4 @@
+import { characterEdition, editionRules } from "../core/edition";
 import { sourceLabel, type Entry, type Registry } from "../content/registry";
 import type { ClassData, ConditionData, CreatureData, FeatData, GrantsData, ItemData, Op, SpellData, SubclassData, SubraceData } from "../content/types";
 import type { Effects } from "../core/types";
@@ -141,7 +142,7 @@ export function entryCard(reg: Registry, e: Entry, body?: string): HTMLElement {
     case "class": return classCard(e as Entry<ClassData>);
     case "subclass": return subclassCard(reg, e as Entry<SubclassData>);
     case "feat": return featCard(e as Entry<FeatData>);
-    case "race": return grantsCard(e as Entry<GrantsData>, "Race", reg);
+    case "race": return grantsCard(e as Entry<GrantsData>, editionRules(e.edition).raceWord, reg);
     case "subrace": return grantsCard(e as Entry<SubraceData>, "Subrace", reg);
     case "background": return grantsCard(e as Entry<GrantsData>, "Background", reg);
     default: return card(e.name, cap(e.type), [], body, e.source === "vault" ? e.path : undefined, sourceLabel(e));
@@ -175,7 +176,7 @@ function attackNoteCard(rest: string, ctl: SheetController): HTMLElement | null 
 
 /** A plain-words card for a glossary term, with this character's own number and its breakdown line when the sheet has one. */
 function glossaryCard(key: string, ctl: SheetController): HTMLElement | null {
-  const e = glossaryEntry(key, !!ctl.rules()["rest-excursion"]); if (!e) return null;
+  const e = glossaryEntry(key, !!ctl.rules()["rest-excursion"], ctl.character ? characterEdition(ctl.character) : undefined); if (!e) return null;
   const st = ctl.stats(), lines: string[] = [], why = (k: string) => { if (st?.why[k]) lines.push(st.why[k]); };
   const [kind, id] = key.split(":");
   if (st) {

@@ -1,4 +1,5 @@
 import { titleCase } from "../core/words";
+import { editionRules, type Edition } from "../core/edition";
 import { ABILS, SKILLS, type Abil } from "../core/types";
 
 /** Short plain-words descriptions of the numbers on the sheet, written for players who do not know the rules. Our own words, never book text. */
@@ -41,6 +42,9 @@ const SKILL_TEXT: Record<string, string> = {
   stealth: "Moving quietly and staying out of sight.",
   survival: "Tracking, finding food and water, and not getting lost outdoors.",
 };
+const HIT_DICE_LEAD = "Your healing pool: one die per level. On a short rest, spend dice to roll them, add your Constitution modifier and heal that much.";
+const HIT_DICE_RETURN_HALF = "A long rest gives back half your total (at least one).";
+const HIT_DICE_RETURN_ALL = "A long rest gives back all of them.";
 const TERMS: Record<string, { title: string; text: string }> = {
   "ability-modifier": { title: "Ability modifier", text: "The small number that goes with each ability score. It is added to (or taken from) the d20 whenever you roll that ability." },
   "saving-throw": { title: "Saving throw", text: "A roll to resist something bad happening to you. You add your proficiency bonus on the ones your class is trained in (the filled dots)." },
@@ -56,18 +60,19 @@ const TERMS: Record<string, { title: string; text: string }> = {
   "death-saves": { title: "Death saves", text: "At 0 hit points you roll one each turn: 10 or higher is a success, lower a failure. Three successes and you stabilise; three failures and you die." },
   inspiration: { title: "Inspiration", text: "A reward from the GM for good roleplaying. Spend it to roll one d20 twice and keep the better result." },
   concentration: { title: "Concentration", text: "Some spells last only while you keep your focus. Casting another such spell or being knocked out ends it, and taking damage forces a Constitution save to hold on." },
-  "hit-dice": { title: "Hit dice", text: "Your healing pool: one die per level. On a short rest, spend dice to roll them, add your Constitution modifier and heal that much. A long rest gives back half your total (at least one)." },
+  "hit-dice": { title: "Hit dice", text: `${HIT_DICE_LEAD} ${HIT_DICE_RETURN_HALF}` },
 };
 const HIT_DICE_EXCURSION = "Your healing pool: one die per level. During a night's rest, spend dice to roll them, add your Constitution modifier and heal that much. A plain night gives none back; a Good Rest (3 nights in one place, or a safe haven) gives back all of them.";
 
 /** The recharge line shown under the dice on the sheet. */
-export function hitDiceRecharge(total: number, excursion: boolean): string {
+export function hitDiceRecharge(total: number, excursion: boolean, edition?: Edition): string {
   return excursion ? "Spend during a night's rest to heal. A Good Rest (3 nights in one place, or a safe haven) gives back all of them."
+    : editionRules(edition).longRestHitDice === "all" ? `Spend on a short rest to heal. A long rest gives back all of them (${total}).`
     : `Spend on a short rest to heal. A long rest gives back ${Math.max(1, Math.floor(total / 2))} (half your total).`;
 }
 
 /** The entry for a key such as `ability:str`, `save:wis`, `skill:athletics`, `hit-dice` (without the `glossary:` prefix), or undefined. */
-export function glossaryEntry(key: string, excursion = false): GlossaryEntry | undefined {
+export function glossaryEntry(key: string, excursion = false, edition?: Edition): GlossaryEntry | undefined {
   const [kind, id] = key.split(":");
   if (kind === "ability" && id in ABIL_TEXT) return { title: ABIL_FULL[id as Abil], kind: "Ability score", text: ABIL_TEXT[id as Abil], abil: id as Abil };
   if (kind === "save" && id in SAVE_TEXT) return { title: `${ABIL_FULL[id as Abil]} saving throw`, kind: "Saving throw", text: `${SAVE_TEXT[id as Abil]} Add your proficiency bonus if you are trained in it.`, abil: id as Abil };
@@ -76,6 +81,9 @@ export function glossaryEntry(key: string, excursion = false): GlossaryEntry | u
     return { title, kind: `Skill · ${ABIL_FULL[SKILLS[id]]}`, text: SKILL_TEXT[id], abil: SKILLS[id] };
   }
   const t = TERMS[key]; if (!t) return undefined;
+  const rules = editionRules(edition);
+  if (key === "inspiration") return { title: rules.inspiration.name, kind: "Rules term", text: rules.inspiration.card };
+  if (key === "hit-dice" && !excursion && rules.longRestHitDice === "all") return { title: t.title, kind: "Rules term", text: `${HIT_DICE_LEAD} ${HIT_DICE_RETURN_ALL}` };
   return { title: t.title, kind: "Rules term", text: key === "hit-dice" && excursion ? HIT_DICE_EXCURSION : t.text };
 }
 

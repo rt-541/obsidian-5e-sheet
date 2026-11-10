@@ -1,3 +1,4 @@
+import { characterEdition, editionRules } from "../core/edition";
 import type { ClassData, GrantsData, SubclassData, SubraceData } from "../content/types";
 import { ABIL_FULL } from "../content/glossary";
 import type { AbilityIncrease } from "../content/types";
@@ -55,7 +56,8 @@ export function identityCard(ref: string, ctl: SheetController): HTMLElement | n
     const sub = kind === "subrace", rid = sub ? c.subrace : c.race; if (!rid) return null;
     const e = reg.get<GrantsData | SubraceData>(kind, rid); if (!e) return null;
     const own = feats.filter(f => f.sourceKind === kind);
-    return mk(e.name, sub ? `${reg.get<GrantsData>("race", c.race ?? "")?.name ?? "Race"} subrace` : "Race", [
+    const word = editionRules(characterEdition(c)).raceWord;
+    return mk(e.name, sub ? `${reg.get<GrantsData>("race", c.race ?? "")?.name ?? word} subrace` : word, [
       abilityLine(e.data.ability), ...(sub ? [] : [`Speed: ${st.speed.value} ft.`, sensesLine(st.senses), st.languages?.length ? `Languages: ${st.languages.join(", ")}` : ""]),
       ...withHeading("Traits:", featureLines(own))]);
   }
