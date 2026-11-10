@@ -39,13 +39,18 @@ export function libraryFixtures(): Record<string, { fm: Record<string, unknown>;
 
 export type Notes = Record<string, { fm?: Record<string, unknown>; body?: string }>;
 export interface FakeAdapter extends VaultAdapter { notes: Notes; reads: string[]; }
-/** An in-memory vault. `reads` records every body read; `frontmatter` is the metadata-cache path (no read). */
-export function fakeVault(notes: Notes): FakeAdapter {
+/**
+ * An in-memory vault. `reads` records every body read; `frontmatter` is the metadata-cache path (no read).
+ * `exists` is true only for the paths listed in `opts.markers` (full paths such as `compendium/5e/Test Press/.dnd-compendium-generated`).
+ */
+export function fakeVault(notes: Notes, opts: { markers?: string[] } = {}): FakeAdapter {
+  const markers = new Set(opts.markers ?? []);
   const reads: string[] = [];
   return {
     notes, reads,
     listMarkdown: folder => Object.keys(notes).filter(p => p.startsWith(folder + "/")),
     frontmatter: path => notes[path]?.fm,
+    exists: path => markers.has(path),
     read: async (path): Promise<VaultNote> => { reads.push(path); return { path, frontmatter: notes[path]?.fm, body: notes[path]?.body ?? "" }; },
   };
 }
