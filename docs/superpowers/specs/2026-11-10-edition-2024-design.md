@@ -167,3 +167,35 @@ Reached from the edition chip, from the Settings card, and from the builder's ed
 - How the per-character comparison words a difference, reusing the level-up changes list where it fits.
 - The importer's module layout for the second library and its book allow-list.
 - The order of work, as long as each part ships tested.
+
+## Contract between the importer and the plugin
+
+Two repos build against this, so it is fixed here rather than left to either builder. Everything not listed keeps the format in the dnd-compendium skill's `references/note-format.md`.
+
+**Every generated note**
+
+- `edition: "2014"` or `edition: "2024"` in frontmatter, written as a quoted string. The plugin also accepts the bare numbers.
+- A tag `5e/edition/2014` or `5e/edition/2024`.
+- The plugin's reading: a generated library note without `edition` is 2014; a bundled SRD entry is 2014; a hand-made note without `edition` belongs to both; a hand-made note with `edition` belongs to that one.
+
+**The 2024 library**
+
+- Folder `compendium/5e/WotC 2024/`, with the `.dnd-compendium-generated` marker. `source` stays the book abbreviation.
+- Ids are the slug of the name, as today, so a 2024 entry and the 2014 entry it supersedes usually share an id.
+- `replaces: [<id>, ...]` on a 2024 note: the ids of the same type that the 2014 data says were reprinted as this entry. Ids only. Left out when there are none or when the only one equals the note's own id.
+- Types and their fields are the 2014 ones, with these additions.
+
+**Additions to the op format**
+
+- Background (and, for homebrew, race, subrace or feat): `abilityPick: { from: [<abil>, ...], patterns: [[2, 1], [1, 1, 1]] }`. The player picks one pattern and gives each number to a different ability in `from`. The existing `ability` field keeps its meaning (everything listed adds up).
+- A new op `feat`: `{ op: feat, id, feat: <feat id> }` grants that feat; `{ op: feat, id, categories: [<category>, ...] }` lets the player pick one feat whose category is in the list. Valid in class and subclass levels and in grants.
+- The `asi` op may carry `feats: [<category>, ...]`: the feat categories that slot accepts. Left out, any feat is accepted, as today.
+- Feat: `category` (a slug such as `origin`, `general`, `fighting-style`, `epic-boon`; the plugin treats it as an opaque label) and `minLevel` (a whole number).
+- The `choose` op gains `what: mastery`: pick `count` weapons to have mastered; `from` may list the weapon item ids allowed, and left out it means every weapon the library gives a mastery property. A class whose number grows by level carries one such op per increase.
+- Class spellcasting table rows: the 2024 "prepared spells" number goes in the existing `known` column.
+
+**New and changed note types**
+
+- `5e-mastery`: `id`, `name`, the common fields, and the rules text as the body. Folder `Masteries/`.
+- `5e-item`: the plugin-native `weapon` mapping may carry `mastery: <mastery id>`.
+- `5e-race` stays the type for a 2024 species; the plugin only changes the word it shows.
