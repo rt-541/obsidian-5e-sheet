@@ -20,6 +20,7 @@ import { d20Words, damageWords, saveWords, spaced, type Extra } from "../core/ow
 import { matchesTag } from "../core/roll-tags";
 import { critInfo, d20Rules, rollSources } from "../core/effects";
 import { explainChange, type ChangeGroup } from "../core/level-diff";
+import { compareCharacter, type CompareGroup, type Comparison } from "../core/edition-compare";
 import { evalFormula, fillDice } from "../core/formula";
 import { applyLevel, applyResolve, levelFromXp, planLevel, planResolve, rollHitDie, undoLevel, xpProgress, MAX_TOTAL_LEVEL, type LevelPlan, type Step } from "../core/levelup";
 import type { ActionDef } from "../content/types/ops";
@@ -860,8 +861,40 @@ export class SheetController {
   }
   private collapsedSet() { return (this.collapsed ??= new Set(this.host.collapsedGroups?.() ?? [])); }
   setTab(t: string) { this.tab = t; this.emit(); }
-  open(p: Panel) { if (p.kind === "compendium") { this.customItem = blankCustomItem(); this.itemSearch = blankItemSearch(); this.addPick = null; } this.panel = p; this.emit(); }
-  close() { if (this.panel?.kind === "customize-row") this.customizeDraft = null; if (this.panel?.kind === "item-change") this.itemChange = null; this.panel = null; this.emit(); }
+  open(p: Panel) {
+    if (p.kind === "compendium") { this.customItem = blankCustomItem(); this.itemSearch = blankItemSearch(); this.addPick = null; }
+    if (p.kind === "edition-changes") { this.editionCompare = { loading: true, allLevels: false }; this.panel = p; void this.runEditionCompare(); }
+    this.panel = p; this.emit();
+  }
+  /** The what-changed panel's part two: worked out when the panel opens (it opens the paired notes), then kept for redraws. */
+  editionCompare: { loading: boolean; allLevels: boolean; result?: Comparison; read?: { key: string; loading: boolean; sides?: { edition?: string; name: string; text: string }[] } } | null = null;
+  private compareToken = 0;
+  private async runEditionCompare(): Promise<void> {
+    const c = this.character, state = this.editionCompare; if (!c || !state) return;
+    const token = ++this.compareToken;
+    let result: Comparison;
+    try { result = await compareCharacter(c, this.baseRegistry, { allLevels: state.allLevels, ...(this.host.campaign ? { campaign: this.host.campaign } : {}) }); }
+    catch { result = { groups: [{ title: "This character", lines: ["The sheet could not read the two editions' notes to compare them."] }] }; }
+    if (token !== this.compareToken || this.editionCompare !== state) return;
+    state.loading = false; state.result = result; this.emit();
+  }
+  /** "Show all levels" on or off: compares every class to level 20 instead of the character's own levels. */
+  setEditionAllLevels(on: boolean) {
+    const s = this.editionCompare; if (!s || s.allLevels === on) return;
+    s.allLevels = on; s.loading = true; delete s.read; void this.runEditionCompare(); this.emit();
+  }
+  /** "Read both": opens (or closes) the two notes' text beside each other under one comparison. */
+  async readBoth(g: CompareGroup): Promise<void> {
+    const s = this.editionCompare; if (!s || !g.pair || !g.key) return;
+    if (s.read?.key === g.key) { delete s.read; this.emit(); return; }
+    const key = g.key, read = { key, loading: true }; s.read = read; this.emit();
+    const sides = [g.pair.own, g.pair.other].sort((x, y) => (x.edition ?? "").localeCompare(y.edition ?? ""));
+    let texts: string[];
+    try { texts = await Promise.all(sides.map(e => this.baseRegistry.bodyOf(e))); } catch { texts = sides.map(() => ""); }
+    if (s.read !== read) return;
+    s.read = { key, loading: false, sides: sides.map((e, i) => ({ ...(e.edition ? { edition: e.edition } : {}), name: e.name, text: texts[i] })) }; this.emit();
+  }
+  close() { if (this.panel?.kind === "edition-changes") { this.editionCompare = null; this.compareToken++; } if (this.panel?.kind === "customize-row") this.customizeDraft = null; if (this.panel?.kind === "item-change") this.itemChange = null; this.panel = null; this.emit(); }
 
   restCtx(): RestCtx { return { c: this.character!, stats: this.stats()!, registry: this.host.registry, rules: this.rules() }; }
   /** Lines optional rules add to a rest (Hexploration: the night's meal). `c` is changed; pass a copy for a preview. */

@@ -23,9 +23,10 @@ const damageOf = (s: string | undefined) => (s ?? "").replace(/ [a-z]+(?: \+ .*)
 /**
  * Everything that changes between two versions of a character, in plain words, for the level-up summary
  * (before → after the level) and for undo (current → after the undo). Features that went away are listed as lost.
+ * `afterCtx` reads the `after` character through another context (the other edition's lens, for the edition comparison); it defaults to `ctx`.
  */
-export function explainChange(before: Character, after: Character, ctx: EffectContext): ChangeGroup[] {
-  const b = deriveCharacter(before, ctx), a = deriveCharacter(after, ctx), out: ChangeGroup[] = [];
+export function explainChange(before: Character, after: Character, ctx: EffectContext, afterCtx: EffectContext = ctx): ChangeGroup[] {
+  const b = deriveCharacter(before, ctx), a = deriveCharacter(after, afterCtx), out: ChangeGroup[] = [];
   const add = (title: string, lines: string[]) => { if (lines.length) out.push({ title, lines }); };
 
   // Features
