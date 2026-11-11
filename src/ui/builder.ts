@@ -2,8 +2,8 @@ import type { Registry } from "../content/registry";
 import type { SourceSwitches } from "../content/sources";
 import type { ClassData } from "../content/types";
 import { pickDelta } from "../core/ability-increase";
-import { baseCharacter, buildCharacter, originBonus, originParts, buildSteps, characterFrontmatter, defaultScores, draftProblems, newDraft, notePath, pointBuyCost, rollGold, scoreProblems, POINT_BUY_BUDGET, POINT_BUY_COST,
-  type BuildDraft, type EquipmentChoice, type ScoreMethod } from "../core/builder";
+import { baseCharacter, buildCharacter, originBonus, originParts, buildSteps, characterFrontmatter, defaultScores, draftProblems, newDraft, notePath, pointBuyCost, rollGold, rollScores, scoreProblems, POINT_BUY_BUDGET, POINT_BUY_COST,
+  type BuildDraft, type EquipmentChoice, type RollScheme, type ScoreMethod } from "../core/builder";
 import type { Character } from "../core/character";
 import { noneFoundLine, readEdition, type Edition } from "../core/edition";
 import type { Step } from "../core/levelup";
@@ -115,7 +115,7 @@ export class BuilderController {
   originBonus() { return originBonus(this.resolved(), this.reg()); }
   pick(key: string, value: unknown) { this.draft = { ...this.draft, choices: { ...this.draft.choices, [key]: value } }; this.touch(); }
 
-  private touch() { delete this.error; this.emit(); }
+  private touch() { delete this.error; delete this.armedScheme; this.emit(); }
   private dropChoices(...prefixes: string[]) {
     const choices = Object.fromEntries(Object.entries(this.draft.choices).filter(([k]) => !prefixes.some(p => k.startsWith(p))));
     this.draft = { ...this.draft, choices };
@@ -149,7 +149,20 @@ export class BuilderController {
   }
 
   // ---- ability scores
-  setMethod(method: ScoreMethod) { this.draft = { ...this.draft, method, scores: defaultScores(method) }; this.touch(); }
+  setMethod(method: ScoreMethod) {
+    const next: BuildDraft = { ...this.draft, method, scores: defaultScores(method) }; delete next.rolled;
+    this.draft = next; this.touch();
+  }
+  /** The way whose button was tapped once while rolls were held; a second tap of it re-rolls. Any other action clears it. */
+  armedScheme?: RollScheme;
+  /** Roll for scores. With rolls already held, the first tap only arms the button (it would throw the numbers away). */
+  rollScores(scheme: RollScheme) {
+    const d = this.draft;
+    if (d.method !== "rolled") return;
+    if (d.rolled?.rolls.length && this.armedScheme !== scheme) { this.armedScheme = scheme; this.emit(); return; }
+    const rolls = rollScores(scheme, this.host.rng), t = rolls.map(r => r.total);
+    this.draft = { ...d, rolled: { scheme, rolls }, scores: { str: t[0], dex: t[1], con: t[2], int: t[3], wis: t[4], cha: t[5] } }; this.touch();
+  }
   pointBuySpent(): number { return pointBuyCost(this.draft.scores) ?? 0; }
   /** Raise or lower one score by a step; point buy stays inside 8 to 15 and the 27 point budget. */
   nudgeScore(a: Abil, by: number) {
@@ -164,7 +177,7 @@ export class BuilderController {
   setScore(a: Abil, value: number) {
     const d = this.draft;
     if (!Number.isFinite(value)) return;
-    if (d.method === "standard-array") {
+    if (d.method === "standard-array" || d.method === "rolled") {
       const other = ABILS.find(x => x !== a && d.scores[x] === value);
       this.draft = { ...d, scores: { ...d.scores, ...(other ? { [other]: d.scores[a] } : {}), [a]: value } };
     } else this.draft = { ...d, scores: { ...d.scores, [a]: Math.round(value) } };
@@ -207,7 +220,7 @@ export class BuilderController {
       case "edition": return true;   // the default counts as chosen
       case "race": return !!d.race && !!this.reg().get("race", d.race);
       case "background": return true;
-      case "scores": return scoreProblems(d.method, d.scores).length === 0 && ABILS.every(a => (d.method === "manual" || d.scores[a] + (d.bonus[a] ?? 0) <= 20) && Number.isInteger(d.bonus[a] ?? 0));
+      case "scores": return scoreProblems(d.method, d.scores, d.rolled).length === 0 && ABILS.every(a => (d.method === "manual" || d.scores[a] + (d.bonus[a] ?? 0) <= 20) && Number.isInteger(d.bonus[a] ?? 0));
       case "class": return !!d.classId && !!this.classData();
       case "equipment": return !draftProblems(this.resolved(), this.reg()).some(m => /equipment|gold/i.test(m));
       case "name": return false;

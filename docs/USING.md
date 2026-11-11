@@ -16,6 +16,8 @@ This guide is for players. You do not need to know the rules: the sheet explains
 3. Then choose a species (called a race in 2014), a background, your ability scores and a class, work through the steps your class asks for (spells, a subclass and so on), and pick your gear and a name. Every page says what the choice does in plain words, and every number can be tapped or hovered to see where it came from.
 4. Finish, and the builder writes a character note. Open that note and it shows as the sheet.
 
+On the ability scores page you can also pick "Roll" and let the builder roll the dice for you. Choose one of five ways: four 6-sided dice six times dropping the lowest die of each, three 6-sided dice six times, one 20-sided die six times, two 20-sided dice six times dropping the lower of each, or three 6-sided dice four times plus one 20-sided die twice. Every roll is listed with its dice, and you give each number to one ability; picking a number another ability has swaps the two. Rolling again asks for a second tap, because it throws the numbers away. If you rolled real dice at the table, choose Manual and type them.
+
 Pip, for example, might be a "lantern-keeper" with a "wanderer" background that gives a skill and a feat. Nothing here needs you to type a formula.
 
 ## Pick an edition

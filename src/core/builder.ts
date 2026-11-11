@@ -7,6 +7,8 @@ import { editionRules, type Edition } from "./edition";
 import { newCharacter, writeInto, type Character, type InventoryEntry } from "./character";
 import { applyLevel, applyResolve, planLevel, planResolve, type Step } from "./levelup";
 import { ABILS, type Abil, type Rng } from "./types";
+import { ROLL_SCHEMES, rolledTotals, type RollScheme, type ScoreRoll } from "./score-rolls";
+export { ROLL_SCHEMES, describeRoll, rollScores, type RollScheme, type ScoreRoll } from "./score-rolls";
 
 const ABIL_NAME: Record<Abil, string> = { str: "STR", dex: "DEX", con: "CON", int: "INT", wis: "WIS", cha: "CHA" };
 
@@ -16,7 +18,7 @@ export const POINT_BUY_BUDGET = 27;
 /** Point buy (the same in both editions): score -> points it costs. */
 export const POINT_BUY_COST: Record<number, number> = { 8: 0, 9: 1, 10: 2, 11: 3, 12: 4, 13: 5, 14: 7, 15: 9 };
 export const STANDARD_ARRAY = [15, 14, 13, 12, 10, 8];
-export type ScoreMethod = "point-buy" | "standard-array" | "manual";
+export type ScoreMethod = "point-buy" | "standard-array" | "manual" | "rolled";
 export type Scores = Record<Abil, number>;
 
 /** Points spent, or null when a score is outside 8 to 15. */
@@ -31,7 +33,12 @@ export function defaultScores(method: ScoreMethod): Scores {
   return { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 };
 }
 /** What is wrong with the base scores (before race bonuses) for the chosen method. */
-export function scoreProblems(method: ScoreMethod, scores: Scores): string[] {
+export function scoreProblems(method: ScoreMethod, scores: Scores, rolled?: BuildDraft["rolled"]): string[] {
+  if (method === "rolled") {
+    if (!rolled?.rolls.length) return ["Roll the dice first"];
+    const want = rolledTotals(rolled.rolls), used = ABILS.map(a => scores[a]).sort((x, y) => y - x);
+    return used.join() === want.join() ? [] : [`Use each rolled number once: ${want.join(", ")}`];
+  }
   if (method === "manual") return ABILS.filter(a => !(Number.isInteger(scores[a]) && scores[a] >= 1 && scores[a] <= 30)).map(a => `${ABIL_NAME[a]} must be a whole number from 1 to 30`);
   if (method === "standard-array") {
     const used = ABILS.map(a => scores[a]).sort((x, y) => y - x);
@@ -49,7 +56,7 @@ export type EquipmentChoice = { kind: "option"; index: number } | { kind: "gold"
 /** Everything the builder collects before the note exists. `choices` are keyed like the level log (`race:<id>:<op>`, `class:<id>:1:<op>`). */
 export interface BuildDraft {
   name: string; /** The rules edition the player chose; absent until they do (a new character then gets 2014). */ edition?: Edition; campaign?: string; race?: string; subrace?: string; background?: string; classId?: string;
-  method: ScoreMethod; scores: Scores; /** Race and other bonuses added to the base scores. */ bonus: Partial<Record<Abil, number>>;
+  method: ScoreMethod; /** The dice behind the scores when the method is rolled. */ rolled?: { scheme: RollScheme; rolls: ScoreRoll[] }; scores: Scores; /** Race and other bonuses added to the base scores. */ bonus: Partial<Record<Abil, number>>;
   equipment?: EquipmentChoice; choices: Record<string, unknown>;
 }
 export const newDraft = (): BuildDraft => ({ name: "", method: "point-buy", scores: defaultScores("point-buy"), bonus: {}, choices: {} });
@@ -145,7 +152,7 @@ export function draftProblems(d: BuildDraft, r: Registry): string[] {
   if (d.background && !r.get("background", d.background)) out.push(`Unknown background ${d.background}`);
   if (!d.classId) out.push("Pick a class");
   else if (!r.get("class", d.classId)) out.push(`Unknown class ${d.classId}`);
-  out.push(...scoreProblems(d.method, d.scores));
+  out.push(...scoreProblems(d.method, d.scores, d.rolled));
   for (const a of ABILS) {
     const b = d.bonus[a] ?? 0, f = d.scores[a] + b;
     if (!Number.isInteger(b) || b < -2 || b > 4) out.push(`${ABIL_NAME[a]} bonus must be a whole number from -2 to 4`);
@@ -219,6 +226,7 @@ export function buildCharacter(d: BuildDraft, r: Registry, rng: Rng = Math.rando
   let c = baseCharacter(d, r);
   const summary: string[] = [];
   const gained = originBonus(d, r);
+  if (d.method === "rolled" && d.rolled) summary.push(`Ability scores rolled with ${ROLL_SCHEMES.find(x => x.id === d.rolled!.scheme)?.label ?? d.rolled.scheme}: ${rolledTotals(d.rolled.rolls).join(", ")}`);
   if (Object.keys(gained).length) summary.push(`Ability scores from ${originWords(d, r)}: ${describeDelta(gained)}`);
   if (planResolve(c, r, d.choices).length) {
     const o = applyResolve(c, { choices: d.choices }, r);

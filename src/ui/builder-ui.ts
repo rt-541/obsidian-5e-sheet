@@ -3,7 +3,7 @@ import { EDITIONS, editionRules, otherEdition, type Edition } from "../core/edit
 import { generalChangeList } from "./edition-ui";
 import { bringBackButton, bringInButton, editionChip } from "./bring-in";
 import type { GrantsData, SubraceData } from "../content/types";
-import { gearList, STANDARD_ARRAY, POINT_BUY_BUDGET, type ScoreMethod } from "../core/builder";
+import { gearList, describeRoll, ROLL_SCHEMES, STANDARD_ARRAY, POINT_BUY_BUDGET, type ScoreMethod } from "../core/builder";
 import { ABILS, type Abil } from "../core/types";
 import type { BuilderController, BuilderPage } from "./builder";
 import { clear, h } from "./h";
@@ -81,19 +81,24 @@ function backgroundPage(ctl: BuilderController): HTMLElement {
       list.map(e => aboutRow(ctl, "background", e, backgroundPitch(e, reg), !!d.background && sameRef(d.background, refFor(e, own), own), () => ctl.setBackground(refFor(e, own)))), ctl.emptyReason("background")));
 }
 
-const METHODS: [ScoreMethod, string][] = [["point-buy", "Point buy"], ["standard-array", "Standard array"], ["manual", "Manual"]];
+const METHODS: [ScoreMethod, string][] = [["point-buy", "Point buy"], ["standard-array", "Standard array"], ["manual", "Manual"], ["rolled", "Roll"]];
+
+/** A choice button that is a real `button` of type button. */
+const typed = (b: HTMLElement, title?: string): HTMLElement => { b.setAttribute("type", "button"); if (title) b.title = title; return b; };
 
 function scoresPage(ctl: BuilderController): HTMLElement {
-  const d = ctl.draft;
+  const d = ctl.draft, held = d.rolled?.rolls ?? [], totals = [...new Set(held.map(r => r.total))].sort((x, y) => y - x);
+  const rolling = d.method === "rolled";
   const note = d.method === "point-buy" ? `${POINT_BUY_BUDGET - ctl.pointBuySpent()} of ${POINT_BUY_BUDGET} points left (scores 8 to 15)`
-    : d.method === "standard-array" ? `Assign ${STANDARD_ARRAY.join(", ")} once each` : "Type the scores you rolled or were given";
+    : d.method === "standard-array" ? `Assign ${STANDARD_ARRAY.join(", ")} once each` : d.method === "rolled" ? (held.length ? "Give each number to one ability. Picking a number another ability has swaps them." : "Pick how to roll.")
+      : "Type the scores you rolled or were given";
   const rows = ABILS.map(a => {
     const less = btn("-", () => ctl.nudgeScore(a, -1)), more = btn("+", () => ctl.nudgeScore(a, 1));
     less.setAttribute("aria-label", `Less ${ABIL_NAME[a]}`); more.setAttribute("aria-label", `More ${ABIL_NAME[a]}`);
     const base = d.method === "point-buy" ? h("span", { cls: "fe-kv" }, less, h("span", { cls: "fe-name", text: String(d.scores[a]), data: { base: a } }), more)
-      : d.method === "standard-array"
+      : d.method === "standard-array" || rolling
         ? h("select", { attrs: { "aria-label": `${ABIL_NAME[a]} score` }, data: { base: a }, on: { change: (e: Event) => ctl.setScore(a, +(e.target as HTMLSelectElement).value) } },
-            ...STANDARD_ARRAY.map(n => h("option", { text: String(n), attrs: { value: String(n), ...(d.scores[a] === n ? { selected: "" } : {}) } })))
+            ...(rolling ? totals : STANDARD_ARRAY).map(n => h("option", { text: String(n), attrs: { value: String(n), ...(d.scores[a] === n ? { selected: "" } : {}) } })))
         : h("input", { cls: "fe-amt", data: { base: a }, attrs: { type: "number", min: "1", max: "30", value: String(d.scores[a]), "aria-label": `${ABIL_NAME[a]} score` },
             on: { change: (e: Event) => ctl.setScore(a, +(e.target as HTMLInputElement).value) } });
     const bLess = btn("-", () => ctl.nudgeBonus(a, -1)), bMore = btn("+", () => ctl.nudgeBonus(a, 1));
@@ -104,8 +109,14 @@ function scoresPage(ctl: BuilderController): HTMLElement {
       parts.length ? h("span", { cls: "fe-faint", text: parts.map(p => `${p.source === "race" ? raceWord(ctl).toLowerCase() : p.source} ${sgn(p.delta[a]!)}`).join(", "), data: { origin: a } }) : null,
       h("span", { cls: "fe-name", text: `= ${total}`, data: { final: a } }));
   });
-  return body("scores", h("div", { cls: "fe-filters" }, ...METHODS.map(([m, label]) => choiceButton(label, undefined, d.method === m, undefined, () => ctl.setMethod(m), { method: m }))),
-    hint(note), hint(`Right-hand buttons add bonuses by hand; a ${raceWord(ctl).toLowerCase()}'s own ability increases are added for you${ctl.originParts().some(p => p.source === "background") ? ", and so are the background's" : ""}.`), ...rows);
+  const schemes = rolling ? h("div", { cls: "fe-filters" }, ...ROLL_SCHEMES.map(s => {
+    const armed = ctl.armedScheme === s.id, mine = d.rolled?.scheme === s.id;
+    return typed(choiceButton(armed ? "Tap again to roll again" : s.label, armed ? "this throws away the numbers above" : undefined, mine, undefined, () => ctl.rollScores(s.id), { scheme: s.id }), s.text);
+  })) : null;
+  const rollList = rolling && held.length ? h("ul", { cls: "fe-muted", data: { rolls: "" } }, ...held.map((r, i) => h("li", { text: describeRoll(r), data: { roll: String(i) } }))) : null;
+  return body("scores", h("div", { cls: "fe-filters" }, ...METHODS.map(([m, label]) => typed(choiceButton(label, undefined, d.method === m, undefined, () => ctl.setMethod(m), { method: m })))),
+    hint("Rolled your own dice at the table? Choose Manual and type the numbers."), schemes, rollList,
+    hint(note), ...(rolling && !held.length ? [] : [ hint(`Right-hand buttons add bonuses by hand; a ${raceWord(ctl).toLowerCase()}'s own ability increases are added for you${ctl.originParts().some(p => p.source === "background") ? ", and so are the background's" : ""}.`), ...rows]));
 }
 
 function classPage(ctl: BuilderController): HTMLElement {
