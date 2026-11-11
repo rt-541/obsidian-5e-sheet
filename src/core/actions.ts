@@ -1,0 +1,563 @@
+import type { Customization } from "./customize";
+import { newRowId, type ItemChange, type Character, type Combo, type CompanionEntry, type Npc } from "./character";
+import { validateCombo } from "./combos";
+import { canonRef, qualifyRef, sameRef, splitRef } from "../content/edition";
+import type { ActorStats } from "./derive";
+import { characterEdition, type Edition } from "./edition";
+import type { ConditionData, ItemData, SpellData } from "../content/types";
+import { isVersatile } from "../content/types/item";
+import type { Registry } from "../content/registry";
+import { entryItem, entryName, entryVariant, isGear } from "./item-entry";
+import { baseFits } from "../content/item-variant";
+import { itemWorks, type EffectContext } from "./effects";
+import { slug } from "../content/registry";
+import { evalFormula } from "./formula";
+import { formulaVars } from "./progression";
+import type { Abil } from "./types";
+
+export type Who = { companion: number } | undefined;
+export type Action =
+  | { type: "damage"; amount: number; /** acid, fire, ...: resistance, immunity and vulnerability then apply. */ damageType?: string; who?: Who } | { type: "heal"; amount: number; who?: Who } | { type: "temp"; amount: number; who?: Who }
+  | { type: "condition"; id: string; level: number; who?: Who }
+  | { type: "slot"; level: string; used: number } | { type: "resource"; index: number; used: number }
+  | { type: "charges"; index: number; used: number } | { type: "hitDie"; die: string; used: number }
+  | { type: "deathSave"; which: "successes" | "failures"; value: number }
+  | { type: "equip"; index: number; on: boolean } | { type: "attune"; index: number; on: boolean }
+  | { type: "hands"; index: number; hands: 1 | 2; /** Also put away every equipped shield (the one-tap "Put away shield"). */ putAwayShield?: boolean }
+  | { type: "inspiration"; on: boolean }
+  /** Swap one mastered weapon for another (Edit mode, after a long rest): `out` leaves the list and `in` takes its place. Display only; no roll changes. */
+  | { type: "mastery"; out: string; in: string }
+  | { type: "addItem"; id: string; /** The armor or weapon a generic item is made from. */ base?: string; /** Put it on straight away. */ equip?: boolean; attune?: boolean } | { type: "removeItem"; index: number }
+  /** An item that is not in the compendium: a name, how many, an optional weight per piece in pounds, and whether using one up it. */
+  | { type: "addCustomItem"; name: string; qty: number; weight?: number; consumable?: boolean }
+  | { type: "addCompanion"; creature: string; name: string; kind: CompanionEntry["kind"] } | { type: "removeCompanion"; index: number }
+  /** Give a companion a new name; a blank name is an error and saves nothing. */
+  | { type: "renameCompanion"; index: number; name: string }
+  | { type: "ability"; abil: Abil; value: number }
+  | { type: "cast"; spell: string; level?: number; item?: number } | { type: "endConcentration" }
+  | { type: "addSpell"; id: string } | { type: "removeSpell"; index: number } | { type: "prepare"; index: number; on: boolean } | { type: "alwaysPrepared"; index: number; on: boolean }
+  | { type: "pinSpell"; key: string; on: boolean }
+  /** Point one stored reference whose thing only the other edition has at that edition's version (`id@<to>`); nothing else on the character changes. */
+  | { type: "repoint"; field: "race" | "subrace" | "background" | "concentration"; to: Edition }
+  | { type: "repoint"; field: "class" | "subclass" | "feat" | "spell" | "item" | "companion" | "mastery"; index: number; to: Edition }
+  | { type: "pin"; ref: string; on: boolean }
+  | { type: "itemQty"; index: number; qty: number }
+  /** Set or clear what the player changed on one row, and optionally the armor or weapon a generic item is made from. */
+  | { type: "itemChange"; index: number; change: ItemChange | null; base?: string }
+  /** Turn a stack of armor, shields or weapons (qty 2 or more) into one row per piece. Anything else is left as it is. */
+  | { type: "itemSplit"; index: number }
+  /** Set one kind of coin to a whole number, 0 or more. */
+  | { type: "coins"; coin: "pp" | "gp" | "ep" | "sp" | "cp"; value: number }
+  /** Whether using one of this inventory entry uses it up (a potion is by default, a custom item is not). */
+  | { type: "itemConsumable"; index: number; on: boolean }
+  /** Used count of a resource derived from class operations (stored in character.uses). */
+  | { type: "uses"; id: string; used: number }
+  | { type: "xp"; value: number }
+  | { type: "languages"; value: string[] }
+  /** Switch a class DC to its alternate ability (stored as character.choices["dc.<id>.alt"]). */
+  | { type: "dcAlt"; id: string; on: boolean }
+  /** Switch a toggle (Rage, a stance) on or off. Starting spends its cost and ends the others in its group; `value` sets a value toggle's number. */
+  | { type: "toggle"; id: string; on: boolean; value?: number }
+  /** Switch an attack option (a focus die, an on-hit die, extra damage) on or off. */
+  | { type: "attackOption"; id: string; on: boolean }
+  /** One roll used these options: spend 1 of each one's resource (not unlimited), switch off once-per-turn ones and any whose resource is now empty. */
+  | { type: "attackOptionsUsed"; ids: string[] }
+  /** Set what the player changed about a feature (`key` is `feature:<key>`); no value, or an empty one, resets it. */
+  | { type: "customize"; key: string; value?: Customization }
+  /** The same for one inventory row, by index. */
+  | { type: "customizeItem"; index: number; value?: Customization }
+  /** Save a combo: replaces the one at `index`, or adds a new one at the end when `index` is left out. */
+  | { type: "combo"; index?: number; combo: Combo } | { type: "comboRemove"; index: number }
+  | { type: "comboMove"; index: number; by: -1 | 1 } | { type: "comboPin"; index: number; on: boolean };
+export interface Limits {
+  self: ActorStats; companions: (ActorStats | undefined)[]; chargesMax: (index: number) => number;
+  /** Re-derive after a condition change so stored HP can be clamped to the new effective max. */
+  derive?: (c: Character) => ActorStats;
+  deriveCompanion?: (e: CompanionEntry) => ActorStats | undefined;
+  /** Needed for casting: spell and item data come from the registry. */
+  ctx?: EffectContext;
+}
+export const MAX_ATTUNED = 3;
+/** Pin key for an inventory entry: the compendium id, or the name of a custom item. */
+export const itemPinRef = (e: { id?: string; name?: string }) => (e.id ? `item:${e.id}` : `item-name:${e.name ?? ""}`);
+
+/** Why a custom item cannot be added, in plain words; undefined when it is fine. */
+export function customItemProblem(f: { name: string; qty: number; weight?: number }): string | undefined {
+  if (!f.name.trim()) return "Give the item a name.";
+  if (!Number.isInteger(f.qty) || f.qty < 1) return "How many? Use a whole number, 1 or more.";
+  if (f.weight !== undefined && (!Number.isFinite(f.weight) || f.weight < 0)) return "Weight is in pounds: use a number like 2 or 0.5, or leave it empty.";
+  return undefined;
+}
+
+const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, Math.round(v)));
+type Hp = { current?: number; temp: number };
+export interface Applied { value: Character; error?: string; note?: string; /** Damage while concentrating: the Constitution save the player should now make. */ concentrationCheck?: { dc: number; spell: string }; }
+
+function hpChange(hp: Hp, a: Action, max: number): void {
+  const cur = Math.min(hp.current ?? max, max);
+  if (a.type === "damage") { const n = Math.max(0, a.amount), fromTemp = Math.min(hp.temp, n); hp.temp -= fromTemp; hp.current = Math.max(0, cur - (n - fromTemp)); }
+  if (a.type === "heal") hp.current = Math.min(max, cur + Math.max(0, a.amount));
+  if (a.type === "temp") hp.temp = Math.max(hp.temp, Math.max(0, a.amount));
+}
+
+/** Indexes of equipped rows that equipping the row at `index` would put away: another suit of armor, another shield. */
+export function rivalsOf(c: Character, index: number, reg: Registry): number[] {
+  const mine = c.inventory[index] ? entryItem(c.inventory[index], reg) : undefined;
+  if (!mine || (!mine.armor && mine.kind !== "shield")) return [];
+  return c.inventory.flatMap((x, i) => {
+    if (i === index || !x.equipped) return [];
+    const d = entryItem(x, reg);
+    return d && ((mine.armor && d.armor) || (mine.kind === "shield" && d.kind === "shield")) ? [i] : [];
+  });
+}
+
+/** Wearing one suit of armor and carrying one shield: equipping a second of either puts the first away. Returns the words for what was unequipped. */
+function putAwayRivals(c: Character, keep: number, lim: Limits): string | undefined {
+  const reg = lim.ctx?.registry; if (!reg) return undefined;
+  const out = rivalsOf(c, keep, reg).map(i => {
+    const x = c.inventory[i], name = entryName(x, reg); x.equipped = false; x.attuned = false; return `${name} unequipped.`;
+  });
+  return out.length ? out.join(" ") : undefined;
+}
+
+/** A shield was just equipped: every equipped weapon held in two hands goes back to one. Returns the words for it. */
+function oneHandAll(c: Character, reg: Registry | undefined): string | undefined {
+  if (!reg) return undefined;
+  const out: string[] = [];
+  c.inventory.forEach(x => {
+    if (!x.equipped || x.hands !== 2) return;
+    delete x.hands;
+    const name = entryName(x, reg) || "Weapon";
+    out.push(`${name} switched to one hand (shield equipped).`);
+  });
+  return out.length ? out.join(" ") : undefined;
+}
+const isShield = (c: Character, i: number, reg: Registry | undefined): boolean => {
+  const e = c.inventory[i]; return !!(e && reg && entryItem(e, reg)?.kind === "shield");
+};
+const joinNotes = (...n: (string | undefined)[]) => { const t = n.filter(Boolean).join(" "); return t || undefined; };
+
+const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
+const esc = (t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+/** Names of the effects that give this actor the trait for the damage type (a line such as "bludgeoning, piercing, and slashing from nonmagical attacks" matches each type it names). */
+function traitFrom(st: ActorStats | undefined, kind: "resist" | "immune" | "vulnerable", type: string): string[] {
+  const re = new RegExp(`\\b${esc(type)}\\b`, "i");
+  return [...new Set((st?.effects ?? []).filter(s => (s.effects[kind] ?? []).some(t => re.test(t))).map(s => s.source))];
+}
+const list = (xs: string[]) => xs.join(" and ");
+/** Resistance halves (rounding down), vulnerability doubles, immunity zeroes; the note explains the number in words. */
+export function adjustDamage(amount: number, type: string | undefined, st: ActorStats | undefined): { amount: number; note?: string } {
+  const n = Math.max(0, Math.round(amount)), t = type?.trim().toLowerCase();
+  if (!t || !st || n === 0) return { amount: n };
+  const imm = traitFrom(st, "immune", t), res = traitFrom(st, "resist", t), vul = traitFrom(st, "vulnerable", t), head = `${cap(t)} damage: ${n}`;
+  if (imm.length) return { amount: 0, note: `${head} becomes 0 (immune, from ${list(imm)}).` };
+  if (res.length && vul.length) { const h = Math.floor(n / 2); return { amount: h * 2, note: `${head} is halved to ${h}, then doubled to ${h * 2} (resistance and vulnerability from ${list([...new Set([...res, ...vul])])}).` }; }
+  if (res.length) return { amount: Math.floor(n / 2), note: `${head} is halved to ${Math.floor(n / 2)} (resistance from ${list(res)}).` };
+  if (vul.length) return { amount: n * 2, note: `${head} is doubled to ${n * 2} (vulnerable, from ${list(vul)}).` };
+  return { amount: n };
+}
+
+/** The source that makes this actor immune to the condition (or to every disease), if any. */
+function conditionBlock(st: ActorStats | undefined, id: string, lim: Limits): { source: string; name: string } | undefined {
+  const entry = lim.ctx?.registry.get<ConditionData>("condition", id);
+  const hit = (st?.effects ?? []).find(s => (s.effects.conditionImmune ?? []).some(x => x === id || (entry?.data.kind !== undefined && x === entry.data.kind)));
+  return hit ? { source: hit.source, name: entry?.name ?? id } : undefined;
+}
+const knocksOut = (lim: Limits) => !lim.ctx || !!lim.ctx.registry.get("condition", "unconscious");
+
+/** Damage, healing and temporary hit points for one actor: damage types, Unconscious at 0, the concentration prompt. */
+function hpStep(hp: Hp, conds: Record<string, number>, a: Extract<Action, { type: "damage" | "heal" | "temp" }>, st: ActorStats, lim: Limits, concentration?: string): Pick<Applied, "note" | "concentrationCheck"> {
+  const before = Math.min(hp.current ?? st.hp.max, st.hp.max);
+  if (a.type !== "damage") {
+    hpChange(hp, a, st.hp.max);
+    if (a.type === "heal" && before === 0 && (hp.current ?? 0) > 0) delete conds.unconscious;
+    return {};
+  }
+  const adj = adjustDamage(a.amount, a.damageType, st);
+  hpChange(hp, { ...a, amount: adj.amount }, st.hp.max);
+  if (before > 0 && hp.current === 0 && knocksOut(lim) && !conditionBlock(st, "unconscious", lim)) conds.unconscious = 1;
+  const check = concentration && before > 0 && adj.amount > 0 ? { dc: Math.max(10, Math.floor(adj.amount / 2)), spell: concentration } : undefined;
+  return { ...(adj.note ? { note: adj.note } : {}), ...(check ? { concentrationCheck: check } : {}) };
+}
+function setCondition(conds: Record<string, number>, id: string, level: number, maxLevel: number): void {
+  const l = clamp(level, 0, maxLevel); if (l === 0) delete conds[id]; else conds[id] = l;
+}
+const condMax = (s: ActorStats | undefined, id: string) => id === "exhaustion" ? 6 : 1;
+
+function cast(c0: Character, c: Character, a: Extract<Action, { type: "cast" }>, lim: Limits): { value: Character; error?: string; note?: string } {
+  const fail = (error: string) => ({ value: c0, error });
+  const reg = lim.ctx?.registry, sp = reg?.get<SpellData>("spell", a.spell)?.data;
+  if (!sp) return fail("Spell missing from compendium");
+  if (a.item !== undefined) {
+    const e = c.inventory[a.item], it = e ? entryItem(e, reg!) : undefined;
+    if (!e || !it || !itemWorks(e, it)) return fail("That item isn't working");
+    const g = it.grants?.spells.find(x => x.id === a.spell);
+    if (!g) return fail("That item doesn't grant this spell");
+    if (g.cost.kind === "charges") {
+      const used = e.charges?.used ?? 0;
+      if (used + g.cost.amount > (it.charges?.max ?? 0)) return fail("Not enough charges");
+      e.charges = { ...e.charges, used: used + g.cost.amount };
+    } else if (g.cost.kind === "perDay") {
+      const used = e.spellUses?.[a.spell] ?? 0;
+      if (used >= g.cost.uses) return fail("No uses left today");
+      e.spellUses = { ...e.spellUses, [a.spell]: used + 1 };
+    }
+  } else {
+    if (!c.spells.some(x => x.id === a.spell)) return fail("Not one of your spells");
+    if (sp.level >= 1) {
+      const lvl = a.level ?? sp.level;
+      if (lvl < sp.level) return fail("Can't cast below the spell's level");
+      const slot = lim.self.slots.find(s => s.level === String(lvl) && s.used < s.max) ?? lim.self.slots.find(s => s.level === "pact" && s.pactLevel === lvl && s.used < s.max);
+      if (!slot) return fail(`No level ${lvl} slots left`);
+      c.spellSlots[slot.level] = { ...c.spellSlots[slot.level], used: slot.used + 1 };
+    }
+  }
+  let note: string | undefined;
+  if (sp.concentration) {
+    const prev = c.concentration;
+    if (prev && prev !== a.spell) note = `Concentration on ${reg!.get<SpellData>("spell", prev)?.data.name ?? prev} ends`;
+    c.concentration = a.spell;
+  }
+  return { value: c, ...(note ? { note } : {}) };
+}
+
+/** Switch a toggle: starting it spends its cost (refusing in words when nothing is left) and ends the others in its group; ending it is free. */
+function toggle(c0: Character, c: Character, a: Extract<Action, { type: "toggle" }>, lim: Limits): Applied {
+  const fail = (error: string) => ({ value: c0, error });
+  const t = lim.self.toggles.find(x => x.id === a.id);
+  if (!t) return fail("That switch isn't on this character.");
+  const v = t.def.value, setValue = (n: number | undefined): true | number => v ? clamp(n ?? v.min, v.min, v.max) : true;
+  if (!a.on) { delete c.active[a.id]; return { value: c, note: `${t.name} ended.` }; }
+  if (t.on) { if (v && a.value !== undefined) c.active[a.id] = setValue(a.value); return { value: c }; }
+  const cost = t.def.cost; let spent = "";
+  if (cost && "resource" in cost) {
+    const id = slug(cost.resource), r = lim.self.resources.find(x => x.id === id || (!x.derived && slug(x.name) === id));
+    if (!r) return fail(`${t.name} needs ${cost.resource}, which this character doesn't have.`);
+    if (r.unlimited) spent = `${r.name} is unlimited`;
+    else {
+      let n: number;
+      try { n = cost.amount === undefined ? 1 : Math.max(0, Math.floor(evalFormula(cost.amount, formulaVars(c, lim.self.progress.scales)))); }
+      catch (x) { return fail(`${t.name}: ${(x as Error).message}`); }
+      if (r.used + n > r.max) return fail(`No ${r.name} left, so ${t.name} can't start. Take a rest first.`);
+      if (r.derived) { c.uses[r.id] = r.used + n; } else { const i = Number(r.id.split(":")[1]); if (c.resources[i]) c.resources[i].used = r.used + n; }
+      spent = `${n} ${r.name} spent`;
+    }
+  } else if (cost && "slot" in cost) {
+    const lvl = (s: { level: string; pactLevel?: number }) => (s.level === "pact" ? s.pactLevel ?? 0 : Number(s.level));
+    const slot = lim.self.slots.filter(s => s.used < s.max && lvl(s) >= cost.slot).sort((x, y) => lvl(x) - lvl(y))[0];
+    if (!slot) return fail(`No spell slot of level ${cost.slot} or higher left, so ${t.name} can't start.`);
+    c.spellSlots[slot.level] = { ...c.spellSlots[slot.level], used: slot.used + 1 };
+    spent = `a level ${lvl(slot)} spell slot spent`;
+  } else if (cost && "charges" in cost) {
+    const e = t.itemIndex !== undefined ? c.inventory[t.itemIndex] : undefined;
+    if (!e) return fail(`${t.name} needs item charges, but isn't on an item.`);
+    const used = e.charges?.used ?? 0;
+    if (used + cost.charges > lim.chargesMax(t.itemIndex!)) return fail(`Not enough charges left, so ${t.name} can't start.`);
+    e.charges = { ...e.charges, used: used + cost.charges }; spent = `${cost.charges} charge${cost.charges === 1 ? "" : "s"} spent`;
+  }
+  const ended: string[] = [];
+  if (t.def.group) for (const o of lim.self.toggles) if (o.id !== t.id && o.on && o.def.group === t.def.group) { delete c.active[o.id]; ended.push(o.name); }
+  c.active[a.id] = setValue(a.value);
+  return { value: c, note: [`${t.name} started`, spent, ended.length ? `${ended.join(" and ")} ended` : ""].filter(Boolean).join(". ") + "." };
+}
+
+/** Add or remove an id from an optional list, leaving the list undefined when it is empty. */
+function setIn(c: Character, key: "optionsOn" | "optionsOff", id: string, present: boolean): void {
+  const list = (c[key] ?? []).filter(x => x !== id);
+  if (present) list.push(id);
+  if (list.length) c[key] = list; else delete c[key];
+}
+
+/** Switch an attack option: declared ones are listed in optionsOn, extra-damage ones in optionsOff (they start on). Switching a declared one on needs its resource. */
+function attackOption(c0: Character, c: Character, a: Extract<Action, { type: "attackOption" }>, lim: Limits): Applied {
+  const row = lim.self.attackOptions.find(x => x.id === a.id);
+  if (!row) return { value: c0, error: "That attack option isn't on this character." };
+  if (row.kind === "extra") { setIn(c, "optionsOff", a.id, !a.on); return { value: c }; }
+  if (a.on) {
+    if (row.problem) return { value: c0, error: `${row.name} ${row.problem}.` };
+    if (row.resource && !row.resource.unlimited && row.resource.left <= 0) return { value: c0, error: `No ${row.resource.name} left, so ${row.name} can't be switched on. Take a rest first.` };
+  }
+  setIn(c, "optionsOn", a.id, a.on);
+  return { value: c };
+}
+
+/** One roll used these options: spend one of each one's resource, then switch off once-per-turn options and those whose resource ran dry. */
+function attackOptionsUsed(c0: Character, c: Character, a: Extract<Action, { type: "attackOptionsUsed" }>, lim: Limits): Applied {
+  const rows = lim.self.attackOptions, used = new Map<string, number>();
+  for (const id of a.ids) {
+    const row = rows.find(x => x.id === id);
+    if (row?.kind !== "declared" || !row.on || !row.resource || row.resource.unlimited) continue;
+    const r = lim.self.resources.find(x => x.id === row.resource!.id); if (!r) continue;
+    const n = used.get(r.id) ?? r.used;
+    if (n >= r.max) continue; // never spend more than the maximum
+    used.set(r.id, n + 1);
+    if (r.derived) c.uses[r.id] = n + 1; else { const i = Number(r.id.split(":")[1]); if (c.resources[i]) c.resources[i].used = n + 1; }
+  }
+  const dry = new Set<string>();
+  for (const [id, n] of used) if (n >= lim.self.resources.find(x => x.id === id)!.max) dry.add(id);
+  const named: string[] = []; let what = "";
+  for (const row of rows) {
+    if (row.kind !== "declared" || !row.on) continue;
+    const out = !!row.resource && dry.has(row.resource.id);
+    if (out) { named.push(row.name); what ||= row.resource!.name; }
+    if (out || (row.oncePerTurn && a.ids.includes(row.id))) setIn(c, "optionsOn", row.id, false);
+  }
+  return { value: c, ...(named.length ? { note: `No ${what} left: ${named.join(" and ")} ${named.length === 1 ? "is" : "are"} off.` } : {}) };
+}
+
+/** After a customization: forget the on state of switches and attack options that the change took away. */
+function dropGone(c: Character, lim: Limits, isToggle: (t: ActorStats["toggles"][number]) => boolean, isOption: (o: ActorStats["attackOptions"][number]) => boolean): void {
+  if (!lim.derive) return;
+  const after = lim.derive(c);
+  for (const t of lim.self.toggles) if (isToggle(t) && !after.toggles.some(x => x.id === t.id)) delete c.active[t.id];
+  const gone = lim.self.attackOptions.filter(o => isOption(o) && !after.attackOptions.some(x => x.id === o.id)).map(o => o.id);
+  if (gone.length && c.optionsOn) { c.optionsOn = c.optionsOn.filter(id => !gone.includes(id)); if (!c.optionsOn.length) delete c.optionsOn; }
+}
+
+/** After a re-point: saved picks, customizations and pins were keyed by the old ref, and the level log keeps ids as values for undo; move them all to the new ref. */
+function rekeyRef(c: Character, kind: string, old: string, neu: string, values: boolean): void {
+  if (old === neu) return;
+  const from = `${kind}:${old}:`, to = `${kind}:${neu}:`, pin = (k: string) => k.startsWith(from) ? to + k.slice(from.length) : k.startsWith(`feature:${from}`) ? `feature:${to}${k.slice(8 + from.length)}` : k === `${kind}:${old}` ? `${kind}:${neu}` : k;
+  const keys = <T>(o: Record<string, T>): Record<string, T> => Object.fromEntries(Object.entries(o).map(([k, v]) => [pin(k), v]));
+  c.choices = keys(c.choices); c.customize = keys(c.customize); c.mainPins = c.mainPins.map(pin);
+  for (const l of c.levelLog) l.choices = keys(l.choices);
+  if (!values) return;
+  const sw = (x: unknown) => x === old ? neu : x;
+  for (const l of c.levelLog) for (const k of ["+spells", "+feats", "+mastery", "+items"]) if (Array.isArray(l.choices[k])) l.choices[k] = (l.choices[k] as unknown[]).map(sw);
+}
+
+export function apply(c0: Character, a: Action, lim: Limits): Applied {
+  const c = structuredClone(c0);
+  const who = "who" in a ? a.who : undefined;
+  if (who) {
+    const comp = c.companions[who.companion], st = lim.companions[who.companion];
+    if (!comp) return { value: c0, error: "No such companion" };
+    if (!st && a.type !== "condition") return { value: c0, error: "Unknown creature" };
+    if (a.type === "condition") {
+      const block = a.level > (comp.conditions[a.id] ?? 0) ? conditionBlock(st, a.id, lim) : undefined;
+      if (block) return { value: c0, error: `Can't be ${block.name.toLowerCase()}: ${block.source} protects against it.` };
+      setCondition(comp.conditions, a.id, a.level, condMax(st, a.id));
+      const after = lim.deriveCompanion?.(comp); if (after && comp.hp.current !== undefined) comp.hp.current = Math.min(comp.hp.current, after.hp.max);
+      return { value: c };
+    }
+    if (a.type !== "damage" && a.type !== "heal" && a.type !== "temp") return { value: c0, error: "Not available for companions" };
+    const r = hpStep(comp.hp, comp.conditions, a, st!, lim);
+    return { value: c, ...(r.note ? { note: r.note } : {}) };
+  }
+  switch (a.type) {
+    case "damage": case "heal": case "temp": {
+      const wasDown = c.hp.current === 0;
+      const r = hpStep(c.hp, c.conditions, a, lim.self, lim, c.concentration);
+      if (a.type === "heal" && wasDown && c.hp.current > 0) c.deathSaves = { successes: 0, failures: 0 };
+      // Unconscious means incapacitated: concentration ends on its own, and so does a Rage.
+      if (a.type === "damage" && !wasDown && c.hp.current === 0 && c.conditions.unconscious) {
+        const notes = r.note ? [r.note] : [], spell = c.concentration;
+        if (spell) { delete c.concentration; notes.push(`You drop to 0 hit points and stop concentrating on ${lim.ctx?.registry.get<SpellData>("spell", spell)?.data.name ?? spell}.`); }
+        if (c.active.rage) { delete c.active.rage; notes.push("Your Rage ends."); }
+        return { value: c, ...(notes.length ? { note: notes.join(" ") } : {}) };
+      }
+      return { value: c, ...(r.note ? { note: r.note } : {}), ...(r.concentrationCheck ? { concentrationCheck: r.concentrationCheck } : {}) };
+    }
+    case "condition": {
+      const block = a.level > (c.conditions[a.id] ?? 0) ? conditionBlock(lim.self, a.id, lim) : undefined;
+      if (block) return { value: c0, error: `Can't be ${block.name.toLowerCase()}: ${block.source} protects against it.` };
+      setCondition(c.conditions, a.id, a.level, condMax(lim.self, a.id)); c.hp.current = Math.min(c.hp.current, lim.derive?.(c).hp.max ?? c.hp.max); break;
+    }
+    case "slot": { const s = lim.self.slots.find(x => x.level === a.level); c.spellSlots[a.level] = { used: clamp(a.used, 0, s?.max ?? 0) }; break; }
+    case "resource": { const r = c.resources[a.index]; if (r) r.used = clamp(a.used, 0, r.max); break; }
+    case "charges": { const e = c.inventory[a.index]; if (e) e.charges = { used: clamp(a.used, 0, lim.chargesMax(a.index)) }; break; }
+    case "hitDie": { const h = lim.self.hitDice.find(x => x.die === a.die); c.hitDice[a.die] = { used: clamp(a.used, 0, h?.max ?? 0) }; break; }
+    case "mastery": {
+      const at = (c.mastery ?? []).indexOf(a.out);
+      if (at < 0) return { value: c0, error: "That weapon is not one of your mastered weapons." };
+      if ((c.mastery ?? []).includes(a.in)) return { value: c0, error: "You already have mastery of that weapon." };
+      const name = (id: string) => lim.ctx?.registry.get("item", id)?.name ?? id;
+      c.mastery![at] = a.in;
+      return { value: c, note: `Mastery moved from ${name(a.out)} to ${name(a.in)}.` };
+    }
+    case "deathSave": c.deathSaves[a.which] = clamp(a.value, 0, 3); break;
+    case "equip": {
+      const e = c.inventory[a.index]; if (!e) break;
+      e.equipped = a.on; if (!a.on) e.attuned = false;
+      const note = a.on ? joinNotes(putAwayRivals(c, a.index, lim), isShield(c, a.index, lim.ctx?.registry) ? oneHandAll(c, lim.ctx?.registry) : undefined) : undefined;
+      return { value: c, ...(note ? { note } : {}) };
+    }
+    case "hands": {
+      const e = c.inventory[a.index]; if (!e) break;
+      if (a.hands === 1) { delete e.hands; break; }
+      const reg = lim.ctx?.registry, w = reg ? entryItem(e, reg)?.weapon : undefined;
+      if (!w || !isVersatile(w)) return { value: c0, error: "This weapon cannot be held in two hands." };
+      const shields = c.inventory.map((_, i) => i).filter(i => c.inventory[i].equipped && isShield(c, i, reg));
+      if (shields.length && !a.putAwayShield) return { value: c0, error: "Put away your shield to use two hands." };
+      const notes: string[] = [];
+      for (const i of shields) {
+        const sh = c.inventory[i]; sh.equipped = false; sh.attuned = false;
+        notes.push(`${entryName(sh, reg!)} put away.`);
+      }
+      e.hands = 2;
+      if (notes.length) notes.push(`${entryName(e, reg!)} in two hands.`);
+      return { value: c, ...(notes.length ? { note: notes.join(" ") } : {}) };
+    }
+    case "attune": {
+      const e = c.inventory[a.index]; if (!e) break;
+      if (a.on && !e.attuned && c.inventory.filter(x => x.attuned).length >= MAX_ATTUNED) return { value: c0, error: "Already attuned to 3 items" };
+      e.attuned = a.on; if (a.on) e.equipped = true;
+      const note = a.on ? joinNotes(putAwayRivals(c, a.index, lim), isShield(c, a.index, lim.ctx?.registry) ? oneHandAll(c, lim.ctx?.registry) : undefined) : undefined;
+      return { value: c, ...(note ? { note } : {}) };
+    }
+    case "inspiration": c.inspiration = a.on; break;
+    case "addItem": {
+      // a reference to the character's own edition is stored plain; the other edition's keeps its `@year`
+      const reg = lim.ctx?.registry, own = characterEdition(c), plain = { id: canonRef(a.id, own), qty: 1, equipped: false, attuned: false };
+      const item = reg ? entryItem(plain, reg) : undefined;
+      if (a.base) {
+        const v = reg ? entryVariant(plain, reg) : undefined, b = reg ? entryItem({ ...plain, id: a.base }, reg) : undefined;
+        if (!v || !b || !baseFits(v, { id: a.base, data: b })) return { value: c0, error: "That base does not fit this item." };
+      }
+      if (a.attune && c.inventory.filter(x => x.attuned).length >= MAX_ATTUNED) return { value: c0, error: "Already attuned to 3 items" };
+      let index: number;
+      if (a.base || item?.variant || (item && isGear(item))) {
+        // Armor, shields and weapons are each their own row.
+        index = c.inventory.push({ ...plain, row: newRowId(c.inventory), ...(a.base ? { base: a.base } : {}) }) - 1;
+      } else {
+        // Potions and other plain items: one more instead of a second row.
+        index = c.inventory.findIndex(x => x.id !== undefined && sameRef(x.id, a.id, own));
+        if (index >= 0) c.inventory[index].qty += 1; else index = c.inventory.push(plain) - 1;
+      }
+      if (!a.equip && !a.attune) break;
+      const e = c.inventory[index]; e.equipped = true; if (a.attune) e.attuned = true;
+      const note = joinNotes(putAwayRivals(c, index, lim), isShield(c, index, reg) ? oneHandAll(c, reg) : undefined);
+      return { value: c, ...(note ? { note } : {}) };
+    }
+    case "addCustomItem": {
+      const bad = customItemProblem(a); if (bad) return { value: c0, error: bad };
+      const name = a.name.trim(), same = c.inventory.find(x => !x.id && x.name?.toLowerCase() === name.toLowerCase());
+      if (same) same.qty += a.qty;
+      else c.inventory.push({ name, qty: a.qty, equipped: false, attuned: false, ...(a.weight !== undefined ? { weight: a.weight } : {}), ...(a.consumable ? { consumable: true } : {}) });
+      break;
+    }
+    case "removeItem": {
+      const gone = c.inventory.splice(a.index, 1)[0];
+      // its pin goes with it, unless another row still has the same ref
+      if (gone && !c.inventory.some(x => itemPinRef(x) === itemPinRef(gone))) c.mainPins = c.mainPins.filter(k => k !== itemPinRef(gone));
+      break;
+    }
+    case "addCompanion": c.companions.push({ creature: a.creature, name: a.name, kind: a.kind, hp: { temp: 0 }, conditions: {} }); break;
+    case "removeCompanion": c.companions.splice(a.index, 1); break;
+    case "renameCompanion": {
+      const name = a.name.trim(), comp = c.companions[a.index];
+      if (!name) return { value: c0, error: "A companion needs a name." };
+      if (!comp) return { value: c0, error: "No such companion" };
+      comp.name = name; break;
+    }
+    case "cast": return cast(c0, c, a, lim);
+    case "toggle": return toggle(c0, c, a, lim);
+    case "attackOption": return attackOption(c0, c, a, lim);
+    case "attackOptionsUsed": return attackOptionsUsed(c0, c, a, lim);
+    case "customize": {
+      if (a.value && Object.keys(a.value).length) c.customize[a.key] = structuredClone(a.value); else delete c.customize[a.key];
+      dropGone(c, lim, t => t.ref === a.key, o => o.ref === a.key); break;
+    }
+    case "customizeItem": {
+      const e = c.inventory[a.index]; if (!e) return { value: c0, error: "No such item" };
+      if (a.value && Object.keys(a.value).length) e.customize = structuredClone(a.value); else delete e.customize;
+      const ref = e.id ? `item:${e.id}` : undefined;
+      dropGone(c, lim, t => t.itemIndex === a.index, o => !!ref && o.ref === ref); break;
+    }
+    case "itemChange": {
+      const e = c.inventory[a.index]; if (!e) return { value: c0, error: "No such item" };
+      if (a.base !== undefined) {
+        const reg = lim.ctx?.registry, v = reg && e.id ? entryVariant({ ...e, base: undefined }, reg) : undefined, b = reg ? entryItem({ id: a.base, qty: 1, equipped: false, attuned: false }, reg) : undefined;
+        if (!v || !b || !baseFits(v, { id: a.base, data: b })) return { value: c0, error: "That base does not fit this item." };
+        e.base = a.base;
+      }
+      if (a.change) e.change = structuredClone(a.change); else delete e.change;
+      if (!e.row) e.row = newRowId(c.inventory);
+      break;
+    }
+    case "itemSplit": {
+      const e = c.inventory[a.index], reg = lim.ctx?.registry, it = e && reg ? entryItem(e, reg) : undefined;
+      if (!e || !it || !isGear(it) || e.qty < 2) break;
+      const n = Math.floor(e.qty), { qty: _q, row: _r, equipped: _e, attuned: _a, charges: _c, spellUses: _s, hands: _h, ...keep } = e;
+      if (!e.row) e.row = newRowId(c.inventory);
+      e.qty = 1;
+      const copies: typeof c.inventory = [];
+      for (let i = 1; i < n; i++) {
+        copies.push({ ...structuredClone(keep), qty: 1, equipped: false, attuned: false, row: newRowId([...c.inventory, ...copies]) });
+      }
+      c.inventory.splice(a.index + 1, 0, ...copies);
+      break;
+    }
+    case "endConcentration": delete c.concentration; break;
+    case "addSpell": { const own = characterEdition(c); if (!c.spells.some(x => sameRef(x.id, a.id, own))) c.spells.push({ id: canonRef(a.id, own), prepared: false }); break; }
+    case "removeSpell": { const gone = c.spells.splice(a.index, 1)[0]; if (gone) c.mainSpells = c.mainSpells.filter(k => k !== gone.id); break; }
+    case "repoint": {
+      const own = characterEdition(c), fix = (old: string) => canonRef(qualifyRef(splitRef(old).id, a.to), own);
+      if (!("index" in a)) { const old = c[a.field]; if (!old) return { value: c0, error: "Nothing to bring in" }; c[a.field] = fix(old); if (a.field !== "concentration") rekeyRef(c, a.field, old, c[a.field]!, false); break; }
+      const i = a.index;
+      switch (a.field) {
+        case "class": { const k = c.classes[i]; if (!k) return { value: c0, error: "No such class" }; const old = k.class; k.class = fix(old); for (const l of c.levelLog) if (l.class === old) l.class = k.class; rekeyRef(c, "class", old, k.class, false); break; }
+        case "subclass": { const k = c.classes[i]; if (!k?.subclass) return { value: c0, error: "No such subclass" }; const old = k.subclass; k.subclass = fix(old); rekeyRef(c, "subclass", old, k.subclass, false); for (const l of c.levelLog) if (l.choices["+subclass"] === old) l.choices["+subclass"] = k.subclass; break; }
+        case "feat": if (c.feats[i] === undefined) return { value: c0, error: "No such feat" }; { const old = c.feats[i]; c.feats[i] = fix(old); rekeyRef(c, "feat", old, c.feats[i], true); for (const l of c.levelLog) for (const v of Object.values(l.choices)) if (v && typeof v === "object" && !Array.isArray(v) && (v as { feat?: unknown }).feat === old) (v as { feat?: unknown }).feat = c.feats[i]; } break;
+        case "spell": { const sp = c.spells[i]; if (!sp) return { value: c0, error: "No such spell" }; const old = sp.id; sp.id = fix(old); c.mainSpells = c.mainSpells.map(k => k === old ? sp.id : k); for (const l of c.levelLog) for (const k of ["+spells"]) if (Array.isArray(l.choices[k])) l.choices[k] = (l.choices[k] as unknown[]).map(x => x === old ? sp.id : x);
+          for (const l of c.levelLog) if (Array.isArray(l.choices["+swaps"])) for (const w of l.choices["+swaps"] as { out?: unknown; in?: unknown }[]) { if (w.out === old) w.out = sp.id; if (w.in === old) w.in = sp.id; } break; }
+        case "item": { const e = c.inventory[i]; if (!e?.id) return { value: c0, error: "No such item" }; const was = itemPinRef(e), oldId = e.id; e.id = fix(oldId); c.mainPins = c.mainPins.map(k => k === was ? itemPinRef(e) : k); c.mainSpells = c.mainSpells.map(k => k.startsWith(`${oldId}/`) ? `${e.id}/${k.slice(oldId.length + 1)}` : k);
+          for (const l of c.levelLog) if (Array.isArray(l.choices["+items"])) l.choices["+items"] = (l.choices["+items"] as unknown[]).map(x => x === oldId ? e.id : x); break; }
+        case "companion": { const comp = c.companions[i]; if (!comp) return { value: c0, error: "No such companion" }; comp.creature = fix(comp.creature); break; }
+        case "mastery": if (c.mastery?.[i] === undefined) return { value: c0, error: "No such weapon" }; { const old = c.mastery[i]; c.mastery[i] = fix(old); for (const l of c.levelLog) if (Array.isArray(l.choices["+mastery"])) l.choices["+mastery"] = (l.choices["+mastery"] as unknown[]).map(x => x === old ? c.mastery![i] : x); } break;
+      }
+      break;
+    }
+    case "pinSpell": c.mainSpells = c.mainSpells.filter(k => k !== a.key); if (a.on) c.mainSpells.push(a.key); break;
+    case "pin": c.mainPins = c.mainPins.filter(k => k !== a.ref); if (a.on) c.mainPins.push(a.ref); break;
+    case "itemQty": { const e = c.inventory[a.index]; if (e) e.qty = Math.max(0, Math.floor(a.qty)); break; }
+    case "coins": {
+      if (!(a.coin in c.coins) || !Number.isFinite(a.value) || a.value < 0) return { value: c0, error: "Coins must be a whole number, 0 or more." };
+      c.coins[a.coin] = Math.floor(a.value); break;
+    }
+    case "itemConsumable": { const e = c.inventory[a.index]; if (e) e.consumable = a.on; break; }
+    case "prepare": { const s = c.spells[a.index]; if (s && !(s.always && !a.on)) s.prepared = a.on; break; }
+    case "alwaysPrepared": { const s = c.spells[a.index]; if (s) { if (a.on) { s.always = true; s.prepared = true; } else delete s.always; } break; }
+    case "languages": c.languages = a.value.map(s => s.trim()).filter(Boolean); break;
+    case "xp": c.xp = Math.max(0, Math.round(a.value)); break;
+    case "dcAlt": {
+      if (!lim.self.progress.dcs.some(d => d.id === a.id && d.alt)) return { value: c0, error: "That class DC has no alternate ability" };
+      if (a.on) c.choices[`dc.${a.id}.alt`] = true; else delete c.choices[`dc.${a.id}.alt`];
+      break;
+    }
+    case "uses": {
+      const r = lim.self.resources.find(x => x.derived && x.id === a.id);
+      if (!r) return { value: c0, error: "Unknown resource" };
+      const n = r.unlimited ? 0 : clamp(a.used, 0, r.max);
+      if (n) c.uses[a.id] = n; else delete c.uses[a.id];
+      break;
+    }
+    case "combo": {
+      const bad = validateCombo(a.combo); if (bad) return { value: c0, error: bad };
+      const clean: Combo = { ...structuredClone(a.combo), name: a.combo.name.trim(), when: a.combo.when.trim() };
+      if (!clean.notes?.trim()) delete clean.notes; if (!clean.pinned) delete clean.pinned;
+      if (a.index === undefined) c.combos.push(clean);
+      else if (c.combos[a.index]) c.combos[a.index] = clean;
+      else return { value: c0, error: "That combo no longer exists." };
+      break;
+    }
+    case "comboRemove": c.combos.splice(a.index, 1); break;
+    case "comboMove": { const j = a.index + a.by; if (c.combos[a.index] && c.combos[j]) [c.combos[a.index], c.combos[j]] = [c.combos[j], c.combos[a.index]]; break; }
+    case "comboPin": { const k = c.combos[a.index]; if (k) { if (a.on) k.pinned = true; else delete k.pinned; } break; }
+    case "ability": c.abilities[a.abil] = clamp(a.value, 1, 30); break;
+  }
+  return { value: c };
+}
+
+export function applyNpc(n0: Npc, a: Action, stats: ActorStats, rederive?: (n: Npc) => ActorStats | undefined): { value: Npc; error?: string; note?: string } {
+  const n = structuredClone(n0);
+  if (a.type === "damage" || a.type === "heal" || a.type === "temp") {
+    const adj = a.type === "damage" ? adjustDamage(a.amount, a.damageType, stats) : undefined;
+    hpChange(n.hp, adj ? { ...a, amount: adj.amount } : a, stats.hp.max);
+    return { value: n, ...(adj?.note ? { note: adj.note } : {}) };
+  }
+  if (a.type === "condition") { setCondition(n.conditions, a.id, a.level, condMax(stats, a.id));
+    const after = rederive?.(n); if (after && n.hp.current !== undefined) n.hp.current = Math.min(n.hp.current, after.hp.max);
+    return { value: n }; }
+  return { value: n0, error: "Not available for NPCs" };
+}

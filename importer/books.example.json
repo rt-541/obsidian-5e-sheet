@@ -1,0 +1,21 @@
+{
+  "source_root": "/path/to/your/pdf/folder",
+  "books": [
+    {
+      "slug": "example-bestiary",
+      "abbr": "EXB",
+      "kind": "bestiary",
+      "title": "Example Bestiary",
+      "file": "Example Bestiary.pdf",
+      "publisher": "Example Press"
+    },
+    {
+      "slug": "example-rules",
+      "abbr": "EXR",
+      "kind": "rules",
+      "title": "Example Rules",
+      "file": "Example Rules.pdf",
+      "skip": "no text layer"
+    }
+  ]
+}

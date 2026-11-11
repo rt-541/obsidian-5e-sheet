@@ -1,0 +1,18 @@
+node_modules/
+main.js
+*.log
+.DS_Store
+work
+.superpowers/
+importer/**/__pycache__/
+importer/books.json
+
+# private working files: kept on disk, never in this public repo
+CLAUDE.md
+docs/STATE.md
+docs/superpowers/
+docs/plans/
+docs/manual-test.md
+scripts/deploy.sh
+tests/content/vault-validate.test.ts
+scripts/vault-to-json.py

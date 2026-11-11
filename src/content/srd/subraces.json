@@ -1,0 +1,141 @@
+[
+ {
+  "id": "hill-dwarf",
+  "name": "Hill Dwarf",
+  "race": "dwarf",
+  "grants": [
+   {
+    "id": "ability-score-increase",
+    "op": "feature",
+    "name": "Ability Score Increase",
+    "text": "Your Wisdom score increases by 1."
+   },
+   {
+    "id": "dwarven-toughness",
+    "op": "feature",
+    "name": "Dwarven Toughness",
+    "text": "Your hit point maximum increases by 1, and it increases by 1 every time you gain a level."
+   }
+  ]
+ },
+ {
+  "id": "high-elf",
+  "name": "High Elf",
+  "race": "elf",
+  "grants": [
+   {
+    "id": "grant",
+    "op": "grant",
+    "proficiencies": [
+     "Longswords",
+     "Shortswords",
+     "Shortbows",
+     "Longbows"
+    ]
+   },
+   {
+    "id": "ability-score-increase",
+    "op": "feature",
+    "name": "Ability Score Increase",
+    "text": "Your Intelligence score increases by 1."
+   },
+   {
+    "id": "elf-weapon-training",
+    "op": "feature",
+    "name": "Elf Weapon Training",
+    "text": "You have proficiency with the longsword, shortsword, shortbow, and longbow."
+   },
+   {
+    "id": "high-elf-cantrip",
+    "op": "feature",
+    "name": "High Elf Cantrip",
+    "text": "You know one cantrip of your choice form the wizard spell list. Intelligence is your spellcasting ability for it."
+   },
+   {
+    "id": "high-elf-cantrip-cantrip",
+    "op": "spells",
+    "count": 0,
+    "cantrips": 1,
+    "from": [
+     "light",
+     "mage-hand",
+     "mending",
+     "message",
+     "minor-illusion",
+     "acid-splash",
+     "prestidigitation",
+     "ray-of-frost",
+     "shocking-grasp",
+     "true-strike",
+     "chill-touch",
+     "dancing-lights",
+     "fire-bolt",
+     "poison-spray"
+    ]
+   },
+   {
+    "id": "extra-language",
+    "op": "feature",
+    "name": "Extra Language",
+    "text": "You can speak, read, and write one extra language of your choice."
+   },
+   {
+    "id": "extra-language-pick",
+    "op": "choose",
+    "what": "languages",
+    "count": 1
+   }
+  ]
+ },
+ {
+  "id": "lightfoot-halfling",
+  "name": "Lightfoot Halfling",
+  "race": "halfling",
+  "grants": [
+   {
+    "id": "ability-score-increase",
+    "op": "feature",
+    "name": "Ability Score Increase",
+    "text": "Your Charisma score increases by 1."
+   },
+   {
+    "id": "naturally-stealthy",
+    "op": "feature",
+    "name": "Naturally Stealthy",
+    "text": "You can attempt to hide even when you are obscured only by a creature that is at least one size larger than you."
+   }
+  ]
+ },
+ {
+  "id": "rock-gnome",
+  "name": "Rock Gnome",
+  "race": "gnome",
+  "grants": [
+   {
+    "id": "grant",
+    "op": "grant",
+    "proficiencies": [
+     "Tinker's Tools"
+    ]
+   },
+   {
+    "id": "ability-score-increase",
+    "op": "feature",
+    "name": "Ability Score Increase",
+    "text": "Your Constitution score increases by 1."
+   },
+   {
+    "id": "artificers-lore",
+    "op": "feature",
+    "name": "Artificer's Lore",
+    "text": "Whenever you make an Intelligence (History) check related to magic items, alchemical objects, or technological devices, you can add twice your proficiency bonus, instead of any proficiency bonus you normally apply."
+   },
+   {
+    "id": "tinker",
+    "op": "feature",
+    "name": "Tinker",
+    "text": "You have proficiency with artisan's tools (tinker's tools). Using those tools, you can spend 1 hour and 10 gp worth of materials to construct a Tiny clockwork device (AC 5, 1 hp). The device ceases to function after 24 hours (unless you spend 1 hour repairing it to keep the device functioning), or when you use your action to dismantle it; at that time, you can reclaim the materials used to create it. You can have up to three such devices active at a time.\n\nWhen you create a device, choose one of the following options:\n\nClockwork Toy: This toy is a clockwork animal, monster, or person, such as a frog, mouse, bird, dragon, or soldier. When placed on the ground, the toy moves 5 feet across the ground on each of your turns in a random direction. It makes noises as appropriate to the creature it represents.\n\nFire Starter: The device produces a miniature flame, which you can use to light a candle, torch, or campfire. Using the device requires your action.\n\nMusic Box: When opened, this music box plays a single song at a moderate volume. The box stops playing when it reaches the song's end or when it is closed."
+   }
+  ]
+ }
+]

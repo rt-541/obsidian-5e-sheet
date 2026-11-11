@@ -1,0 +1,904 @@
+[
+ {
+  "id": "berserker",
+  "name": "Berserker",
+  "class": "barbarian",
+  "levels": {
+   "3": [
+    {
+     "id": "frenzy",
+     "op": "feature",
+     "name": "Frenzy",
+     "text": "Starting when you choose this path at 3rd level, you can go into a frenzy when you rage. If you do so, for the duration of your rage you can make a single melee weapon attack as a bonus action on each of your turns after this one. When your rage ends, you suffer one level of exhaustion (as described in appendix A)."
+    }
+   ],
+   "6": [
+    {
+     "id": "mindless-rage",
+     "op": "feature",
+     "name": "Mindless Rage",
+     "text": "Beginning at 6th level, you can't be charmed or frightened while raging. If you are charmed or frightened when you enter your rage, the effect is suspended for the duration of the rage."
+    }
+   ],
+   "10": [
+    {
+     "id": "intimidating-presence",
+     "op": "feature",
+     "name": "Intimidating Presence",
+     "text": "Beginning at 10th level, you can use your action to frighten someone with your menacing presence. When you do so, choose one creature that you can see within 30 feet of you. If the creature can see or hear you, it must succeed on a Wisdom saving throw (DC equal to 8 + your proficiency bonus + your Charisma modifier) or be frightened of you until the end of your next turn. On subsequent turns, you can use your action to extend the duration of this effect on the frightened creature until the end of your next turn. This effect ends if the creature ends its turn out of line of sight or more than 60 feet away from you.\n\n If the creature succeeds on its saving throw, you can't use this feature on that creature again for 24 hours."
+    }
+   ],
+   "14": [
+    {
+     "id": "retaliation",
+     "op": "feature",
+     "name": "Retaliation",
+     "text": "Starting at 14th level, when you take damage from a creature that is within 5 feet of you, you can use your reaction to make a melee weapon Attack against that creature."
+    }
+   ]
+  }
+ },
+ {
+  "id": "lore",
+  "name": "Lore",
+  "class": "bard",
+  "levels": {
+   "3": [
+    {
+     "id": "bonus-proficiencies",
+     "op": "feature",
+     "name": "Bonus Proficiencies",
+     "text": "When you join the College of Lore at 3rd level, you gain proficiency with three skills of your choice."
+    },
+    {
+     "id": "cutting-words",
+     "op": "feature",
+     "name": "Cutting Words",
+     "text": "Also at 3rd level, you learn how to use your wit to distract, confuse, and otherwise sap the confidence and competence of others.\n\nWhen a creature that you can see within 60 feet of you makes an attack roll, an ability check, or a damage roll, you can use your reaction to expend one of your uses of Bardic Inspiration, rolling a Bardic Inspiration die and subtracting the number rolled from the creature's roll.\n\nYou can choose to use this feature after the creature makes its roll, but before the GM determines whether the attack roll or ability check succeeds or fails, or before the creature deals its damage. The creature is immune if it can't hear you or if it's immune to being charmed."
+    },
+    {
+     "id": "bonus-skills",
+     "op": "choose",
+     "what": "skills",
+     "count": 3
+    }
+   ],
+   "6": [
+    {
+     "id": "additional-magical-secrets",
+     "op": "feature",
+     "name": "Additional Magical Secrets",
+     "text": "At 6th level, you learn two spells of your choice from any class. A spell you choose must be of a level you can cast, as shown on the Bard table, or a cantrip. The chosen spells count as bard spells for you but don't count against the number of bard spells you know."
+    }
+   ],
+   "14": [
+    {
+     "id": "peerless-skill",
+     "op": "feature",
+     "name": "Peerless Skill",
+     "text": "Starting at 14th level, when you make an ability check, you can expend one use of Bardic Inspiration. Roll a Bardic Inspiration die and add the number rolled to your ability check. You can choose to do so after you roll the die for the ability check, but before the GM tells you whether you succeed or fail."
+    }
+   ]
+  }
+ },
+ {
+  "id": "life",
+  "name": "Life",
+  "class": "cleric",
+  "levels": {
+   "1": [
+    {
+     "id": "bonus-proficiency",
+     "op": "feature",
+     "name": "Bonus Proficiency",
+     "text": "When you choose this domain at 1st level, you gain proficiency with heavy armor."
+    },
+    {
+     "id": "disciple-of-life",
+     "op": "feature",
+     "name": "Disciple of Life",
+     "text": "Also starting at 1st level, your healing spells are more effective. Whenever you use a spell of 1st level or higher to restore hit points to a creature, the creature regains additional hit points equal to 2 + the spell's level."
+    },
+    {
+     "id": "grant-spells-1",
+     "op": "grant",
+     "spells": [
+      "bless",
+      "cure-wounds"
+     ]
+    },
+    {
+     "id": "grant-heavy-armor",
+     "op": "grant",
+     "proficiencies": [
+      "Heavy Armor"
+     ]
+    }
+   ],
+   "2": [
+    {
+     "id": "channel-divinity-preserve-life",
+     "op": "feature",
+     "name": "Channel Divinity: Preserve Life",
+     "text": "Starting at 2nd level, you can use your Channel Divinity to heal the badly injured.\n\nAs an action, you present your holy symbol and evoke healing energy that can restore a number of hit points equal to five times your cleric level.\n\nChoose any creatures within 30 feet of you, and divide those hit points among them. This feature can restore a creature to no more than half of its hit point maximum. You can't use this feature on an undead or a construct."
+    }
+   ],
+   "3": [
+    {
+     "id": "grant-spells-3",
+     "op": "grant",
+     "spells": [
+      "lesser-restoration",
+      "spiritual-weapon"
+     ]
+    }
+   ],
+   "5": [
+    {
+     "id": "grant-spells-5",
+     "op": "grant",
+     "spells": [
+      "beacon-of-hope",
+      "revivify"
+     ]
+    }
+   ],
+   "6": [
+    {
+     "id": "blessed-healer",
+     "op": "feature",
+     "name": "Blessed Healer",
+     "text": "Beginning at 6th level, the healing spells you cast on others heal you as well. When you cast a spell of 1st level or higher that restores hit points to a creature other than you, you regain hit points equal to 2 + the spell's level."
+    }
+   ],
+   "7": [
+    {
+     "id": "grant-spells-7",
+     "op": "grant",
+     "spells": [
+      "death-ward"
+     ]
+    }
+   ],
+   "8": [
+    {
+     "id": "divine-strike",
+     "op": "feature",
+     "name": "Divine Strike",
+     "text": "At 8th level, you gain the ability to infuse your weapon strikes with divine energy. Once on each of your turns when you hit a creature with a weapon attack, you can cause the attack to deal an extra 1d8 radiant damage to the target. When you reach 14th level, the extra damage increases to 2d8."
+    }
+   ],
+   "9": [
+    {
+     "id": "grant-spells-9",
+     "op": "grant",
+     "spells": [
+      "mass-cure-wounds",
+      "raise-dead"
+     ]
+    }
+   ],
+   "17": [
+    {
+     "id": "supreme-healing",
+     "op": "feature",
+     "name": "Supreme Healing",
+     "text": "Starting at 17th level, when you would normally roll one or more dice to restore hit points with a spell, you instead use the highest number possible for each die. For example, instead of restoring 2d6 hit points to a creature, you restore 12."
+    }
+   ]
+  }
+ },
+ {
+  "id": "land",
+  "name": "Land",
+  "class": "druid",
+  "levels": {
+   "2": [
+    {
+     "id": "bonus-cantrip",
+     "op": "feature",
+     "name": "Bonus Cantrip",
+     "text": "When you choose this circle at 2nd level, you learn one additional druid cantrip of your choice."
+    },
+    {
+     "id": "natural-recovery",
+     "op": "feature",
+     "name": "Natural Recovery",
+     "text": "Starting at 2nd level, you can regain some of your magical energy by sitting in meditation and communing with nature. During a short rest, you choose expended spell slots to recover. The spell slots can have a combined level that is equal to or less than half your druid level (rounded up), and none of the slots can be 6th level or higher. You can't use this feature again until you finish a long rest.\n\nFor example, when you are a 4th-level druid, you can recover up to two levels worth of spell slots. You can recover either a 2nd-level slot or two 1st-level slots."
+    }
+   ],
+   "6": [
+    {
+     "id": "druid-lands-stride",
+     "op": "feature",
+     "name": "Land's Stride",
+     "text": "Starting at 6th level, moving through nonmagical difficult terrain costs you no extra movement. You can also pass through nonmagical plants without being slowed by them and without taking damage from them if they have thorns, spines, or a similar hazard.\n\nIn addition, you have advantage on saving throws against plants that are magically created or manipulated to impede movement, such those created by the entangle spell."
+    }
+   ],
+   "10": [
+    {
+     "id": "natures-ward",
+     "op": "feature",
+     "name": "Nature's Ward",
+     "text": "When you reach 10th level, you can't be charmed or frightened by elementals or fey, and you are immune to poison and disease."
+    }
+   ],
+   "14": [
+    {
+     "id": "natures-sanctuary",
+     "op": "feature",
+     "name": "Nature's Sanctuary",
+     "text": "When you reach 14th level, creatures of the natural world sense your connection to nature and become hesitant to attack you. When a beast or plant creature attacks you, that creature must make a Wisdom saving throw against your druid spell save DC. On a failed save, the creature must choose a different target, or the attack automatically misses. On a successful save, the creature is immune to this effect for 24 hours. The creature is aware of this effect before it makes its attack against you."
+    }
+   ]
+  }
+ },
+ {
+  "id": "champion",
+  "name": "Champion",
+  "class": "fighter",
+  "options": {
+   "additional-fighting-style": [
+    {
+     "id": "fighter-fighting-style-archery",
+     "name": "Fighting Style: Archery",
+     "text": "You gain a +2 bonus to attack rolls you make with ranged weapons."
+    },
+    {
+     "id": "fighter-fighting-style-defense",
+     "name": "Fighting Style: Defense",
+     "text": "While you are wearing armor, you gain a +1 bonus to AC."
+    },
+    {
+     "id": "fighter-fighting-style-dueling",
+     "name": "Fighting Style: Dueling",
+     "text": "When you are wielding a melee weapon in one hand and no other weapons, you gain a +2 bonus to damage rolls with that weapon."
+    },
+    {
+     "id": "fighter-fighting-style-great-weapon-fighting",
+     "name": "Fighting Style: Great Weapon Fighting",
+     "text": "When you roll a 1 or 2 on a damage die for an attack you make with a melee weapon that you are wielding with two hands, you can reroll the die and must use the new roll, even if the new roll is a 1 or a 2. The weapon must have the two-handed or versatile property for you to gain this benefit."
+    },
+    {
+     "id": "fighter-fighting-style-protection",
+     "name": "Fighting Style: Protection",
+     "text": "When a creature you can see attacks a target other than you that is within 5 feet of you, you can use your reaction to impose disadvantage on the attack roll. You must be wielding a shield."
+    },
+    {
+     "id": "fighter-fighting-style-two-weapon-fighting",
+     "name": "Fighting Style: Two-Weapon Fighting",
+     "text": "When you engage in two-weapon fighting, you can add your ability modifier to the damage of the second attack."
+    }
+   ]
+  },
+  "levels": {
+   "3": [
+    {
+     "id": "improved-critical",
+     "op": "feature",
+     "name": "Improved Critical",
+     "text": "Beginning when you choose this archetype at 3rd level, your weapon attacks score a critical hit on a roll of 19 or 20.",
+     "effects": {
+      "critRange": 19
+     }
+    }
+   ],
+   "7": [
+    {
+     "id": "remarkable-athlete",
+     "op": "feature",
+     "name": "Remarkable Athlete",
+     "text": "Starting at 7th level, you can add half your proficiency bonus (round up) to any Strength, Dexterity, or Constitution check you make that doesn't already use your proficiency bonus. In addition, when you make a running long jump, the distance you can cover increases by a number of feet equal to your Strength modifier."
+    }
+   ],
+   "10": [
+    {
+     "id": "additional-fighting-style",
+     "op": "feature",
+     "name": "Additional Fighting Style",
+     "text": "At 10th level, you can choose a second option from the Fighting Style class feature."
+    },
+    {
+     "id": "additional-fighting-style-pick",
+     "op": "choose",
+     "what": "option",
+     "list": "additional-fighting-style",
+     "count": 1,
+     "swap": false
+    }
+   ],
+   "15": [
+    {
+     "id": "superior-critical",
+     "op": "feature",
+     "name": "Superior Critical",
+     "text": "Starting at 15th level, your weapon attacks score a critical hit on a roll of 18-20.",
+     "effects": {
+      "critRange": 18
+     }
+    }
+   ],
+   "18": [
+    {
+     "id": "survivor",
+     "op": "feature",
+     "name": "Survivor",
+     "text": "At 18th level, you attain the pinnacle of resilience in battle. At the start of each of your turns, you regain hit points equal to 5 + your Constitution modifier if you have no more than half of your hit points left. You don't gain this benefit if you have 0 hit points."
+    }
+   ]
+  }
+ },
+ {
+  "id": "open-hand",
+  "name": "Open Hand",
+  "class": "monk",
+  "levels": {
+   "3": [
+    {
+     "id": "open-hand-technique",
+     "op": "feature",
+     "name": "Open Hand Technique",
+     "text": "Starting when you choose this tradition at 3rd level, you can manipulate your enemy's ki when you harness your own. Whenever you hit a creature with one of the attacks granted by your Flurry of Blows, you can impose one of the following effects on that target:\n\n- It must succeed on a Dexterity saving throw or be knocked prone.\n\n- It must make a Strength saving throw. If it fails, you can push it up to 15 feet away from you.\n\n- It can't take reactions until the end of your next turn."
+    }
+   ],
+   "6": [
+    {
+     "id": "wholeness-of-body",
+     "op": "feature",
+     "name": "Wholeness of Body",
+     "text": "At 6th level, you gain the ability to heal yourself. As an action, you can regain hit points equal to three times your monk level. You must finish a long rest before you can use this feature again."
+    },
+    {
+     "id": "res-wholeness-of-body",
+     "op": "resource",
+     "name": "Wholeness of Body",
+     "max": 1,
+     "reset": "long"
+    }
+   ],
+   "11": [
+    {
+     "id": "tranquility",
+     "op": "feature",
+     "name": "Tranquility",
+     "text": "Beginning at 11th level, you can enter a special meditation that surrounds you with an aura of peace. At the end of a long rest, you gain the effect of a sanctuary spell that lasts until the start of your next long rest (the spell can end early as normal). The saving throw DC for the spell equals 8 + your Wisdom modifier + your proficiency bonus."
+    }
+   ],
+   "17": [
+    {
+     "id": "quivering-palm",
+     "op": "feature",
+     "name": "Quivering Palm",
+     "text": "At 17th level, you gain the ability to set up lethal vibrations in someone's body. When you hit a creature with an unarmed strike, you can spend 3 ki points to start these imperceptible vibrations, which last for a number of days equal to your monk level. The vibrations are harmless unless you use your action to end them. To do so, you and the target must be on the same plane of existence. When you use this action, the creature must make a Constitution saving throw. If it fails, it is reduced to 0 hit points. If it succeeds, it takes 10d10 necrotic damage.\n\nYou can have only one creature under the effect of this feature at a time. You can choose to end the vibrations harmlessly without using an action."
+    }
+   ]
+  }
+ },
+ {
+  "id": "devotion",
+  "name": "Devotion",
+  "class": "paladin",
+  "levels": {
+   "3": [
+    {
+     "id": "channel-divinity-sacred-weapon",
+     "op": "feature",
+     "name": "Channel Divinity: Sacred Weapon",
+     "text": "As an action, you can imbue one weapon that you are holding with positive energy, using your Channel Divinity. For 1 minute, you add your Charisma modifier to attack rolls made with that weapon (with a minimum bonus of +1). The weapon also emits bright light in a 20-foot radius and dim light 20 feet beyond that. If the weapon is not already magical, it becomes magical for the duration.\n\nYou can end this effect on your turn as part of any other action. If you are no longer holding or carrying this weapon, or if you fall unconscious, this effect ends."
+    },
+    {
+     "id": "channel-divinity-turn-the-unholy",
+     "op": "feature",
+     "name": "Channel Divinity: Turn the Unholy",
+     "text": "As an action, you present your holy symbol and speak a prayer censuring fiends and undead, using your Channel Divinity. Each fiend or undead that can see or hear you within 30 feet of you must make a Wisdom saving throw. If the creature fails its saving throw, it is turned for 1 minute or until it takes damage.\n\nA turned creature must spend its turns trying to move as far away from you as it can, and it can't willingly move to a space within 30 feet of you. It also can't take reactions. For its action, it can use only the Dash action or try to escape from an effect that prevents it from moving. If there's nowhere to move, the creature can use the Dodge action."
+    },
+    {
+     "id": "grant-spells-3",
+     "op": "grant",
+     "spells": [
+      "protection-from-evil-and-good",
+      "sanctuary"
+     ]
+    },
+    {
+     "id": "res-channel-divinity",
+     "op": "resource",
+     "name": "Channel Divinity",
+     "max": 1,
+     "reset": "short"
+    }
+   ],
+   "5": [
+    {
+     "id": "grant-spells-5",
+     "op": "grant",
+     "spells": [
+      "lesser-restoration",
+      "zone-of-truth"
+     ]
+    }
+   ],
+   "7": [
+    {
+     "id": "aura-of-devotion",
+     "op": "feature",
+     "name": "Aura of Devotion",
+     "text": "Starting at 7th level, you and friendly creatures within 10 feet of you can't be charmed while you are conscious.\n\nAt 18th level, the range of this aura increases to 30 feet."
+    }
+   ],
+   "9": [
+    {
+     "id": "grant-spells-9",
+     "op": "grant",
+     "spells": [
+      "beacon-of-hope",
+      "dispel-magic"
+     ]
+    }
+   ],
+   "13": [
+    {
+     "id": "grant-spells-13",
+     "op": "grant",
+     "spells": [
+      "freedom-of-movement",
+      "guardian-of-faith"
+     ]
+    }
+   ],
+   "15": [
+    {
+     "id": "purity-of-spirit",
+     "op": "feature",
+     "name": "Purity of Spirit",
+     "text": "Beginning at 15th level, you are always under the effects of a protection from evil and good spell."
+    }
+   ],
+   "17": [
+    {
+     "id": "grant-spells-17",
+     "op": "grant",
+     "spells": [
+      "commune",
+      "flame-strike"
+     ]
+    }
+   ],
+   "20": [
+    {
+     "id": "holy-nimbus",
+     "op": "feature",
+     "name": "Holy Nimbus",
+     "text": "At 20th level, as an action, you can emanate an aura of sunlight. For 1 minute, bright light shines from you in a 30-foot radius, and dim light shines 30 feet beyond that.\n\nWhenever an enemy creature starts its turn in the bright light, the creature takes 10 radiant damage.\n\nIn addition, for the duration, you have advantage on saving throws against spells cast by fiends or undead."
+    }
+   ]
+  }
+ },
+ {
+  "id": "hunter",
+  "name": "Hunter",
+  "class": "ranger",
+  "options": {
+   "hunters-prey": [
+    {
+     "id": "hunters-prey-colossus-slayer",
+     "name": "Colossus Slayer",
+     "text": "Your tenacity can wear down the most potent foes. When you hit a creature with a weapon attack, the creature takes an extra 1d8 damage if it's below its hit point maximum. You can deal this extra damage only once per turn."
+    },
+    {
+     "id": "hunters-prey-giant-killer",
+     "name": "Giant Killer",
+     "text": "When a Large or larger creature within 5 feet of you hits or misses you with an attack, you can use your reaction to attack that creature immediately after its attack, provided that you can see the creature."
+    },
+    {
+     "id": "hunters-prey-horde-breaker",
+     "name": "Horde Breaker",
+     "text": "Once on each of your turns when you make a weapon attack, you can make another attack with the same weapon against a different creature that is within 5 feet of the original target and within range of your weapon."
+    }
+   ],
+   "defensive-tactics": [
+    {
+     "id": "defensive-tactics-escape-the-horde",
+     "name": "Escape the Horde",
+     "text": "Opportunity attacks against you are made with disadvantage."
+    },
+    {
+     "id": "defensive-tactics-multiattack-defense",
+     "name": "Multiattack Defense",
+     "text": "When a creature hits you with an attack, you gain a +4 bonus to AC against all subsequent attacks made by that creature for the rest of the turn."
+    },
+    {
+     "id": "defensive-tactics-steel-will",
+     "name": "Steel Will",
+     "text": "You have advantage on saving throws against being frightened."
+    }
+   ],
+   "multiattack": [
+    {
+     "id": "multiattack-volley",
+     "name": "Volley",
+     "text": "You can use your action to make a ranged attack against any number of creatures within 10 feet of a point you can see within your weapon's range. You must have ammunition for each target, as normal, and you make a separate attack roll for each target."
+    },
+    {
+     "id": "multiattack-whirlwind-attack",
+     "name": "Whirlwind Attack",
+     "text": "You can use your action to make a melee attack against any number of creatures within 5 feet of you, with a separate attack roll for each target."
+    }
+   ],
+   "superior-hunters-defense": [
+    {
+     "id": "superior-hunters-defense-evasion",
+     "name": "Evasion",
+     "text": "When you are subjected to an effect, such as a red dragon's fiery breath or a lightning bolt spell, that allows you to make a Dexterity saving throw to take only half damage, you instead take no damage if you succeed on the saving throw, and only half damage if you fail."
+    },
+    {
+     "id": "superior-hunters-defense-stand-against-the-tide",
+     "name": "Stand Against the Tide",
+     "text": "When a hostile creature misses you with a melee attack, you can use your reaction to force that creature to repeat the same attack against another creature (other than itself) of your choice."
+    },
+    {
+     "id": "superior-hunters-defense-uncanny-dodge",
+     "name": "Uncanny Dodge",
+     "text": "When an attacker that you can see hits you with an attack, you can use your reaction to halve the attack's damage against you."
+    }
+   ]
+  },
+  "levels": {
+   "3": [
+    {
+     "id": "hunters-prey",
+     "op": "feature",
+     "name": "Hunter's Prey",
+     "text": "At 3rd level, you gain one of the following features of your choice.\n\nColossus Slayer\n\nGiant Killer\n\nHorde Breaker"
+    },
+    {
+     "id": "hunters-prey-pick",
+     "op": "choose",
+     "what": "option",
+     "list": "hunters-prey",
+     "count": 1,
+     "swap": false
+    }
+   ],
+   "7": [
+    {
+     "id": "defensive-tactics",
+     "op": "feature",
+     "name": "Defensive Tactics",
+     "text": "At 7th level, you gain one of the following features of your choice.\n\nEscape the Horde\n\nMultiattack Defense\n\nSteel Will"
+    },
+    {
+     "id": "defensive-tactics-pick",
+     "op": "choose",
+     "what": "option",
+     "list": "defensive-tactics",
+     "count": 1,
+     "swap": false
+    }
+   ],
+   "11": [
+    {
+     "id": "multiattack",
+     "op": "feature",
+     "name": "Multiattack",
+     "text": "At 11th level, you gain one of the following features of your choice.\n\nVolley\n\nWhirlwind Attack"
+    },
+    {
+     "id": "multiattack-pick",
+     "op": "choose",
+     "what": "option",
+     "list": "multiattack",
+     "count": 1,
+     "swap": false
+    }
+   ],
+   "15": [
+    {
+     "id": "superior-hunters-defense",
+     "op": "feature",
+     "name": "Superior Hunter's Defense",
+     "text": "At 15th level, you gain one of the following features of your choice.\n\nEvasion\n\nStand Against the Tide\n\nUncanny Dodge"
+    },
+    {
+     "id": "superior-hunters-defense-pick",
+     "op": "choose",
+     "what": "option",
+     "list": "superior-hunters-defense",
+     "count": 1,
+     "swap": false
+    }
+   ]
+  }
+ },
+ {
+  "id": "thief",
+  "name": "Thief",
+  "class": "rogue",
+  "levels": {
+   "3": [
+    {
+     "id": "fast-hands",
+     "op": "feature",
+     "name": "Fast Hands",
+     "text": "Starting at 3rd level, you can use the bonus action granted by your Cunning Action to make a Dexterity (Sleight of Hand) check, use your thieves' tools to disarm a trap or open a lock, or take the Use an Object action."
+    },
+    {
+     "id": "second-story-work",
+     "op": "feature",
+     "name": "Second-Story Work",
+     "text": "When you choose this archetype at 3rd level, you gain the ability to climb faster than normal; climbing no longer costs you extra movement.\n\nIn addition, when you make a running jump, the distance you cover increases by a number of feet equal to your Dexterity modifier."
+    }
+   ],
+   "9": [
+    {
+     "id": "supreme-sneak",
+     "op": "feature",
+     "name": "Supreme Sneak",
+     "text": "Starting at 9th level, you have advantage on a Dexterity (Stealth) check if you move no more than half your speed on the same turn."
+    }
+   ],
+   "13": [
+    {
+     "id": "use-magic-device",
+     "op": "feature",
+     "name": "Use Magic Device",
+     "text": "By 13th level, you have learned enough about the workings of magic that you can improvise the use of items even when they are not intended for you. You ignore all class, race, and level requirements on the use of magic items."
+    }
+   ],
+   "17": [
+    {
+     "id": "thiefs-reflexes",
+     "op": "feature",
+     "name": "Thief's Reflexes",
+     "text": "When you reach 17th level, you have become adept at laying ambushes and quickly escaping danger. You can take two turns during the first round of any combat. You take your first turn at your normal initiative and your second turn at your initiative minus 10. You can't use this feature when you are surprised."
+    }
+   ]
+  }
+ },
+ {
+  "id": "draconic",
+  "name": "Draconic",
+  "class": "sorcerer",
+  "options": {
+   "dragon-ancestor": [
+    {
+     "id": "dragon-ancestor-black---acid-damage",
+     "name": "Black - Acid Damage",
+     "text": "At 1st level, you choose one type of dragon as your ancestor. The damage type associated with each dragon is used by features you gain later.\n\nYou can speak, read, and write Draconic. Additionally, whenever you make a Charisma check when interacting with dragons, your proficiency bonus is doubled if it applies to the check."
+    },
+    {
+     "id": "dragon-ancestor-blue---lightning-damage",
+     "name": "Blue - Lightning Damage",
+     "text": "At 1st level, you choose one type of dragon as your ancestor. The damage type associated with each dragon is used by features you gain later.\n\nYou can speak, read, and write Draconic. Additionally, whenever you make a Charisma check when interacting with dragons, your proficiency bonus is doubled if it applies to the check."
+    },
+    {
+     "id": "dragon-ancestor-brass---fire-damage",
+     "name": "Brass - Fire Damage",
+     "text": "At 1st level, you choose one type of dragon as your ancestor. The damage type associated with each dragon is used by features you gain later.\n\nYou can speak, read, and write Draconic. Additionally, whenever you make a Charisma check when interacting with dragons, your proficiency bonus is doubled if it applies to the check."
+    },
+    {
+     "id": "dragon-ancestor-bronze---lightning-damage",
+     "name": "Bronze - Lightning Damage",
+     "text": "At 1st level, you choose one type of dragon as your ancestor. The damage type associated with each dragon is used by features you gain later.\n\nYou can speak, read, and write Draconic. Additionally, whenever you make a Charisma check when interacting with dragons, your proficiency bonus is doubled if it applies to the check."
+    },
+    {
+     "id": "dragon-ancestor-copper---acid-damage",
+     "name": "Copper - Acid Damage",
+     "text": "At 1st level, you choose one type of dragon as your ancestor. The damage type associated with each dragon is used by features you gain later.\n\nYou can speak, read, and write Draconic. Additionally, whenever you make a Charisma check when interacting with dragons, your proficiency bonus is doubled if it applies to the check."
+    },
+    {
+     "id": "dragon-ancestor-gold---fire-damage",
+     "name": "Gold - Fire Damage",
+     "text": "At 1st level, you choose one type of dragon as your ancestor. The damage type associated with each dragon is used by features you gain later.\n\nYou can speak, read, and write Draconic. Additionally, whenever you make a Charisma check when interacting with dragons, your proficiency bonus is doubled if it applies to the check."
+    },
+    {
+     "id": "dragon-ancestor-green---poison-damage",
+     "name": "Green - Poison Damage",
+     "text": "At 1st level, you choose one type of dragon as your ancestor. The damage type associated with each dragon is used by features you gain later.\n\nYou can speak, read, and write Draconic. Additionally, whenever you make a Charisma check when interacting with dragons, your proficiency bonus is doubled if it applies to the check."
+    },
+    {
+     "id": "dragon-ancestor-red---fire-damage",
+     "name": "Red - Fire Damage",
+     "text": "At 1st level, you choose one type of dragon as your ancestor. The damage type associated with each dragon is used by features you gain later.\n\nYou can speak, read, and write Draconic. Additionally, whenever you make a Charisma check when interacting with dragons, your proficiency bonus is doubled if it applies to the check."
+    },
+    {
+     "id": "dragon-ancestor-silver---cold-damage",
+     "name": "Silver - Cold Damage",
+     "text": "At 1st level, you choose one type of dragon as your ancestor. The damage type associated with each dragon is used by features you gain later.\n\nYou can speak, read, and write Draconic. Additionally, whenever you make a Charisma check when interacting with dragons, your proficiency bonus is doubled if it applies to the check."
+    },
+    {
+     "id": "dragon-ancestor-white---cold-damage",
+     "name": "White - Cold Damage",
+     "text": "At 1st level, you choose one type of dragon as your ancestor. The damage type associated with each dragon is used by features you gain later.\n\nYou can speak, read, and write Draconic. Additionally, whenever you make a Charisma check when interacting with dragons, your proficiency bonus is doubled if it applies to the check."
+    }
+   ]
+  },
+  "levels": {
+   "1": [
+    {
+     "id": "dragon-ancestor",
+     "op": "feature",
+     "name": "Dragon Ancestor",
+     "text": "At 1st level, you choose one type of dragon as your ancestor. The damage type associated with each dragon is used by features you gain later.\n\nYou can speak, read, and write Draconic. Additionally, whenever you make a Charisma check when interacting with dragons, your proficiency bonus is doubled if it applies to the check."
+    },
+    {
+     "id": "dragon-ancestor-pick",
+     "op": "choose",
+     "what": "option",
+     "list": "dragon-ancestor",
+     "count": 1,
+     "swap": false
+    },
+    {
+     "id": "draconic-resilience",
+     "op": "feature",
+     "name": "Draconic Resilience",
+     "text": "As magic flows through your body, it causes physical traits of your dragon ancestors to emerge. At 1st level, your hit point maximum increases by 1 and increases by 1 again whenever you gain a level in this class.\n\nAdditionally, parts of your skin are covered by a thin sheen of dragon-like scales. When you aren't wearing armor, your AC equals 13 + your Dexterity modifier."
+    }
+   ],
+   "6": [
+    {
+     "id": "elemental-affinity",
+     "op": "feature",
+     "name": "Elemental Affinity",
+     "text": "Starting at 6th level, when you cast a spell that deals damage of the type associated with your draconic ancestry, you can add your Charisma modifier to one damage roll of that spell. At the same time, you can spend 1 sorcery point to gain resistance to that damage type for 1 hour."
+    }
+   ],
+   "14": [
+    {
+     "id": "dragon-wings",
+     "op": "feature",
+     "name": "Dragon Wings",
+     "text": "At 14th level, you gain the ability to sprout a pair of dragon wings from your back, gaining a flying speed equal to your current speed. You can create these wings as a bonus action on your turn. They last until you dismiss them as a bonus action on your turn.\n\nYou can't manifest your wings while wearing armor unless the armor is made to accommodate them, and clothing not made to accommodate your wings might be destroyed when you manifest them."
+    }
+   ],
+   "18": [
+    {
+     "id": "draconic-presence",
+     "op": "feature",
+     "name": "Draconic Presence",
+     "text": "Beginning at 18th level, you can channel the dread presence of your dragon ancestor, causing those around you to become awestruck or frightened. As an action, you can spend 5 sorcery points to draw on this power and exude an aura of awe or fear (your choice) to a distance of 60 feet. For 1 minute or until you lose your concentration (as if you were casting a concentration spell), each hostile creature that starts its turn in this aura must succeed on a Wisdom saving throw or be charmed (if you chose awe) or frightened (if you chose fear) until the aura ends. A creature that succeeds on this saving throw is immune to your aura for 24 hours."
+    }
+   ]
+  }
+ },
+ {
+  "id": "fiend",
+  "name": "Fiend",
+  "class": "warlock",
+  "levels": {
+   "1": [
+    {
+     "id": "dark-ones-blessing",
+     "op": "feature",
+     "name": "Dark One's Blessing",
+     "text": "Starting at 1st level, when you reduce a hostile creature to 0 hit points, you gain temporary hit points equal to your Charisma modifier + your warlock level (minimum of 1)."
+    },
+    {
+     "id": "grant-spells-1",
+     "op": "grant",
+     "spells": [
+      "burning-hands",
+      "command"
+     ]
+    }
+   ],
+   "3": [
+    {
+     "id": "grant-spells-3",
+     "op": "grant",
+     "spells": [
+      "blindness-deafness",
+      "scorching-ray"
+     ]
+    }
+   ],
+   "5": [
+    {
+     "id": "grant-spells-5",
+     "op": "grant",
+     "spells": [
+      "fireball",
+      "stinking-cloud"
+     ]
+    }
+   ],
+   "6": [
+    {
+     "id": "dark-ones-own-luck",
+     "op": "feature",
+     "name": "Dark One's Own Luck",
+     "text": "Starting at 6th level, you can call on your patron to alter fate in your favor. When you make an ability check or a saving throw, you can use this feature to add a d10 to your roll. You can do so after seeing the initial roll but before any of the roll's effects occur.\n\nOnce you use this feature, you can't use it again until you finish a short or long rest."
+    },
+    {
+     "id": "res-dark-one-s-own-luck",
+     "op": "resource",
+     "name": "Dark One's Own Luck",
+     "max": "max(1, cha)",
+     "reset": "long"
+    }
+   ],
+   "7": [
+    {
+     "id": "grant-spells-7",
+     "op": "grant",
+     "spells": [
+      "fire-shield",
+      "wall-of-fire"
+     ]
+    }
+   ],
+   "9": [
+    {
+     "id": "grant-spells-9",
+     "op": "grant",
+     "spells": [
+      "flame-strike",
+      "hallow"
+     ]
+    }
+   ],
+   "10": [
+    {
+     "id": "fiendish-resilience",
+     "op": "feature",
+     "name": "Fiendish Resilience",
+     "text": "Starting at 10th level, you can choose one damage type when you finish a short or long rest. You gain resistance to that damage type until you choose a different one with this feature. Damage from magical weapons or silver weapons ignores this resistance."
+    }
+   ],
+   "14": [
+    {
+     "id": "hurl-through-hell",
+     "op": "feature",
+     "name": "Hurl Through Hell",
+     "text": "Starting at 14th level, when you hit a creature with an attack, you can use this feature to instantly transport the target through the lower planes. The creature disappears and hurtles through a nightmare landscape.\n\nAt the end of your next turn, the target returns to the space it previously occupied, or the nearest unoccupied space. If the target is not a fiend, it takes 10d10 psychic damage as it reels from its horrific experience.\n\nOnce you use this feature, you can't use it again until you finish a long rest."
+    }
+   ]
+  }
+ },
+ {
+  "id": "evocation",
+  "name": "Evocation",
+  "class": "wizard",
+  "levels": {
+   "2": [
+    {
+     "id": "evocation-savant",
+     "op": "feature",
+     "name": "Evocation Savant",
+     "text": "Beginning when you select this school at 2nd level, the gold and time you must spend to copy an evocation spell into your spellbook is halved."
+    },
+    {
+     "id": "sculpt-spells",
+     "op": "feature",
+     "name": "Sculpt Spells",
+     "text": "Beginning at 2nd level, you can create pockets of relative safety within the effects of your evocation spells. When you cast an evocation spell that affects other creatures that you can see, you can choose a number of them equal to 1 + the spell's level. The chosen creatures automatically succeed on their saving throws against the spell, and they take no damage if they would normally take half damage on a successful save."
+    }
+   ],
+   "6": [
+    {
+     "id": "potent-cantrip",
+     "op": "feature",
+     "name": "Potent Cantrip",
+     "text": "Starting at 6th level, your damaging cantrips affect even creatures that avoid the brunt of the effect. When a creature succeeds on a saving throw against your cantrip, the creature takes half the cantrip's damage (if any) but suffers no additional effect from the cantrip."
+    }
+   ],
+   "10": [
+    {
+     "id": "empowered-evocation",
+     "op": "feature",
+     "name": "Empowered Evocation",
+     "text": "Beginning at 10th level, you can add your Intelligence modifier to one damage roll of any wizard evocation spell you cast."
+    }
+   ],
+   "14": [
+    {
+     "id": "overchannel",
+     "op": "feature",
+     "name": "Overchannel",
+     "text": "Starting at 14th level, you can increase the power of your simpler spells. When you cast a wizard spell of 1st through 5th level that deals damage, you can deal maximum damage with that spell.\n\nThe first time you do so, you suffer no adverse effect. If you use this feature again before you finish a long rest, you take 2d12 necrotic damage for each level of the spell, immediately after you cast it. Each time you use this feature again before finishing a long rest, the necrotic damage per spell level increases by 1d12. This damage ignores resistance and immunity."
+    }
+   ]
+  }
+ }
+]

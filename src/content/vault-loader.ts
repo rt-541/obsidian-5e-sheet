@@ -1,0 +1,209 @@
+import { readEdition, type Edition } from "../core/edition";
+import { entryEdition } from "./edition";
+import { adaptUserNote, libraryMeta } from "./library";
+import { slug, type Registry } from "./registry";
+import { classFolder, isLibrarySkip, LIBRARY_MARKER, LIBRARY_NOTE_TYPE, LIBRARY_SOURCE, locate, type Located } from "./sources";
+
+export interface VaultNote { path: string; frontmatter: Record<string, unknown> | undefined; body: string; }
+export interface VaultAdapter {
+  listMarkdown(folder: string): string[];
+  read(path: string): Promise<VaultNote>;
+  /** Frontmatter from the metadata cache without reading the file. Library notes are indexed from this alone. */
+  frontmatter?(path: string): Record<string, unknown> | undefined;
+  /** Whether a path exists, dot-files included (Obsidian does not index them). Used to find the generated-library marker. */
+  exists?(path: string): Promise<boolean> | boolean;
+}
+
+const NOT_CONTENT = new Set(["character", "npc", LIBRARY_NOTE_TYPE.slice(3)]);
+/** Types whose generated library notes carry the full op structure in frontmatter (the importer writes it), so they load like user notes. */
+const OP_TYPES = new Set(["class", "subclass", "race", "subrace", "feat", "background"]);
+type LibMeta = { library?: true; book?: string };
+type EdMeta = { edition?: Edition; replaces?: string[] };
+/** The `edition` and `replaces` a note declares (library and hand-made alike); `replaces` keeps strings only. */
+function edMeta(fm: Record<string, unknown> | undefined): EdMeta {
+  const edition = readEdition(fm?.edition), rep = Array.isArray(fm?.replaces) ? (fm!.replaces as unknown[]).filter((x): x is string => typeof x === "string") : [];
+  return { ...(edition ? { edition } : {}), ...(rep.length ? { replaces: rep } : {}) };
+}
+const norm = (f: string) => f.replace(/^\/+|\/+$/g, "");
+const YIELD_EVERY = 200;
+const yieldToUi = () => new Promise<void>(r => setTimeout(r, 0));
+
+interface SubNote { fm: Record<string, unknown>; body: string; loc: Located; folder: string; lib: LibMeta & EdMeta }
+
+/**
+ * Reads the compendium folder into the registry. The first folder under the root is the source (notes in the root are
+ * Homebrew); the WotC folder is the generated library and is indexed from frontmatter only, bodies are read lazily by
+ * Registry.hydrate. Subclasses take their parent class from their `Classes/<Class>/Subclasses/` folder.
+ */
+export class VaultLoader {
+  private folder: string;
+  private known = new Set<string>();
+  /** class folder slug -> source -> class id, so subclasses find a class whose note carries an explicit id. */
+  private classIds = new Map<string, Map<string, string>>();
+  private classPaths = new Map<string, { folder: string; source: string }>();
+  private subs = new Map<string, SubNote>();
+  /** source folder -> is it generated library content (has the marker, or is the WotC folder). Cached per folder; cleared on re-index. */
+  private libFolders = new Map<string, Promise<boolean>>();
+
+  constructor(private registry: Registry, private adapter: VaultAdapter, folder: string) {
+    this.folder = norm(folder);
+    registry.setBodyReader(async path => (await adapter.read(path)).body.trim());
+  }
+
+  private inside = (p: string) => !!this.folder && p.startsWith(this.folder + "/") && p.endsWith(".md");
+
+  indexAll(): Promise<number> {
+    return this.registry.batch(async () => {
+      let n = 0, seen = 0;
+      for (const p of this.adapter.listMarkdown(this.folder)) {
+        if (this.inside(p) && await this.load(p)) n++;
+        if (++seen % YIELD_EVERY === 0) await yieldToUi();
+      }
+      return n;
+    });
+  }
+
+  /** Paths of `5e-library` notes seen directly in a source folder, so a later change or removal re-classifies that source. */
+  private libNotes = new Set<string>();
+
+  /** A first-level folder is generated library content when it holds the dot-file marker, a `5e-library` root note, or is the WotC folder. */
+  private isLibrary(source: string): Promise<boolean> {
+    let p = this.libFolders.get(source);
+    if (!p) {
+      p = source === LIBRARY_SOURCE ? Promise.resolve(true) : this.detectLibrary(source);
+      this.libFolders.set(source, p);
+    }
+    return p;
+  }
+  private async detectLibrary(source: string): Promise<boolean> {
+    const dir = `${this.folder}/${source}`;
+    try { if (this.adapter.exists && await this.adapter.exists(`${dir}/${LIBRARY_MARKER}`)) return true; } catch { /* fall through to the note */ }
+    let found = false;
+    for (const p of this.adapter.listMarkdown(dir)) {
+      if (!this.inside(p) || locate(this.folder, p)?.rest.length !== 1) continue;
+      if (await this.isLibraryNote(p)) { this.libNotes.add(p); found = true; }
+    }
+    return found;
+  }
+  private async isLibraryNote(path: string): Promise<boolean> {
+    try {
+      const fm = this.adapter.frontmatter ? this.adapter.frontmatter(path) : (await this.adapter.read(path)).frontmatter;
+      return fm?.type === LIBRARY_NOTE_TYPE;
+    } catch { return false; }
+  }
+  /** A `5e-library` note directly in a source folder came, changed or went: drop the cached answer and re-load that source's notes. */
+  private async reclassify(source: string): Promise<void> {
+    await this.registry.batch(async () => {
+      this.libFolders.delete(source);
+      const dir = `${this.folder}/${source}/`;
+      const paths = new Set([...this.known].filter(p => p.startsWith(dir)));
+      for (const p of this.adapter.listMarkdown(dir.slice(0, -1))) if (this.inside(p) && p.startsWith(dir)) paths.add(p);
+      let seen = 0;
+      for (const p of paths) { if (this.inside(p)) await this.load(p); if (++seen % YIELD_EVERY === 0) await yieldToUi(); }
+    });
+  }
+  /** The source whose library note this path is (or was), when it sits directly in a source folder. */
+  private rootNoteSource(path: string): string | null {
+    const loc = this.inside(path) ? locate(this.folder, path) : null;
+    return loc && loc.rest.length === 1 ? loc.source : null;
+  }
+
+  private async load(path: string): Promise<boolean> {
+    const loc = locate(this.folder, path);
+    const lib = !!loc && await this.isLibrary(loc.source);
+    if (!loc || (lib && isLibrarySkip(loc))) { this.forget(path); return false; }
+    let fm: Record<string, unknown> | undefined, body = "";
+    if (lib && this.adapter.frontmatter) fm = this.adapter.frontmatter(path);
+    else { const note = await this.adapter.read(path); fm = note.frontmatter; body = note.body.trim(); }
+    const t = fm?.type;
+    if (typeof t !== "string" || !t.startsWith("5e-") || NOT_CONTENT.has(t.slice(3))) { this.forget(path); return false; }
+    this.known.add(path);
+    const type = t.slice(3);
+    if (lib && !OP_TYPES.has(type)) return this.loadLibrary(path, type, fm!, loc.source);
+    // An op-format library note: usable as is; if it fails validation it becomes reference-only, never a user problem.
+    // Not `mapped`: a bundled entry of the same id keeps precedence, so characters built on it keep their recorded choices.
+    const lm: LibMeta & EdMeta = { ...(lib ? { library: true as const, ...(typeof fm!.source === "string" ? { book: fm!.source } : {}) } : {}), ...edMeta(fm) };
+    const cf = classFolder(loc);
+    if (cf?.kind === "class" && type === "class") this.noteClass(path, cf.folder, loc.source, fm!);
+    if (cf?.kind === "subclass" && type === "subclass") {
+      this.subs.set(path, { fm: fm!, body, loc, folder: cf.folder, lib: lm });
+      return this.addSub(path);
+    }
+    return this.registry.add("vault", type, adaptUserNote(type, fm!, body), { path, body, sourceName: loc.source, ...lm }) === null;
+  }
+
+  private loadLibrary(path: string, type: string, fm: Record<string, unknown>, sourceName: string): boolean {
+    const m = libraryMeta(type, fm);
+    let mapped = false;
+    if ((type === "condition" || type === "injury") && typeof m.raw.name === "string") {
+      const id = typeof m.raw.id === "string" ? m.raw.id : slug(m.raw.name);
+      const srd = this.registry.srdEntry<{ effects?: unknown; levels?: unknown; levelEffects?: unknown }>(type, id, edMeta(fm).edition ?? entryEdition({ source: "vault", library: true }));
+      if (srd) { mapped = true; for (const k of ["effects", "levels", "levelEffects"] as const) if (srd.data[k] !== undefined) m.raw[k] = srd.data[k]; }
+    }
+    return this.registry.add("vault", type, m.raw, { path, sourceName, library: true, ...(mapped ? { mapped } : {}),
+      ...(m.book ? { book: m.book } : {}), ...(m.needsReview ? { needsReview: m.needsReview } : {}), ...edMeta(fm) }) === null;
+  }
+
+  // Class / subclass folder resolution. The folder decides the parent class; a `class:` in the note only matters outside a Classes folder.
+  private noteClass(path: string, folder: string, source: string, fm: Record<string, unknown>) {
+    const f = slug(folder), id = typeof fm.id === "string" && fm.id ? fm.id : typeof fm.name === "string" ? slug(fm.name) : f;
+    const bySource = this.classIds.get(f) ?? new Map<string, string>();
+    const before = this.classIdFor(f, source);
+    bySource.set(source, id); this.classIds.set(f, bySource); this.classPaths.set(path, { folder: f, source });
+    if (before !== this.classIdFor(f, source)) this.reattach(f);
+  }
+  private classIdFor(folderSlug: string, source: string): string {
+    const m = this.classIds.get(folderSlug), own = m?.get(source);
+    if (own) return own;
+    // Another source's class by folder name, but only when every source agrees on its id; unrelated classes that happen to share the folder name are not guessed between.
+    const others = new Set(m?.values());
+    return others.size === 1 ? [...others][0] : folderSlug;
+  }
+  private addSub(path: string): boolean {
+    const s = this.subs.get(path); if (!s) return false;
+    const cls = this.classIdFor(slug(s.folder), s.loc.source);
+    return this.registry.add("vault", "subclass", { ...s.fm, class: cls }, { path, body: s.body, sourceName: s.loc.source, ...s.lib }) === null;
+  }
+  /** A class id changed (or the class note went away): re-register the subclasses of that folder under the new id. */
+  private reattach(folderSlug: string) {
+    for (const [p, s] of this.subs) if (slug(s.folder) === folderSlug && this.known.has(p)) this.addSub(p);
+  }
+
+  private forget(path: string) {
+    this.known.delete(path);
+    const sub = this.subs.get(path);
+    if (sub) this.subs.delete(path);
+    const cls = this.classPaths.get(path);
+    if (cls) {
+      this.classPaths.delete(path);
+      const m = this.classIds.get(cls.folder); m?.delete(cls.source); if (m && !m.size) this.classIds.delete(cls.folder);
+    }
+    this.registry.removePath(path);
+    if (cls) this.reattach(cls.folder);
+  }
+
+  async changed(path: string): Promise<void> {
+    if (!this.inside(path)) { this.forget(path); return; }
+    const src = this.rootNoteSource(path);
+    if (src !== null) {
+      const now = await this.isLibraryNote(path), was = this.libNotes.has(path);
+      if (now) this.libNotes.add(path); else this.libNotes.delete(path);
+      if (now || was) { this.forget(path); await this.reclassify(src); return; }
+    }
+    await this.load(path);
+  }
+  /** Synchronous unless the removed note was a `5e-library` note; then the returned promise settles when its source is re-loaded. */
+  deleted(path: string): Promise<void> | void {
+    const src = this.libNotes.delete(path) ? this.rootNoteSource(path) : null;
+    this.forget(path);
+    if (src !== null) return this.reclassify(src);
+  }
+  async renamed(path: string, oldPath: string): Promise<void> { await this.deleted(oldPath); await this.changed(path); }
+  async setFolder(folder: string): Promise<void> {
+    await this.registry.batch(async () => {
+      for (const p of [...this.known]) this.forget(p);
+      this.libFolders.clear();
+      this.folder = norm(folder); await this.indexAll();
+    });
+  }
+}

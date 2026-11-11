@@ -1,0 +1,697 @@
+{
+  "version": 1,
+  "entries": {
+    "class:barbarian:unarmored-defense": {
+      "effects": { "acFormula": { "base": 10, "abils": ["dex", "con"] } }
+    },
+    "class:monk:unarmored-defense": {
+      "effects": { "acFormula": { "base": 10, "abils": ["dex", "wis"], "noShield": true } }
+    },
+    "class:barbarian:rage": {
+      "toggle": { "id": "rage", "cost": { "resource": "Rage" }, "while": ["!armor:heavy"], "endsOn": "long" },
+      "effects": {
+        "adv": ["check:str", "save:str"],
+        "resist": ["bludgeoning", "piercing", "slashing"],
+        "modifiers": [{ "target": "damage", "value": "rage_damage", "on": "attack:melee+str" }],
+        "note": "No spellcasting or concentration while raging."
+      },
+      "ops": [{ "op": "scale", "id": "ov-rage-damage", "name": "Rage Damage", "values": { "1": 2, "9": 3, "16": 4 } }]
+    },
+    "class:barbarian:fast-movement": {
+      "effects": { "while": ["!armor:heavy"], "modifiers": [{ "target": "speed", "value": 10 }] }
+    },
+    "class:monk:martial-arts": {
+      "effects": { "weaponRule": [{ "match": ["monk", "unarmed"], "abils": ["str", "dex"], "die": "{martial-arts-die}" }] },
+      "ops": [{ "op": "scale", "id": "ov-martial-arts-die", "name": "Martial Arts Die", "values": { "1": "1d4", "5": "1d6", "11": "1d8", "17": "1d10" } }]
+    },
+    "class:monk:martial-arts@2024": {
+      "effects": {
+        "weaponRule": [
+          {
+            "match": [
+              "monk",
+              "unarmed"
+            ],
+            "abils": [
+              "str",
+              "dex"
+            ],
+            "die": "{martial-arts-die}"
+          }
+        ]
+      },
+      "ops": [
+        {
+          "op": "scale",
+          "id": "ov-martial-arts-die",
+          "name": "Martial Arts Die",
+          "values": {
+            "1": "1d6",
+            "5": "1d8",
+            "11": "1d10",
+            "17": "1d12"
+          }
+        }
+      ]
+    },
+    "class:monk:unarmored-movement": {
+      "effects": { "while": ["armor:none", "shield:none"], "modifiers": [{ "target": "speed", "value": "unarmored_movement" }] },
+      "ops": [{ "op": "scale", "id": "ov-unarmored-movement", "name": "Unarmored Movement", "values": { "2": 10, "6": 15, "10": 20, "14": 25, "18": 30 } }]
+    },
+    "class:bard:jack-of-all-trades": {
+      "effects": { "halfProf": { "on": ["check", "initiative"] } }
+    },
+    "class:bard:magical-secrets@2014": {
+      "ops": [{ "op": "spells", "id": "ov-magical-secrets", "count": 2, "from": "*" }]
+    },
+    "subclass:lore:additional-magical-secrets@2014": {
+      "ops": [{ "op": "spells", "id": "ov-additional-magical-secrets", "count": 2, "from": "*" }]
+    },
+    "class:druid:wild-shape@2014": {
+      "name": "Wild Shape",
+      "toggle": { "id": "wild-shape", "cost": { "resource": "Wild Shape" }, "endsOn": "short" },
+      "effects": { "note": "You are in a beast shape: use the beast's Strength, Dexterity, Constitution and hit points for now. You keep your mind and your skills." },
+      "ops": [
+        { "op": "scale", "id": "ov-wild-shape-max-cr", "name": "Wild Shape Max CR", "values": { "2": 0.25, "4": 0.5, "8": 1 } },
+        { "op": "resource", "id": "ov-wild-shape-uses", "name": "Wild Shape", "max": 2, "reset": "short" }
+      ]
+    },
+    "option:*:archery": {
+      "effects": { "modifiers": [{ "target": "attack", "value": 2, "on": "attack:ranged" }] }
+    },
+    "option:*:defense": {
+      "effects": { "while": ["armor:worn"], "modifiers": [{ "target": "ac", "value": 1 }] }
+    },
+    "option:*:dueling": {
+      "effects": { "modifiers": [{ "target": "damage", "value": 2, "on": "attack:melee+weapon:one-handed" }] }
+    },
+    "class:*:extra-attack": { "effects": { "attacks": 2 } },
+    "subclass:*:extra-attack": { "effects": { "attacks": 2 } },
+    "class:fighter:extra-attack-2@2014": { "effects": { "attacks": 3 } },
+    "class:fighter:two-extra-attacks@2024": {
+      "effects": {
+        "attacks": 3
+      }
+    },
+    "class:fighter:extra-attack-3@2014": { "effects": { "attacks": 4 } },
+    "class:fighter:three-extra-attacks@2024": {
+      "effects": {
+        "attacks": 4
+      }
+    },
+    "subclass:champion:improved-critical": {
+      "effects": { "critRange": 19 }
+    },
+    "subclass:champion:superior-critical": {
+      "effects": { "critRange": 18 }
+    },
+    "subclass:life:divine-strike@2014": {
+      "effects": { "extraDamage": [{ "dice": "{divine-strike}", "type": "radiant", "on": "attack:weapon", "per": "turn" }] },
+      "ops": [{ "op": "scale", "id": "ov-divine-strike", "name": "Divine Strike", "values": { "8": "1d8", "14": "2d8" } }]
+    },
+    "subclass:war:divine-strike@2014": {
+      "effects": { "extraDamage": [{ "dice": "{divine-strike}", "type": "weapon", "on": "attack:weapon", "per": "turn" }] },
+      "ops": [{ "op": "scale", "id": "ov-divine-strike", "name": "Divine Strike", "values": { "8": "1d8", "14": "2d8" } }]
+    },
+    "subclass:tempest:divine-strike@2014": {
+      "effects": { "extraDamage": [{ "dice": "{divine-strike}", "type": "thunder", "on": "attack:weapon", "per": "turn" }] },
+      "ops": [{ "op": "scale", "id": "ov-divine-strike", "name": "Divine Strike", "values": { "8": "1d8", "14": "2d8" } }]
+    },
+    "subclass:death:divine-strike@2014": {
+      "effects": { "extraDamage": [{ "dice": "{divine-strike}", "type": "necrotic", "on": "attack:weapon", "per": "turn" }] },
+      "ops": [{ "op": "scale", "id": "ov-divine-strike", "name": "Divine Strike", "values": { "8": "1d8", "14": "2d8" } }]
+    },
+    "subclass:forge:divine-strike@2014": {
+      "effects": { "extraDamage": [{ "dice": "{divine-strike}", "type": "fire", "on": "attack:weapon", "per": "turn" }] },
+      "ops": [{ "op": "scale", "id": "ov-divine-strike", "name": "Divine Strike", "values": { "8": "1d8", "14": "2d8" } }]
+    },
+    "subclass:nature:divine-strike@2014": {
+      "effects": { "extraDamage": [{ "dice": "{divine-strike}", "type": "elemental", "on": "attack:weapon", "per": "turn", "note": "choose cold, fire or lightning each time" }] },
+      "ops": [{ "op": "scale", "id": "ov-divine-strike", "name": "Divine Strike", "values": { "8": "1d8", "14": "2d8" } }]
+    },
+    "subclass:*:divine-strike@2014": {
+      "effects": { "extraDamage": [{ "dice": "{divine-strike}", "type": "domain", "on": "attack:weapon", "per": "turn", "note": "the damage type your domain gives" }] },
+      "ops": [{ "op": "scale", "id": "ov-divine-strike", "name": "Divine Strike", "values": { "8": "1d8", "14": "2d8" } }]
+    },
+    "class:cleric:blessed-strikes@2014": {
+      "effects": { "extraDamage": [{ "dice": "1d8", "type": "radiant", "on": "attack:weapon", "per": "turn" }] }
+    },
+    "class:paladin:aura-of-protection": {
+      "effects": { "saveBonus": [{ "abils": ["str", "dex", "con", "int", "wis", "cha"], "value": "max(1, cha)" }] },
+      "ops": [{ "op": "scale", "id": "ov-aura-range", "name": "Aura Range", "values": { "6": 10, "18": 30 } }]
+    },
+    "class:paladin:divine-smite@2014": {
+      "action": {
+        "name": "Divine Smite",
+        "damage": "2d8 radiant",
+        "text": "After you hit with a melee weapon attack, spend a spell slot for extra radiant damage: 2d8 for a 1st-level slot, plus 1d8 for each slot level above 1st (5d8 at most), plus 1d8 against undead and fiends. Mark the slot as used on the Spells tab."
+      }
+    },
+    "class:paladin:improved-divine-smite@2014": {
+      "effects": { "extraDamage": [{ "dice": "1d8", "type": "radiant", "on": "attack:melee+attack:weapon" }] }
+    },
+    "class:paladin:radiant-strikes@2024": {
+      "effects": {
+        "extraDamage": [
+          {
+            "dice": "1d8",
+            "type": "radiant",
+            "on": "attack:melee"
+          }
+        ]
+      }
+    },
+    "subclass:devotion:sacred-weapon": {
+      "name": "Sacred Weapon",
+      "toggle": { "id": "sacred-weapon", "cost": { "resource": "Channel Divinity" }, "endsOn": "short" },
+      "effects": { "modifiers": [{ "target": "attack", "value": "max(1, cha)", "on": "attack:weapon" }] }
+    },
+    "subclass:oathbreaker:aura-of-hate@2014": {
+      "effects": { "modifiers": [{ "target": "damage", "value": "max(1, cha)", "on": "attack:melee" }] }
+    },
+    "subclass:oathbreaker:supernatural-resistance@2014": {
+      "effects": { "resist": ["nonmagical bludgeoning", "nonmagical piercing", "nonmagical slashing"] }
+    },
+    "subclass:gloom-stalker:dread-ambusher": {
+      "effects": {
+        "modifiers": [{ "target": "initiative", "value": "wis" }],
+        "extraDamage": [{ "dice": "1d8", "type": "weapon", "on": "attack:weapon", "per": "turn", "note": "on the first turn of a fight" }]
+      }
+    },
+    "subclass:gloom-stalker:dread-ambusher@2024": {
+      "effects": {
+        "modifiers": [
+          {
+            "target": "initiative",
+            "value": "wis"
+          }
+        ],
+        "extraDamage": [
+          {
+            "dice": "2d6",
+            "type": "psychic",
+            "on": "attack:weapon",
+            "per": "turn",
+            "note": "as many times as your Wisdom modifier (at least once) between long rests"
+          }
+        ]
+      }
+    },
+    "subclass:horizon-walker:planar-warrior@2014": {
+      "effects": { "extraDamage": [{ "dice": "{planar-warrior}", "type": "force", "on": "attack:weapon", "per": "turn" }] },
+      "ops": [{ "op": "scale", "id": "ov-planar-warrior", "name": "Planar Warrior", "values": { "3": "1d8", "11": "2d8" } }]
+    },
+    "subclass:monster-slayer:slayers-prey@2014": {
+      "effects": { "extraDamage": [{ "dice": "1d6", "type": "weapon", "on": "attack:weapon", "per": "turn", "note": "against your prey" }] }
+    },
+    "subclass:fey-wanderer:dreadful-strikes": {
+      "effects": { "extraDamage": [{ "dice": "{dreadful-strikes}", "type": "psychic", "on": "attack:weapon", "per": "turn" }] },
+      "ops": [{ "op": "scale", "id": "ov-dreadful-strikes", "name": "Dreadful Strikes", "values": { "3": "1d4", "11": "1d6" } }]
+    },
+    "subclass:swarmkeeper:gathered-swarm@2014": {
+      "effects": { "extraDamage": [{ "dice": "{gathered-swarm}", "type": "weapon", "on": "attack:weapon", "per": "turn" }] },
+      "ops": [{ "op": "scale", "id": "ov-gathered-swarm", "name": "Gathered Swarm", "values": { "3": "1d6", "11": "1d8" } }]
+    },
+    "option:hunters-prey:colossus-slayer": {
+      "effects": { "extraDamage": [{ "dice": "1d8", "type": "weapon", "on": "attack:weapon", "per": "turn", "note": "against a creature below its hit point maximum" }] }
+    },
+    "class:rogue:sneak-attack": {
+      "action": { "name": "Sneak Attack", "damage": "{sneak-attack}", "text": "Once per turn, when you hit with a finesse or ranged weapon and you have advantage on the attack (or an enemy of the target is next to it and you do not have disadvantage)." },
+      "ops": [{ "op": "scale", "id": "ov-sneak-attack", "name": "Sneak Attack", "values": { "1": "1d6", "3": "2d6", "5": "3d6", "7": "4d6", "9": "5d6", "11": "6d6", "13": "7d6", "15": "8d6", "17": "9d6", "19": "10d6" } }]
+    },
+    "subclass:swashbuckler:rakish-audacity@2014": {
+      "effects": { "modifiers": [{ "target": "initiative", "value": "cha" }] }
+    },
+    "subclass:draconic:draconic-resilience": {
+      "effects": { "acFormula": { "base": 13, "abils": ["dex"] }, "modifiers": [{ "target": "hpMax", "value": "draconic_resilience_hp" }] },
+      "ops": [{ "op": "scale", "id": "ov-draconic-resilience-hp", "name": "Draconic Resilience HP", "formula": "level" }]
+    },
+    "subclass:draconic:draconic-resilience@2024": {
+      "effects": {
+        "acFormula": {
+          "base": 10,
+          "abils": [
+            "dex",
+            "cha"
+          ]
+        },
+        "modifiers": [
+          {
+            "target": "hpMax",
+            "value": "draconic_resilience_hp"
+          }
+        ]
+      },
+      "ops": [
+        {
+          "op": "scale",
+          "id": "ov-draconic-resilience-hp",
+          "name": "Draconic Resilience HP",
+          "formula": "level"
+        }
+      ]
+    },
+    "option:eldritch-invocations:agonizing-blast": {
+      "effects": { "spellDamage": [{ "spell": "eldritch-blast", "add": "cha", "perBeam": true }] }
+    },
+    "option:eldritch-invocations:lifedrinker": {
+      "effects": { "extraDamage": [{ "dice": "max(1, cha)", "type": "necrotic", "on": "weapon:pact" }] }
+    },
+    "option:eldritch-invocations:lifedrinker@2024": {
+      "effects": {
+        "extraDamage": [
+          {
+            "dice": "1d6",
+            "type": "necrotic",
+            "on": "weapon:pact",
+            "per": "turn",
+            "note": "or psychic or radiant, your choice"
+          }
+        ]
+      }
+    },
+    "option:eldritch-invocations:eldritch-smite": {
+      "action": {
+        "name": "Eldritch Smite",
+        "damage": "2d8 force",
+        "text": "Once per turn when you hit with your pact weapon, spend a pact magic slot for extra force damage: 1d8 plus 1d8 per slot level (2d8 for a 1st-level slot), and a Huge or smaller creature is knocked prone. Mark the slot as used on the Spells tab."
+      }
+    },
+    "subclass:hexblade:hex-warrior@2014": {
+      "effects": { "weaponRule": [{ "match": ["pact"], "abils": ["cha"] }] },
+      "ops": [{ "op": "grant", "id": "ov-hex-warrior", "proficiencies": ["Medium Armor", "Shields", "Martial Weapons"] }]
+    },
+    "subclass:bladesinging:bladesong@2014": {
+      "toggle": { "id": "bladesong", "cost": { "resource": "Bladesong" }, "while": ["!armor:medium", "!armor:heavy", "shield:none"], "endsOn": "short" },
+      "effects": {
+        "adv": ["skill:acrobatics"],
+        "modifiers": [
+          { "target": "ac", "value": "max(1, int)" },
+          { "target": "speed", "value": 10 },
+          { "target": "save", "value": "max(1, int)", "on": "concentration" }
+        ]
+      },
+      "ops": [{ "op": "resource", "id": "ov-bladesong-uses", "name": "Bladesong", "max": "prof", "reset": "long" }]
+    },
+    "subclass:war-magic:tactical-wit@2014": {
+      "effects": { "modifiers": [{ "target": "initiative", "value": "int" }] }
+    },
+    "subclass:chronurgy:temporal-awareness@2014": {
+      "effects": { "modifiers": [{ "target": "initiative", "value": "int" }] }
+    },
+    "race:*:dwarven-toughness": {
+      "effects": { "modifiers": [{ "target": "hpMax", "value": "total" }] }
+    },
+    "race:*:dwarven-resilience": {
+      "effects": { "resist": ["poison"], "note": "Advantage on saving throws against poison." }
+    },
+    "race:*:hellish-resistance@2014": {
+      "effects": { "resist": ["fire"] }
+    },
+    "race:*:celestial-resistance": {
+      "effects": { "resist": ["necrotic", "radiant"] }
+    },
+    "race:*:mountain-born@2014": {
+      "effects": { "resist": ["cold"] }
+    },
+    "race:*:psychic-resilience@2014": {
+      "effects": { "resist": ["psychic"] }
+    },
+    "race:*:necrotic-resistance@2014": {
+      "effects": { "resist": ["necrotic"] }
+    },
+    "race:*:poison-immunity@2014": {
+      "effects": { "immune": ["poison"], "conditionImmune": ["poisoned"] }
+    },
+    "race:*:undead-nature@2014": {
+      "effects": { "immune": ["poison"], "conditionImmune": ["poisoned", "exhaustion", "disease"] }
+    },
+    "race:*:constructed-resilience@2014": {
+      "effects": { "resist": ["poison"], "conditionImmune": ["disease"], "note": "Advantage on saves against being poisoned. Magic cannot put you to sleep." }
+    },
+    "race:lizardfolk:natural-armor@2014": {
+      "effects": { "acFormula": { "base": 13, "abils": ["dex"], "withArmor": true } }
+    },
+    "race:thri-kreen:chameleon-carapace@2014": {
+      "effects": { "acFormula": { "base": 13, "abils": ["dex"], "withArmor": true } }
+    },
+    "race:autognome:armored-casing@2014": {
+      "effects": { "acFormula": { "base": 13, "abils": ["dex"], "withArmor": true } }
+    },
+    "race:locathah:natural-armor@2014": {
+      "effects": { "acFormula": { "base": 12, "abils": ["dex"] } }
+    },
+    "race:loxodon:natural-armor@2014": {
+      "effects": { "acFormula": { "base": 12, "abils": ["con"], "withArmor": true } }
+    },
+    "race:tortle:natural-armor@2014": {
+      "effects": { "acFormula": { "base": 17 }, "note": "Your shell is your armor: you cannot wear other armor, but you can use a shield." }
+    },
+    "race:*:relentless-endurance": {
+      "action": { "name": "Relentless Endurance", "cost": { "resource": "Relentless Endurance" }, "text": "When damage reduces you to 0 hit points but does not kill you outright, you drop to 1 hit point instead." },
+      "ops": [{ "op": "resource", "id": "ov-relentless-endurance", "name": "Relentless Endurance", "max": 1, "reset": "long" }]
+    },
+    "race:*:stones-endurance@2014": {
+      "action": { "name": "Stone's Endurance", "cost": { "resource": "Stone's Endurance" }, "text": "Use your reaction when you take damage: reduce it by 1d12 plus your Constitution modifier." },
+      "ops": [{ "op": "resource", "id": "ov-stones-endurance", "name": "Stone's Endurance", "max": 1, "reset": "short" }]
+    },
+    "race:*:breath-weapon": {
+      "action": {
+        "name": "Breath Weapon",
+        "cost": { "resource": "Breath Weapon" },
+        "save": { "abil": "dex", "dc": "Breath Weapon" },
+        "damage": "{breath-dice}",
+        "text": "Replaces one of your attacks. The shape, damage type and saving throw (Dexterity, or Constitution for poison) come from your draconic ancestry."
+      },
+      "ops": [
+        { "op": "dc", "id": "ov-breath-dc", "name": "Breath Weapon", "abil": "con" },
+        { "op": "scale", "id": "ov-breath-dice", "name": "Breath Dice", "values": { "1": "2d6", "6": "3d6", "11": "4d6", "16": "5d6" } },
+        { "op": "resource", "id": "ov-breath-uses", "name": "Breath Weapon", "max": 1, "reset": "short" }
+      ]
+    },
+    "race:*:breath-weapon@2024": {
+      "action": {
+        "name": "Breath Weapon",
+        "cost": {
+          "resource": "Breath Weapon"
+        },
+        "save": {
+          "abil": "dex",
+          "dc": "Breath Weapon"
+        },
+        "damage": "{breath-dice}",
+        "text": "Replaces one of your attacks. A 15 ft. cone or 30 ft. line (your choice) of your ancestry's damage type; Dexterity save."
+      },
+      "ops": [
+        {
+          "op": "dc",
+          "id": "ov-breath-dc",
+          "name": "Breath Weapon",
+          "abil": "con"
+        },
+        {
+          "op": "scale",
+          "id": "ov-breath-dice",
+          "name": "Breath Dice",
+          "values": {
+            "1": "1d10",
+            "5": "2d10",
+            "11": "3d10",
+            "17": "4d10"
+          }
+        },
+        {
+          "op": "resource",
+          "id": "ov-breath-uses",
+          "name": "Breath Weapon",
+          "max": "prof",
+          "reset": "long"
+        }
+      ]
+    },
+    "race:*:draconic-ancestry": {
+      "options": {
+        "draconic-ancestry": [
+          { "id": "black", "name": "Black (acid)", "text": "Acid damage. 5 by 30 ft. line, Dexterity save.", "effects": { "resist": ["acid"] } },
+          { "id": "blue", "name": "Blue (lightning)", "text": "Lightning damage. 5 by 30 ft. line, Dexterity save.", "effects": { "resist": ["lightning"] } },
+          { "id": "brass", "name": "Brass (fire)", "text": "Fire damage. 5 by 30 ft. line, Dexterity save.", "effects": { "resist": ["fire"] } },
+          { "id": "bronze", "name": "Bronze (lightning)", "text": "Lightning damage. 5 by 30 ft. line, Dexterity save.", "effects": { "resist": ["lightning"] } },
+          { "id": "copper", "name": "Copper (acid)", "text": "Acid damage. 5 by 30 ft. line, Dexterity save.", "effects": { "resist": ["acid"] } },
+          { "id": "gold", "name": "Gold (fire)", "text": "Fire damage. 15 ft. cone, Dexterity save.", "effects": { "resist": ["fire"] } },
+          { "id": "green", "name": "Green (poison)", "text": "Poison damage. 15 ft. cone, Constitution save.", "effects": { "resist": ["poison"] } },
+          { "id": "red", "name": "Red (fire)", "text": "Fire damage. 15 ft. cone, Dexterity save.", "effects": { "resist": ["fire"] } },
+          { "id": "silver", "name": "Silver (cold)", "text": "Cold damage. 15 ft. cone, Constitution save.", "effects": { "resist": ["cold"] } },
+          { "id": "white", "name": "White (cold)", "text": "Cold damage. 15 ft. cone, Constitution save.", "effects": { "resist": ["cold"] } }
+        ]
+      },
+      "ops": [{ "op": "choose", "id": "ov-draconic-ancestry-pick", "what": "option", "list": "draconic-ancestry", "count": 1 }]
+    },
+    "race:tortle:shell-defense@2014": {
+      "toggle": { "id": "shell-defense", "endsOn": "short" },
+      "effects": {
+        "adv": ["save:str", "save:con"], "dis": ["save:dex"],
+        "modifiers": [{ "target": "ac", "value": 4 }, { "target": "speed", "value": "zero" }],
+        "note": "You are in your shell: you cannot take reactions."
+      }
+    },
+    "race:shifter:shifting@2014": {
+      "toggle": { "id": "shifting", "cost": { "resource": "Shifting" }, "endsOn": "short" },
+      "effects": { "note": "You are shifted: you gain temporary hit points equal to your level plus your Constitution modifier, and your shifter type's benefit." },
+      "ops": [{ "op": "resource", "id": "ov-shifting-uses", "name": "Shifting", "max": 1, "reset": "short" }]
+    },
+    "subrace:beasthide:shifting-feature@2014": {
+      "effects": { "while": ["toggle:shifting"], "modifiers": [{ "target": "ac", "value": 1 }] }
+    },
+    "subrace:swiftstride:shifting-feature@2014": {
+      "effects": { "while": ["toggle:shifting"], "modifiers": [{ "target": "speed", "value": 10 }] }
+    },
+    "subrace:wildhunt:shifting-feature@2014": {
+      "effects": { "while": ["toggle:shifting"], "adv": ["check:wis"] }
+    },
+    "subrace:longtooth:shifting-feature@2014": {
+      "effects": { "while": ["toggle:shifting"], "weapons": [{ "name": "Fangs", "dmg": "1d6", "type": "piercing", "ab": "str" }] }
+    },
+    "race:aasimar:celestial-revelation": {
+      "toggle": { "id": "celestial-revelation", "cost": { "resource": "Celestial Revelation" }, "group": "revelation", "endsOn": "short" },
+      "effects": { "note": "You are transformed: choose the form you take (necrotic shroud, radiant consumption or radiant soul) and add your level in damage once on each of your turns." },
+      "ops": [{ "op": "resource", "id": "ov-celestial-revelation-uses", "name": "Celestial Revelation", "max": 1, "reset": "long" }]
+    },
+    "race:aasimar:celestial-revelation@2024": {
+      "toggle": {
+        "id": "celestial-revelation",
+        "cost": {
+          "resource": "Celestial Revelation"
+        },
+        "group": "revelation",
+        "endsOn": "short"
+      },
+      "effects": {
+        "note": "Transformed: pick wings, radiance or shroud; add your proficiency bonus to one damage roll each turn."
+      },
+      "ops": [
+        {
+          "op": "resource",
+          "id": "ov-celestial-revelation-uses",
+          "name": "Celestial Revelation",
+          "max": 1,
+          "reset": "long"
+        }
+      ]
+    },
+    "race:*:infernal-legacy@2014": {
+      "ops": [
+        { "op": "dc", "id": "ov-infernal-legacy-dc", "name": "Infernal Legacy", "abil": "cha" },
+        { "op": "grant", "id": "ov-infernal-legacy-cantrip", "spells": ["thaumaturgy"] },
+        { "op": "grant", "id": "ov-infernal-legacy-3", "at": 3, "spells": ["hellish-rebuke"] },
+        { "op": "resource", "id": "ov-infernal-legacy-3-uses", "at": 3, "name": "Hellish Rebuke", "max": 1, "reset": "long" },
+        { "op": "grant", "id": "ov-infernal-legacy-5", "at": 5, "spells": ["darkness"] },
+        { "op": "resource", "id": "ov-infernal-legacy-5-uses", "at": 5, "name": "Darkness", "max": 1, "reset": "long" }
+      ]
+    },
+    "race:*:drow-magic@2014": {
+      "ops": [
+        { "op": "dc", "id": "ov-drow-magic-dc", "name": "Drow Magic", "abil": "cha" },
+        { "op": "grant", "id": "ov-drow-magic-cantrip", "spells": ["dancing-lights"] },
+        { "op": "grant", "id": "ov-drow-magic-3", "at": 3, "spells": ["faerie-fire"] },
+        { "op": "resource", "id": "ov-drow-magic-3-uses", "at": 3, "name": "Faerie Fire", "max": 1, "reset": "long" },
+        { "op": "grant", "id": "ov-drow-magic-5", "at": 5, "spells": ["darkness"] },
+        { "op": "resource", "id": "ov-drow-magic-5-uses", "at": 5, "name": "Darkness", "max": 1, "reset": "long" }
+      ]
+    },
+    "race:*:duergar-magic@2014": {
+      "ops": [
+        { "op": "dc", "id": "ov-duergar-magic-dc", "name": "Duergar Magic", "abil": "int" },
+        { "op": "grant", "id": "ov-duergar-magic-3", "at": 3, "spells": ["enlarge-reduce"] },
+        { "op": "resource", "id": "ov-duergar-magic-3-uses", "at": 3, "name": "Enlarge", "max": 1, "reset": "long" },
+        { "op": "grant", "id": "ov-duergar-magic-5", "at": 5, "spells": ["invisibility"] },
+        { "op": "resource", "id": "ov-duergar-magic-5-uses", "at": 5, "name": "Invisibility", "max": 1, "reset": "long" }
+      ]
+    },
+    "race:*:githyanki-psionics@2014": {
+      "ops": [
+        { "op": "dc", "id": "ov-githyanki-psionics-dc", "name": "Githyanki Psionics", "abil": "int" },
+        { "op": "grant", "id": "ov-githyanki-psionics-cantrip", "spells": ["mage-hand"] },
+        { "op": "grant", "id": "ov-githyanki-psionics-3", "at": 3, "spells": ["jump"] },
+        { "op": "resource", "id": "ov-githyanki-psionics-3-uses", "at": 3, "name": "Jump", "max": 1, "reset": "long" },
+        { "op": "grant", "id": "ov-githyanki-psionics-5", "at": 5, "spells": ["misty-step"] },
+        { "op": "resource", "id": "ov-githyanki-psionics-5-uses", "at": 5, "name": "Misty Step", "max": 1, "reset": "long" }
+      ]
+    },
+    "race:*:firbolg-magic@2014": {
+      "ops": [
+        { "op": "dc", "id": "ov-firbolg-magic-dc", "name": "Firbolg Magic", "abil": "wis" },
+        { "op": "grant", "id": "ov-firbolg-magic-spells", "spells": ["detect-magic", "disguise-self"] },
+        { "op": "resource", "id": "ov-firbolg-magic-detect", "name": "Detect Magic", "max": 1, "reset": "short" },
+        { "op": "resource", "id": "ov-firbolg-magic-disguise", "name": "Disguise Self", "max": 1, "reset": "short" }
+      ]
+    },
+    "feat::savage-attacker": {
+      "attackOption": { "reroll": true, "oncePerTurn": true, "on": "attack:weapon" }
+    },
+    "feat::tough": {
+      "effects": { "modifiers": [{ "target": "hpMax", "value": "2*total" }] }
+    },
+    "feat::alert": {
+      "effects": { "modifiers": [{ "target": "initiative", "value": 5 }], "note": "You cannot be surprised while conscious, and hidden attackers gain no advantage against you." }
+    },
+    "feat::alert@2024": {
+      "effects": {
+        "modifiers": [
+          {
+            "target": "initiative",
+            "value": "prof"
+          }
+        ],
+        "note": "After you roll initiative you may swap it with a willing ally's."
+      }
+    },
+    "feat::mobile@2014": {
+      "effects": { "modifiers": [{ "target": "speed", "value": 10 }] }
+    },
+    "feat::squat-nimbleness@2014": {
+      "effects": { "modifiers": [{ "target": "speed", "value": 5 }] },
+      "ops": [{ "op": "choose", "id": "ov-squat-nimbleness-skill", "what": "skills", "from": ["acrobatics", "athletics"], "count": 1 }]
+    },
+    "feat::observant@2014": {
+      "effects": { "modifiers": [{ "target": "passive", "value": 5, "on": "passive:perception" }, { "target": "passive", "value": 5, "on": "passive:investigation" }] }
+    },
+    "feat::resilient": {
+      "ops": [{ "op": "grant", "id": "ov-resilient-save", "proficiencies": ["save:<increased>"] }]
+    },
+    "feat::lucky": {
+      "action": { "name": "Luck Point", "cost": { "resource": "Luck Points" }, "text": "Roll an extra d20 on an attack, ability check or saving throw (or when an attack is made against you) and choose which d20 to use." },
+      "ops": [{ "op": "resource", "id": "ov-luck-points", "name": "Luck Points", "max": 3, "reset": "long" }]
+    },
+    "feat::lucky@2024": {
+      "action": {
+        "name": "Luck Point",
+        "cost": {
+          "resource": "Luck Points"
+        },
+        "text": "Spend a point for advantage on a d20 test, or to give a creature disadvantage when it attacks you."
+      },
+      "ops": [
+        {
+          "op": "resource",
+          "id": "ov-luck-points",
+          "name": "Luck Points",
+          "max": "prof",
+          "reset": "long"
+        }
+      ]
+    },
+    "feat::sharpshooter@2014": {
+      "toggle": { "id": "power-attack-ss", "endsOn": "never" },
+      "effects": {
+        "modifiers": [{ "target": "attack", "value": -5, "on": "attack:ranged" }, { "target": "damage", "value": 10, "on": "attack:ranged" }],
+        "note": "Ranged attacks ignore half and three-quarters cover and have no disadvantage at long range."
+      }
+    },
+    "feat::great-weapon-master@2014": {
+      "toggle": { "id": "power-attack-gwm", "endsOn": "never" },
+      "effects": { "modifiers": [{ "target": "attack", "value": -5, "on": "attack:melee+weapon:heavy" }, { "target": "damage", "value": 10, "on": "attack:melee+weapon:heavy" }] }
+    },
+    "feat::infernal-constitution@2014": {
+      "effects": { "resist": ["cold", "poison"], "note": "Advantage on saving throws against being poisoned." }
+    },
+    "feat::ember-of-the-fire-giant@2014": {
+      "effects": { "resist": ["fire"] },
+      "ops": [{ "op": "resource", "id": "ov-searing-ignition", "name": "Searing Ignition", "max": "prof", "reset": "long" }]
+    },
+    "feat::fury-of-the-frost-giant@2014": {
+      "effects": { "resist": ["cold"] },
+      "ops": [{ "op": "resource", "id": "ov-frigid-retaliation", "name": "Frigid Retaliation", "max": "prof", "reset": "long" }]
+    },
+    "feat::fighting-initiate@2014": {
+      "ops": [{ "op": "choose", "id": "ov-fighting-initiate-style", "what": "option", "list": "fighter:fighter-fighting-style", "count": 1 }]
+    },
+    "feat::eldritch-adept@2014": {
+      "ops": [{ "op": "choose", "id": "ov-eldritch-adept-invocation", "what": "option", "list": "warlock:eldritch-invocations", "count": 1 }]
+    },
+    "feat::martial-adept@2014": {
+      "ops": [
+        { "op": "choose", "id": "ov-martial-adept-maneuvers", "what": "option", "list": "fighter:maneuvers", "count": 2 },
+        { "op": "resource", "id": "ov-martial-adept-dice", "name": "Superiority Dice (Martial Adept)", "max": 1, "reset": "short" }
+      ]
+    },
+    "feat::metamagic-adept@2014": {
+      "ops": [
+        { "op": "choose", "id": "ov-metamagic-adept-options", "what": "option", "list": "sorcerer:metamagic-1", "count": 2 },
+        { "op": "resource", "id": "ov-metamagic-adept-points", "name": "Sorcery Points (Metamagic Adept)", "max": 2, "reset": "long" }
+      ]
+    },
+    "subclass:lycan:hybrid-transformation": {
+      "toggle": { "id": "hybrid", "cost": { "resource": "Hybrid Transformation" }, "endsOn": "short" },
+      "effects": {
+        "adv": ["check:str", "save:str"],
+        "resist": ["nonmagical bludgeoning", "nonmagical piercing", "nonmagical slashing"],
+        "modifiers": [{ "target": "damage", "value": "feral_might_damage", "on": "attack:melee" }],
+        "weapons": [{ "name": "Predatory Strike", "dmg": "{hybrid-unarmed-die}", "type": "slashing", "ab": ["str", "dex"] }]
+      },
+      "ops": [
+        { "op": "scale", "id": "ov-feral-might-damage", "name": "Feral Might Damage", "values": { "3": 1, "11": 2, "18": 3 } },
+        { "op": "scale", "id": "ov-hybrid-unarmed-die", "name": "Hybrid Unarmed Die", "values": { "3": "1d6", "11": "1d8" } },
+        { "op": "resource", "id": "ov-hybrid-uses", "name": "Hybrid Transformation", "max": 1, "reset": "short" }
+      ]
+    },
+    "class:blood-hunter:crimson-rite": {
+      "ops": [{ "op": "scale", "id": "ov-hemocraft-die", "name": "Hemocraft Die", "values": { "1": "1d4", "5": "1d6", "11": "1d8", "17": "1d10" } }]
+    },
+    "option:crimson-rites:rite-of-the-flame": {
+      "toggle": { "id": "rite-of-the-flame", "group": "crimson-rite", "endsOn": "short" },
+      "effects": { "extraDamage": [{ "dice": "{hemocraft-die}", "type": "fire", "on": "attack:weapon" }] }
+    },
+    "option:crimson-rites:rite-of-the-frozen": {
+      "toggle": { "id": "rite-of-the-frozen", "group": "crimson-rite", "endsOn": "short" },
+      "effects": { "extraDamage": [{ "dice": "{hemocraft-die}", "type": "cold", "on": "attack:weapon" }] }
+    },
+    "option:crimson-rites:rite-of-the-storm": {
+      "toggle": { "id": "rite-of-the-storm", "group": "crimson-rite", "endsOn": "short" },
+      "effects": { "extraDamage": [{ "dice": "{hemocraft-die}", "type": "lightning", "on": "attack:weapon" }] }
+    },
+    "option:crimson-rites:rite-of-the-dead": {
+      "toggle": { "id": "rite-of-the-dead", "group": "crimson-rite", "endsOn": "short" },
+      "effects": { "extraDamage": [{ "dice": "{hemocraft-die}", "type": "necrotic", "on": "attack:weapon" }] }
+    },
+    "option:crimson-rites:rite-of-the-oracle": {
+      "toggle": { "id": "rite-of-the-oracle", "group": "crimson-rite", "endsOn": "short" },
+      "effects": { "extraDamage": [{ "dice": "{hemocraft-die}", "type": "psychic", "on": "attack:weapon" }] }
+    },
+    "option:crimson-rites:rite-of-the-roar": {
+      "toggle": { "id": "rite-of-the-roar", "group": "crimson-rite", "endsOn": "short" },
+      "effects": { "extraDamage": [{ "dice": "{hemocraft-die}", "type": "thunder", "on": "attack:weapon" }] }
+    },
+    "option:crimson-rites:rite-of-the-dawn": {
+      "toggle": { "id": "rite-of-the-dawn", "group": "crimson-rite", "endsOn": "short" },
+      "effects": { "resist": ["necrotic"], "extraDamage": [{ "dice": "{hemocraft-die}", "type": "radiant", "on": "attack:weapon" }] }
+    },
+    "option:mutagen-formulas:rapidity": {
+      "toggle": { "id": "mutagen-rapidity", "endsOn": "short" },
+      "effects": { "modifiers": [{ "target": "speed", "value": 10 }] }
+    },
+    "option:mutagen-formulas:precision": {
+      "toggle": { "id": "mutagen-precision", "endsOn": "short" },
+      "effects": { "critRange": 19 }
+    },
+    "option:mutagen-formulas:mobility": {
+      "toggle": { "id": "mutagen-mobility", "endsOn": "short" },
+      "effects": { "conditionImmune": ["grappled", "restrained"] }
+    },
+    "option:mutagen-formulas:nighteye": {
+      "toggle": { "id": "mutagen-nighteye", "endsOn": "short" },
+      "effects": { "senses": { "darkvision": 60 } }
+    },
+    "option:mutagen-formulas:aether": {
+      "toggle": { "id": "mutagen-aether", "endsOn": "short" },
+      "effects": { "speeds": { "fly": 20 } }
+    },
+    "item::embercladding": {
+      "toggle": { "id": "flame-aura", "endsOn": "short" },
+      "effects": { "note": "Flame Aura: creatures that start their turn next to you take 1d6 fire damage, and so do you at the end of your turn (1d4)." }
+    },
+    "item::stormweave-voidblade": {
+      "toggle": { "id": "storm-charge", "cost": { "charges": 1 }, "endsOn": "short" },
+      "effects": { "extraDamage": [{ "dice": 1, "type": "lightning", "on": "attack:weapon" }] }
+    }
+  }
+}
