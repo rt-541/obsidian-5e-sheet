@@ -8,6 +8,7 @@ import type { SheetController } from "./controller";
 import { h } from "./h";
 import { summaryOf } from "./traits-ui";
 import { withProvenance } from "./bring-in";
+import { linkTitle, noteOf } from "./details";
 
 /**
  * The cards behind the identity line (class, subclass, race, subrace, background): what you get from each, one line per feature.
@@ -38,34 +39,34 @@ const sensesLine = (senses: Partial<Record<string, number>>): string => {
 /** `kind:id` after `identity:`: class:<id>, subclass:<id>, race, subrace, background (the last three read the character's own pick). */
 export function identityCard(ref: string, ctl: SheetController): HTMLElement | null {
   const c = ctl.character, st = ctl.stats(); if (!c || !st) return null;
-  const reg = ctl.host.registry, feats = st.progress.features, [kind, id] = ref.split(":");
+  const reg = ctl.host.registry, open = ctl.host.openNote ? (p: string) => ctl.host.openNote!(p) : undefined, feats = st.progress.features, [kind, id] = ref.split(":");
   if (kind === "class") {
     const k = c.classes.find(x => x.class === id), e = reg.get<ClassData>("class", id); if (!k || !e) return null;
     const d = e.data, first = c.classes[0]?.class === id;
     const profs = (first ? d.proficiencies : d.multiclass?.proficiencies)?.filter(p => !/^(skill|save):/.test(p)) ?? [];
-    return withProvenance(mk(`${e.name} ${k.level}`, "Class", [
+    return linkTitle(withProvenance(mk(`${e.name} ${k.level}`, "Class", [
       `Hit die: d${d.hitDie}`, `Saving throws: ${d.saves.map(a => ABIL_FULL[a]).join(", ")}`,
       ...(profs.length ? [`Armor, weapons and tools: ${profs.join(", ")}`] : []),
       ...(d.spellcasting ? [`Casts with ${ABIL_FULL[d.spellcasting.abil]} (${d.spellcasting.progression} caster)`] : []),
-      ...withHeading("Features so far:", featureLines(feats.filter(f => f.key.startsWith(`class:${id}:`))))]), e);
+      ...withHeading("Features so far:", featureLines(feats.filter(f => f.key.startsWith(`class:${id}:`))))]), e), noteOf(e, ctl), open);
   }
   if (kind === "subclass") {
     const e = reg.get<SubclassData>("subclass", id); if (!e) return null;
-    return withProvenance(mk(e.name, `${reg.get<ClassData>("class", e.data.class)?.name ?? cap(e.data.class)} subclass`, withHeading("Features so far:", featureLines(feats.filter(f => f.key.startsWith(`subclass:${id}:`))))), e);
+    return linkTitle(withProvenance(mk(e.name, `${reg.get<ClassData>("class", e.data.class)?.name ?? cap(e.data.class)} subclass`, withHeading("Features so far:", featureLines(feats.filter(f => f.key.startsWith(`subclass:${id}:`))))), e), noteOf(e, ctl), open);
   }
   if (kind === "race" || kind === "subrace") {
     const sub = kind === "subrace", rid = sub ? c.subrace : c.race; if (!rid) return null;
     const e = reg.get<GrantsData | SubraceData>(kind, rid); if (!e) return null;
     const own = feats.filter(f => f.sourceKind === kind);
     const word = editionRules(characterEdition(c)).raceWord;
-    return withProvenance(mk(e.name, sub ? `${reg.get<GrantsData>("race", c.race ?? "")?.name ?? word} subrace` : word, [
+    return linkTitle(withProvenance(mk(e.name, sub ? `${reg.get<GrantsData>("race", c.race ?? "")?.name ?? word} subrace` : word, [
       abilityLine(e.data.ability), ...(sub ? [] : [`Speed: ${st.speed.value} ft.`, sensesLine(st.senses), st.languages?.length ? `Languages: ${st.languages.join(", ")}` : ""]),
-      ...withHeading("Traits:", featureLines(own))]), e);
+      ...withHeading("Traits:", featureLines(own))]), e), noteOf(e, ctl), open);
   }
   if (kind === "background") {
     if (!c.background) return null;
     const e = reg.get<GrantsData>("background", c.background); if (!e) return null;
-    return withProvenance(mk(e.name, "Background", withHeading("What it gives you:", featureLines(feats.filter(f => f.sourceKind === "background")))), e);
+    return linkTitle(withProvenance(mk(e.name, "Background", withHeading("What it gives you:", featureLines(feats.filter(f => f.sourceKind === "background")))), e), noteOf(e, ctl), open);
   }
   return null;
 }

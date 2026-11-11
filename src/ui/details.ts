@@ -42,8 +42,38 @@ function card(title: string, subtitle: string, lines: string[], rules: string | 
 
 export { priceText };
 
+type OpenFn = (path: string) => void;
+/**
+ * The link to an entry's note: a real button that calls `open(path)`. Null when the entry has no note or the host cannot open notes,
+ * so the caller keeps the plain name. `text` is what shows (default: the entry's name).
+ */
+export function openLink(e: Entry, open: OpenFn | undefined, text?: string): HTMLElement | null {
+  if (!e.path || !open) return null;
+  const path = e.path;
+  return h("button", { cls: "fe-open-note", text: text ?? e.name, data: { act: "open-note", path }, attrs: { type: "button", "aria-label": `Open ${e.name} in a new tab` }, on: { click: () => open(path) } });
+}
+/**
+ * The entry whose note a card should open. An entry with no note of its own (the bundled one, which the registry keeps in place of an
+ * unmapped library note) borrows the path of another entry of the same type and id: the character's edition first, then the edition the card
+ * shows, then one with no edition. A brought-in reference (the card's edition is not the character's) never borrows the character's edition.
+ */
+export function noteOf(e: Entry, ctl: SheetController): Entry {
+  if (e.path) return e;
+  const own = ctl.character ? characterEdition(ctl.character) : undefined;
+  const order = e.edition && e.edition !== own ? [e.edition, undefined] : [own, e.edition, undefined];
+  const notes = ctl.baseRegistry.getAll(e.type, e.id).filter(x => x.path);
+  for (const ed of order) { const hit = notes.find(x => x.edition === ed); if (hit) return { ...e, path: hit.path }; }
+  return e;
+}
+/** Turns the card's title (the name) into the entry's link when it has one; the card is returned as it is otherwise. */
+export function linkTitle(el: HTMLElement, e: Entry | undefined, open: OpenFn | undefined): HTMLElement {
+  const title = el.querySelector(".fe-name, .fe-sb-name"), link = e && title ? openLink(e, open, title.textContent || e.name) : null;
+  if (title && link) title.replaceChildren(link);
+  return el;
+}
+
 /** One item as a card: the usual wrapper, source badge and path line around the stat-block. `notes` are the player's own. */
-function itemCardOf(reg: Registry, name: string, d: ItemData, e?: Entry<ItemData>, notes?: string): HTMLElement {
+function itemCardOf(reg: Registry, name: string, d: ItemData, e?: Entry<ItemData>, notes?: string, open?: OpenFn, ctl?: SheetController): HTMLElement {
   const lines: string[] = [];
   lines.push(...effectLines(d.armor ? { ...d.effects, modifiers: (d.effects.modifiers ?? []).filter(m => !(m.target === "ac" && typeof m.value === "number")) } : d.effects));
   if (d.heal) lines.push(`Healing: ${d.heal}`);
@@ -51,13 +81,13 @@ function itemCardOf(reg: Registry, name: string, d: ItemData, e?: Entry<ItemData
     const sp = reg.get<SpellData>("spell", g.id), c = g.cost;
     lines.push(`Casts ${sp?.name ?? `${g.id} (missing from compendium)`}: ${c.kind === "charges" ? `${c.amount} charge${c.amount === 1 ? "" : "s"}` : c.kind === "perDay" ? `${c.uses} per day` : "at will"}`);
   }
-  return h("div", { cls: "fe-detail" },
+  return linkTitle(h("div", { cls: "fe-detail" },
     e ? h("div", { cls: "fe-detail-src" }, sourceBadge(sourceLabel(e))) : null,
     e ? h("div", { cls: "fe-faint fe-detail-prov", text: provenanceLine(e) }) : null,
     itemStatCard(name, d, { lines, notes }),
-    e?.source === "vault" ? h("div", { cls: "fe-faint", text: `Source note: ${e.path}` }) : null);
+    e?.source === "vault" ? h("div", { cls: "fe-faint", text: `Source note: ${e.path}` }) : null), e && ctl ? noteOf(e, ctl) : e, open);
 }
-const itemCard = (reg: Registry, e: Entry<ItemData>): HTMLElement => itemCardOf(reg, e.name, e.data, e);
+const itemCard = (reg: Registry, e: Entry<ItemData>, open?: OpenFn, ctl?: SheetController): HTMLElement => itemCardOf(reg, e.name, e.data, e, undefined, open, ctl);
 
 function spellCard(_reg: Registry, e: Entry<SpellData>): HTMLElement {
   const d = e.data, lines: string[] = [];
@@ -79,9 +109,15 @@ function conditionCard(e: Entry<ConditionData>, active = 0): HTMLElement {
   return card(e.name, d.levels ? `${cap(d.category)}, ${d.levels} levels${lvl ? ` (level ${lvl} active)` : ""}` : d.kind === "disease" ? "Disease" : cap(d.category), effectLines(eff), d.rules, e.source === "vault" ? e.path : undefined, sourceLabel(e));
 }
 
+/** The host's way to open a note in a new tab, when it has one. */
+const openOf = (ctl: SheetController): OpenFn | undefined => ctl.host.openNote ? (p => ctl.host.openNote!(p)) : undefined;
+
 function traitCard(creature: string, index: number, ctl: SheetController): HTMLElement | null {
   const e = ctl.host.registry.get<CreatureData>("creature", creature), t = e?.data.traits[index];
-  return e && t ? card(t.name, e.name, [], t.text, e.source === "vault" ? e.path : undefined, sourceLabel(e)) : null;
+  if (!e || !t) return null;
+  const el = card(t.name, e.name, [], t.text, e.source === "vault" ? e.path : undefined, sourceLabel(e)), link = openLink(noteOf(e, ctl), openOf(ctl), "Open note");
+  if (link) el.querySelector(".fe-muted")?.after(link);   // the title is the trait's name, so the creature's note gets its own link
+  return el;
 }
 
 function creatureCard(e: Entry<CreatureData>, body?: string): HTMLElement {
@@ -140,7 +176,7 @@ function effectCard(source: string, ctl: SheetController): HTMLElement | null {
 }
 
 /** The card for one compendium entry (any source), for the compendium browser and the sheet. A reference-only library note gets a plain card: the caller supplies its body text. */
-export function entryCard(reg: Registry, e: Entry, body?: string): HTMLElement { return withProvenance(entryCardBare(reg, e, body), e); }
+export function entryCard(reg: Registry, e: Entry, body?: string, open?: OpenFn): HTMLElement { return linkTitle(withProvenance(entryCardBare(reg, e, body), e), e, open); }
 function entryCardBare(reg: Registry, e: Entry, body?: string): HTMLElement {
   if (e.referenceOnly) return card(e.name, `${cap(e.type)} · reference only`, [`Not usable on the sheet: ${e.referenceOnly}`], body, undefined, sourceLabel(e));
   switch (e.type) {
@@ -207,15 +243,15 @@ function glossaryCard(key: string, ctl: SheetController): HTMLElement | null {
 /** A detail card for `ref` (item:, spell:, condition:, trait:<creature>:<index>, effect:<source>), or null if it is not known. All text goes in as text nodes. */
 export function detailCard(ref: string, ctl: SheetController): HTMLElement | null {
   const i = ref.indexOf(":"); if (i < 0) return null;
-  const kind = ref.slice(0, i), rest = ref.slice(i + 1), reg = ctl.host.registry;
+  const kind = ref.slice(0, i), rest = ref.slice(i + 1), reg = ctl.host.registry, open = openOf(ctl);
   switch (kind) {
-    case "item": { const e = reg.get<ItemData>("item", rest); return e ? itemCard(reg, e) : null; }
+    case "item": { const e = reg.get<ItemData>("item", rest); return e ? itemCard(reg, e, open, ctl) : null; }
     case "inv": {
       const row = ctl.character?.inventory.find(x => x.row === rest), d = row && entryItem(row, reg);
-      return row && d ? itemCardOf(reg, d.name, d, row.id ? reg.get<ItemData>("item", row.id) : undefined, row.change?.notes) : null;
+      return row && d ? itemCardOf(reg, d.name, d, row.id ? reg.get<ItemData>("item", row.id) : undefined, row.change?.notes, open, ctl) : null;
     }
-    case "spell": { const e = reg.get<SpellData>("spell", rest); return e ? withProvenance(spellCard(reg, e), e) : null; }
-    case "condition": { const e = reg.get<ConditionData>("condition", rest) ?? reg.get<ConditionData>("injury", rest); return e ? withProvenance(conditionCard(e, ctl.value.conditions[rest] ?? 0), e) : null; }
+    case "spell": { const e = reg.get<SpellData>("spell", rest); return e ? linkTitle(withProvenance(spellCard(reg, e), e), noteOf(e, ctl), open) : null; }
+    case "condition": { const e = reg.get<ConditionData>("condition", rest) ?? reg.get<ConditionData>("injury", rest); return e ? linkTitle(withProvenance(conditionCard(e, ctl.value.conditions[rest] ?? 0), e), noteOf(e, ctl), open) : null; }
     case "why": return whyCard(rest, ctl);
     case "attack-note": return attackNoteCard(rest, ctl);
     case "glossary": return glossaryCard(rest, ctl);
@@ -224,9 +260,9 @@ export function detailCard(ref: string, ctl: SheetController): HTMLElement | nul
     case "effect": return effectCard(rest, ctl);
     case "feature": return featureCard(rest, ctl);
     case "combo": return comboCard(Number(rest), ctl);
-    case "subclass": { const e = reg.get<SubclassData>("subclass", rest); return e ? withProvenance(subclassCard(reg, e), e) : null; }
-    case "feat": { const e = reg.get<FeatData>("feat", rest); return e ? withProvenance(featCard(e), e) : null; }
-    case "mastery": { const e = reg.get<MasteryData>("mastery", rest); return e ? card(e.name, "Weapon mastery", [provenanceLine(e)], e.data.rules, e.source === "vault" ? e.path : undefined, sourceLabel(e)) : null; }
+    case "subclass": { const e = reg.get<SubclassData>("subclass", rest); return e ? linkTitle(withProvenance(subclassCard(reg, e), e), noteOf(e, ctl), open) : null; }
+    case "feat": { const e = reg.get<FeatData>("feat", rest); return e ? linkTitle(withProvenance(featCard(e), e), noteOf(e, ctl), open) : null; }
+    case "mastery": { const e = reg.get<MasteryData>("mastery", rest); return e ? linkTitle(card(e.name, "Weapon mastery", [provenanceLine(e)], e.data.rules, e.source === "vault" ? e.path : undefined, sourceLabel(e)), noteOf(e, ctl), open) : null; }
     case "trait": { const j = rest.lastIndexOf(":"); return j < 0 ? null : traitCard(rest.slice(0, j), Number(rest.slice(j + 1)), ctl); }
     default: return null;
   }

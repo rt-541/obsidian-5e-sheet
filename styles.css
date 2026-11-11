@@ -97,7 +97,10 @@
 .fe-mobile .fe-row { min-height: 44px; border-bottom: 1px solid var(--background-modifier-border); }
 .fe-spell-group { margin-bottom: 6px; } .fe-conc { display: flex; align-items: center; gap: 6px; }
 .fe-spell-name { font-weight: var(--font-semibold); } .fe-spell-name.is-missing { color: var(--text-error); }
-.fe-popover { position: fixed; z-index: 40; width: min(340px, 90vw); max-height: 70vh; overflow-y: auto; background: var(--background-primary); border: 1px solid var(--background-modifier-border); border-radius: var(--radius-m); box-shadow: var(--shadow-l); padding: 8px 10px; pointer-events: none; }
+.fe-popover { position: fixed; z-index: 40; width: min(340px, 90vw); max-height: 70vh; overflow-y: auto; background: var(--background-primary); border: 1px solid var(--background-modifier-border); border-radius: var(--radius-m); box-shadow: var(--shadow-l); padding: 8px 10px; pointer-events: auto; }
+.fe-sheet button.fe-open-note, .fe-popover button.fe-open-note { background: none; border: none; box-shadow: none; height: auto; padding: 0; font: inherit; font-weight: inherit; text-align: left; color: var(--text-accent); text-decoration: underline; cursor: pointer; }
+.fe-sheet button.fe-open-note:hover, .fe-popover button.fe-open-note:hover { color: var(--text-accent-hover); }
+.fe-mobile button.fe-open-note, .fe-tablet button.fe-open-note { min-height: 44px; display: inline-flex; align-items: center; }
 .fe-detail { display: grid; gap: 3px; } .fe-detail-line { font-size: var(--font-ui-smaller); }
 .fe-sheet [data-ref] { cursor: help; }
 .fe-sheet .fe-card-title[data-ref], .fe-sheet .fe-stat-l[data-ref] { text-decoration: underline dotted var(--text-faint); }

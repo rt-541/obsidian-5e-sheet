@@ -6,15 +6,17 @@ import { detailCard } from "./details";
 import { renderPanel } from "./panels";
 import { ownRollBox } from "./own-dice-ui";
 
-const TOAST_MS = 2600, TOAST_LONG_MS = 5000, HOVER_MS = 250;
+const TOAST_MS = 2600, TOAST_LONG_MS = 5000, HOVER_MS = 250, GRACE_MS = 200;
 const LAYOUT_CLASSES = ["fe-desktop", "fe-tablet", "fe-mobile"];
 
 /** Mount a sheet into `root`; re-renders on every controller change. */
 export function mountSheet(root: HTMLElement, ctl: SheetController, layoutIn: LayoutName | boolean): { destroy(): void; render(): void } {
   const layoutName: LayoutName = layoutIn === true ? "mobile" : layoutIn === false ? "desktop" : layoutIn;
   const touch = layoutName !== "desktop";   // phones and tablets: a tap opens the card, there is no hover
-  let toastTimer: number | undefined, shownItem: unknown, toastLive = false, toastEl: HTMLElement | undefined, hoverTimer: number | undefined, popover: HTMLElement | undefined;
-  const hidePopover = () => { window.clearTimeout(hoverTimer); hoverTimer = undefined; popover?.remove(); popover = undefined; };
+  let toastTimer: number | undefined, shownItem: unknown, toastLive = false, toastEl: HTMLElement | undefined, hoverTimer: number | undefined, popover: HTMLElement | undefined, anchor: HTMLElement | undefined, graceTimer: number | undefined;
+  const hidePopover = () => { window.clearTimeout(hoverTimer); window.clearTimeout(graceTimer); hoverTimer = graceTimer = undefined; popover?.remove(); popover = anchor = undefined; };
+  /** Leaving the name starts a short grace period so the pointer can travel onto the card (its link is clickable); entering the card cancels it. */
+  const startGrace = () => { window.clearTimeout(graceTimer); graceTimer = window.setTimeout(hidePopover, GRACE_MS); };
   /**
    * The card lives on the window's <body>, not inside the sheet: Obsidian's pane containers create their own
    * containing block, which would make position:fixed relative to the pane instead of the window.
@@ -23,7 +25,11 @@ export function mountSheet(root: HTMLElement, ctl: SheetController, layoutIn: La
   const showPopover = (el: HTMLElement, x: number, y: number) => {
     const card = detailCard(el.dataset.ref ?? "", ctl); if (!card) return;
     const doc = root.ownerDocument, win = doc.defaultView ?? window;
-    popover = h("div", { cls: "fe-popover", attrs: { role: "tooltip" } }, card); doc.body.append(popover);
+    popover = h("div", { cls: "fe-popover", attrs: { role: "tooltip" }, on: {
+      mouseenter: () => { window.clearTimeout(graceTimer); graceTimer = undefined; },
+      mouseleave: e => { if (!(e.relatedTarget && anchor?.contains(e.relatedTarget as Node))) hidePopover(); },
+      click: e => { if ((e.target as Element).closest?.("[data-act='open-note']")) hidePopover(); },
+    } }, card); anchor = el; doc.body.append(popover);
     const w = popover.offsetWidth, ph = popover.offsetHeight, gap = 14;
     let left = x + gap, top = y + gap;
     if (left + w > win.innerWidth - 8) left = x - gap - w;          // flip to the left of the pointer
@@ -41,8 +47,11 @@ export function mountSheet(root: HTMLElement, ctl: SheetController, layoutIn: La
   };
   const onOut = (e: MouseEvent) => {
     const el = refOf(e), to = e.relatedTarget as Node | null;
-    if (el && !(to && el.contains(to))) hidePopover();
+    if (!el || (to && el.contains(to))) return;
+    if (popover) startGrace(); else hidePopover();   // card showing: let the pointer reach it; not yet: the hover never counted
   };
+  const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") hidePopover(); };
+  root.ownerDocument.addEventListener("keydown", onKey);
   const onClick = (e: MouseEvent) => {
     const el = refOf(e); if (!el || "noclick" in el.dataset) return;   // chips and condition rows keep their own click behaviour
     hidePopover(); ctl.open({ kind: "details", ref: el.dataset.ref! });
@@ -131,6 +140,6 @@ export function mountSheet(root: HTMLElement, ctl: SheetController, layoutIn: La
     off(); window.clearTimeout(toastTimer); hidePopover(); clear(root);
     root.classList.remove("fe-sheet", ...LAYOUT_CLASSES, "is-editing");
     root.removeEventListener("mouseover", onOver); root.removeEventListener("mouseout", onOut); root.removeEventListener("click", onClick);
-    window.removeEventListener("scroll", hidePopover, true);
+    window.removeEventListener("scroll", hidePopover, true); root.ownerDocument.removeEventListener("keydown", onKey);
   } };
 }

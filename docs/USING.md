@@ -61,6 +61,9 @@ The sheet only lists spells from the character's own edition, so the list stays 
 **What does the chip next to a name mean?**
 On the identity line the chip reads "2014 rules" or "2024 rules" and says which rules the character uses. On a brought-in row (a spell, weapon, feat or other item) the chip is the bare year, 2014 or 2024, and says that thing came from the other edition.
 
+**How do I read the full note for a class, item or spell?**
+On a card, the entry's name is a link: click or tap it and the note opens in a new tab. It appears whenever your vault has a note for that entry, and not for entries that exist only inside the plugin. On a computer, move the pointer onto the card to click the link.
+
 **Why can't I change the edition afterwards?**
 Classes, species, spell lists and many numbers differ between editions, so a switch would quietly break the character's choices. Start a new character instead. The what-changed panel shows what would differ before you decide.
 

@@ -42,6 +42,7 @@ describe("detail cards", () => {
     expect(pop.textContent).toContain("+1 AC");
     expect(pop.textContent).toContain("Source note: Compendium/charm.md");
     out(name);
+    vi.advanceTimersByTime(250);   // the card stays for a short grace period so the pointer can reach it
     expect(pop$()).toBeNull();
   });
   it("the popover sits on <body> just below-right of the pointer, and flips when near the window edge", () => {
@@ -50,7 +51,7 @@ describe("detail cards", () => {
     expect(pop$().parentElement).toBe(document.body);
     expect(s.root.contains(pop$())).toBe(false);
     expect(pop$().style.left).toBe("114px"); expect(pop$().style.top).toBe("134px");
-    out(s.q('[data-ref="item:charm"]'));
+    out(s.q('[data-ref="item:charm"]')); vi.advanceTimersByTime(250);
     Object.defineProperty(HTMLElement.prototype, "offsetWidth", { configurable: true, get: () => 300 });
     over(s.q('[data-ref="item:charm"]'), window.innerWidth - 20, 120); vi.advanceTimersByTime(300);
     expect(pop$().style.left).toBe(`${window.innerWidth - 20 - 14 - 300}px`);
