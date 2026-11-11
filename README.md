@@ -1,12 +1,23 @@
 # 5e Character Sheet (Obsidian plugin)
 
-Private plugin. D&D 5e sheet for character, companion and NPC notes under the 2014 or the 2024 rules; desktop and mobile. Players: read `docs/USING.md`. Importing books: `docs/IMPORTING.md`.
+An unofficial D&D 5e sheet for character, companion and NPC notes under the 2014 or the 2024 rules; desktop and mobile. Players: read `docs/USING.md`. Importing books: `docs/IMPORTING.md`.
 
 Each character picks an edition on the builder's first page and keeps it. The sheet reads only that edition's compendium; anything from the other edition is brought in with a button and shows a small year chip. A what-changed panel explains the differences in plain words. The bundled SRD is 2014.
 
-Includes material from the System Reference Document 5.1 by Wizards of the Coast LLC,
-licensed under CC-BY 4.0 (https://creativecommons.org/licenses/by/4.0/legalcode).
-No other published content is included; add your own as notes under `Compendium/`.
+## Licence and credits
+
+The code is under the MIT licence (see `LICENSE`).
+
+The bundled reference content in `src/content/srd/` is material from the System Reference Document 5.1
+by Wizards of the Coast LLC, licensed under CC-BY 4.0 (https://creativecommons.org/licenses/by/4.0/legalcode).
+That licence, not MIT, covers it. No other published text is included; add your own as notes in your vault.
+
+This project is unofficial and is not affiliated with, endorsed or sponsored by Wizards of the Coast or any
+other publisher. Dungeons & Dragons and D&D are trademarks of Wizards of the Coast LLC. The built-in mechanics
+data refers to classes, subclasses, species, feats and other features by name so the sheet can apply their
+numbers to notes you supply. Those names and the features they describe belong to their authors and
+publishers, among them Wizards of the Coast and, for the Blood Hunter class, Matthew Mercer and Critical Role.
+Nothing here claims to have created them.
 
 ## Install
 
