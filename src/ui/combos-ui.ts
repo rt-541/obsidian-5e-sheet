@@ -70,11 +70,16 @@ function poolRows(ctl: SheetController, st: ActorStats, v: ComboView): HTMLEleme
     h("span", { cls: "fe-res-ctl" }, pips(r.row.max, r.row.used, n => setUsed(ctl, st, r.row.name, n)))));
 }
 
+/** A pinned (compact) card can fold to its title line; the state is remembered per character under `combo:<name>`. */
 function comboCard(ctl: SheetController, st: ActorStats, v: ComboView, compact: boolean): HTMLElement {
-  const c = v.combo;
+  const c = v.combo, foldId = `combo:${slug(c.name)}`, open = !compact || !ctl.isCollapsed(foldId);
+  const caret = compact ? h("button", { cls: "fe-combo-toggle", text: open ? "v" : ">", title: open ? "Collapse this combo" : "Expand this combo",
+    attrs: { "aria-expanded": String(open) }, data: { act: "collapse-combo" }, on: { click: () => ctl.toggleCollapsed(foldId) } }) : null;
+  const head = h("div", { cls: "fe-kv" }, h("span", { cls: "fe-grow fe-combo-title" }, caret, h("span", { cls: "fe-name", text: c.name, data: { ref: `combo:${v.index}` } })),
+    h("span", { cls: `fe-ready ${v.ready ? "" : "is-short"}`.trim(), text: v.readyText, data: { ready: v.ready ? "yes" : "no" } }));
+  if (!open) return h("div", { cls: `fe-card fe-combo is-collapsed ${v.ready ? "" : "is-short"}`.trim(), data: { combo: String(v.index) } }, head);
   return h("div", { cls: `fe-card fe-combo ${v.ready ? "" : "is-short"}`.trim(), data: { combo: String(v.index) } },
-    h("div", { cls: "fe-kv" }, h("span", { cls: "fe-name", text: c.name, data: { ref: `combo:${v.index}` } }),
-      h("span", { cls: `fe-ready ${v.ready ? "" : "is-short"}`.trim(), text: v.readyText, data: { ready: v.ready ? "yes" : "no" } })),
+    head,
     c.when ? h("div", { cls: "fe-muted fe-combo-when", text: `When to use it: ${c.when}` }) : null,
     ...poolRows(ctl, st, v),
     h("ol", { cls: "fe-steps" }, ...v.steps.map(s => stepEl(ctl, st, s, c))),

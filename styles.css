@@ -169,6 +169,9 @@
 /* combos: coaching cards with ordered steps, action badges and live buttons */
 .fe-combos { display: grid; gap: var(--fe-gap); align-content: start; }
 .fe-combo.is-short { border-color: var(--background-modifier-error); }
+.fe-combo-title { display: flex; align-items: center; gap: 6px; }
+.fe-sheet button.fe-combo-toggle { background: transparent; box-shadow: none; padding: 0 4px; min-width: 1.6em; color: var(--text-muted); }
+.fe-mobile .fe-sheet button.fe-combo-toggle, .fe-mobile button.fe-combo-toggle, .fe-tablet button.fe-combo-toggle { min-height: 44px; min-width: 44px; }
 .fe-ready { font-size: var(--font-ui-smaller); color: var(--text-success, var(--text-muted)); font-weight: 600; }
 .fe-ready.is-short { color: var(--text-error); }
 .fe-steps { list-style: none; margin: 6px 0; padding: 0; display: grid; gap: 6px; }

@@ -142,6 +142,26 @@ for (const layout of LAYOUTS) describe(`combos (${layout})`, () => {
     expect(main.querySelector(".fe-note")).toBeNull();
   });
 
+  it("a pinned combo collapses to its name and readiness, is remembered, and the Combos tab stays open", () => {
+    const remembered: string[][] = [];
+    const s = setup({ ...base, combos: [{ ...stun, pinned: true }] }, layout);
+    s.host.setCollapsedGroups = ids => remembered.push(ids);
+    const card = () => s.q('[data-feature="pinned-combos"] [data-combo="0"]');
+    const toggle = () => card().querySelector('[data-act="collapse-combo"]') as HTMLElement;
+    expect(toggle().getAttribute("aria-expanded")).toBe("true");
+    expect(card().querySelectorAll(".fe-step").length).toBe(3);
+    toggle().click();
+    expect(card().querySelector(".fe-name")!.textContent).toBe("Stun Lock");
+    expect(card().querySelector("[data-ready]")).not.toBeNull();
+    expect(card().querySelectorAll(".fe-step, .fe-combo-when, .fe-combo-pool, [data-act=pin-combo]").length).toBe(0);
+    expect(toggle().getAttribute("aria-expanded")).toBe("false");
+    expect(remembered.at(-1)).toEqual(["combo:stun-lock"]);
+    expect(s.q('[data-pane="combos"] [data-combo="0"] [data-act="collapse-combo"]')).toBeNull();
+    expect(s.all('[data-pane="combos"] [data-combo="0"] .fe-step').length).toBe(3);
+    toggle().click();
+    expect(card().querySelectorAll(".fe-step").length).toBe(3); expect(remembered.at(-1)).toEqual([]);
+  });
+
   it("tapping the combo's name opens its full detail card", () => {
     const s = setup({ combos: [stun] }, layout);
     s.click('[data-pane="combos"] [data-combo="0"] .fe-name');
