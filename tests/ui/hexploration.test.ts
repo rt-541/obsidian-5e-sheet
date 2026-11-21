@@ -29,10 +29,11 @@ describe("finding the rations entry", () => {
 });
 
 describe("rule module", () => {
-  it("places the rations card exactly once per layout, beside Resources", () => {
+  it("places the rations card exactly once per layout: left column on desktop, beside Resources on tablet and phone", () => {
     for (const l of [DESKTOP, TABLET, MOBILE]) expect(placed(l).filter(f => f === "rations")).toHaveLength(1);
     const col = (l: typeof DESKTOP, tab: string) => l.tabs.find(t => t.id === tab)!.columns.find(c => c.includes("rations"))!;
-    for (const [l, tab] of [[DESKTOP, "main"], [TABLET, "main"], [MOBILE, "combat"]] as const) expect(col(l, tab).indexOf("rations")).toBe(col(l, tab).indexOf("resources") + 1);
+    expect(DESKTOP.tabs.find(t => t.id === "main")!.columns[0]).toContain("rations");
+    for (const [l, tab] of [[TABLET, "main"], [MOBILE, "combat"]] as const) expect(col(l, tab).indexOf("rations")).toBe(col(l, tab).indexOf("resources") + 1);
   });
 });
 

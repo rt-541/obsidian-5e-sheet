@@ -9,11 +9,12 @@ const css = readFileSync("styles.css", "utf8");
 const layouts = [["desktop", DESKTOP], ["tablet", TABLET], ["mobile", MOBILE]] as const;
 
 describe("Attack options card and attack row buttons", () => {
-  it("every layout places the card once, right before Resources; the phone keeps it between Attacks and Resources", () => {
+  it("every layout places the card once: desktop in the left column after Settings, tablet and phone right before Resources (phone: between Attacks and Resources)", () => {
     for (const [, l] of layouts) {
       expect(placed(l).filter(f => f === "attack-options")).toHaveLength(1);
       const col = l.tabs.flatMap(t => t.columns).find(c => c.includes("attack-options"))!;
-      expect(col[col.indexOf("attack-options") + 1]).toBe("resources");
+      if (l === DESKTOP) expect(col[col.indexOf("attack-options") - 1]).toBe("settings");
+      else expect(col[col.indexOf("attack-options") + 1]).toBe("resources");
     }
     const mob = MOBILE.tabs.flatMap(t => t.columns).find(c => c.includes("attack-options"))!;
     expect(mob[mob.indexOf("attack-options") - 1]).toBe("attacks");
