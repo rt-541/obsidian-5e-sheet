@@ -155,7 +155,7 @@ describe.each([["desktop", false], ["mobile", true]] as const)("level up on the 
 describe("leveling mode and XP", () => {
   it("milestone (the default): no bar, Level up never highlighted", () => {
     const s = setup(noteOf({ ...upTo(2), xp: 99999 }), false);
-    expect(s.q('[data-feature="xp"]').textContent).toBe("XP 99999"); expect(s.q("[data-xpbar]")).toBeNull();
+    expect(s.q('[data-feature="xp"] .fe-kv').textContent).toBe("XP 99999"); expect(s.q('[data-feature="xp"] [data-act="add-xp"]')).not.toBeNull(); expect(s.q("[data-xpbar]")).toBeNull();
     expect(s.q('[data-act="level-up"]').classList.contains("mod-cta")).toBe(false);
     expect(s.ctl.levelingMode()).toBe("milestone");
   });

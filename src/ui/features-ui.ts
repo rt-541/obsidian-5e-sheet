@@ -21,10 +21,21 @@ export function xpFeature(ctl: SheetController): HTMLElement {
   const edit = editable
     ? h("input", { cls: "fe-amt fe-xp-input", attrs: { type: "number", min: "0", value: String(i.xp), "aria-label": "XP" },
         on: { change: (e: Event) => ctl.dispatch({ type: "xp", value: +(e.target as HTMLInputElement).value }) } }) : null;
-  if (i.mode !== "xp") return h("span", { cls: "fe-xp" }, label, edit);
-  return h("span", { cls: `fe-xp ${i.ready ? "is-ready" : ""}`, ...(i.next !== undefined ? { title: `${i.next - i.xp} XP to level ${i.level + 1}` } : {}) }, label, edit,
+  const add = !editable && ctl.character ? addXpControl(ctl) : null;
+  if (i.mode !== "xp") return h("span", { cls: "fe-xp" }, label, edit, add);
+  return h("span", { cls: `fe-xp ${i.ready ? "is-ready" : ""}`, ...(i.next !== undefined ? { title: `${i.next - i.xp} XP to level ${i.level + 1}` } : {}) }, label, edit, add,
     i.maxed ? null : h("div", { cls: "fe-bar", data: { xpbar: "" } }, h("div", { cls: "fe-bar-fill", attrs: { style: `width:${i.pct}%` } })),
     i.ready ? h("span", { cls: "fe-chip", text: "Level up ready" }) : null);
+}
+
+/** Play mode: "+ XP" opens a box for what the session earned; Add (or Enter) adds it to the total. */
+function addXpControl(ctl: SheetController): HTMLElement {
+  const actBtn = (text: string, click: () => void, act: string, cls = "") => h("button", { cls: `fe-btn ${cls}`.trim(), text, data: { act }, on: { click } });
+  if (!ctl.xpAdding) return actBtn("+ XP", () => ctl.startAddXp(), "add-xp");
+  const box = h("input", { cls: "fe-amt", data: { keep: "xp-add" }, attrs: { type: "number", min: "1", inputmode: "numeric", placeholder: "XP earned", "aria-label": "XP earned" },
+    on: { keydown: (e: KeyboardEvent) => { if (e.key === "Enter") ctl.addXp((e.target as HTMLInputElement).value); else if (e.key === "Escape") ctl.cancelAddXp(); } } }) as HTMLInputElement;
+  return h("span", { cls: "fe-xp-add" }, box,
+    actBtn("Add", () => ctl.addXp(box.value), "xp-add-apply", "mod-cta"), actBtn("Cancel", () => ctl.cancelAddXp(), "xp-add-cancel"));
 }
 
 /** The Level up button (highlighted when the XP total allows it) and, in Edit mode, Undo last level (asks twice). */

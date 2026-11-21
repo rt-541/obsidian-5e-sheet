@@ -850,6 +850,20 @@ export class SheetController {
     };
   }
 
+  /** The XP card's "+ XP" box is open (Play mode: type what the session earned). */
+  xpAdding = false;
+  startAddXp() { this.xpAdding = true; this.emit(); }
+  cancelAddXp() { this.xpAdding = false; this.emit(); }
+  /** Add earned XP to the total. Anything but a positive whole number is refused in words, and the box stays open to correct it. */
+  addXp(text: string) {
+    const c = this.character, t = text.trim(), n = Number(t);
+    if (!c) return;
+    if (!/^\d+$/.test(t) || !Number.isSafeInteger(n) || n <= 0) { this.host.notify("Type the XP earned: a whole number above 0."); return; }
+    const total = (c.xp ?? 0) + n;
+    this.xpAdding = false;
+    this.dispatch({ type: "xp", value: total });
+    this.host.notify(`+${n} XP (total ${total})`);
+  }
   setMode(m: RollMode) { this.mode = m; this.emit(); }
   /** Open (or, with null, close) the Change picker for one mastered weapon. */
   changeMastery(id: string | null) { this.masteryChanging = id; this.emit(); }
