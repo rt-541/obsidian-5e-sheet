@@ -151,7 +151,8 @@
 .fe-sheet button.fe-effect-head { min-width: 0; max-width: 100%; overflow: hidden; }
 .fe-effect-body { display: grid; gap: 2px; padding: 0 0 6px 1.6em; }
 .fe-mobile button.fe-effects-head, .fe-mobile button.fe-effect-head, .fe-tablet button.fe-effects-head, .fe-tablet button.fe-effect-head { min-height: 44px; }
-.fe-trait { display: flex; align-items: center; gap: 8px; padding: 3px 0 3px 1.2em; flex-wrap: wrap; }
+.fe-trait { display: flex; flex-direction: column; gap: 4px; padding: 3px 0 3px 1.2em; }
+.fe-trait-top, .fe-trait-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .fe-trait-uses { flex: none; }
 .fe-mobile .fe-sheet button.fe-trait-head, .fe-mobile button.fe-trait-head { min-height: 44px; }
 /* toggles (Rage, stances, auras): big Start / End buttons */

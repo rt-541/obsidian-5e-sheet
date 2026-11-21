@@ -89,17 +89,20 @@ function pinButton(ctl: SheetController, ref: string): HTMLElement {
   return el;
 }
 
+/** One feature, stacked: title line (name, level, Customize, Pin), the text at full width, then its uses and Use buttons. */
 function traitRow(ctl: SheetController, st: ActorStats, t: TraitRow, withLevel: boolean): HTMLElement {
+  const acts = usesAndActs(ctl, traitParts(st, t));
   return h("div", { cls: "fe-trait", data: { trait: t.ref } },
-    h("div", { cls: "fe-grow" },
-      h("span", { cls: "fe-inv-name", text: t.name, data: { ref: t.ref } }),
-      t.ref.startsWith("feat:") ? chipFor(t.ref.slice(5), ctl.character) : null,
-      withLevel && t.level ? h("span", { cls: "fe-faint", text: ` Lv ${t.level}` }) : null,
-      t.summary ? h("div", { cls: "fe-faint", text: t.summary }) : null),
-    ...usesAndActs(ctl, traitParts(st, t)),
-    t.rows.some(r => r.custom) ? h("span", { cls: "fe-chip", text: "changed" }) : null,
-    t.rows.length ? customizeButton(ctl, { kind: "feature", key: t.rows[0].key, name: t.name, pinRef: t.ref }) : null,
-    ctl.character ? pinButton(ctl, t.ref) : null);
+    h("div", { cls: "fe-trait-top" },
+      h("span", { cls: "fe-grow" },
+        h("span", { cls: "fe-inv-name", text: t.name, data: { ref: t.ref } }),
+        t.ref.startsWith("feat:") ? chipFor(t.ref.slice(5), ctl.character) : null,
+        withLevel && t.level ? h("span", { cls: "fe-faint", text: ` Lv ${t.level}` }) : null),
+      t.rows.some(r => r.custom) ? h("span", { cls: "fe-chip", text: "changed" }) : null,
+      t.rows.length ? customizeButton(ctl, { kind: "feature", key: t.rows[0].key, name: t.name, pinRef: t.ref }) : null,
+      ctl.character ? pinButton(ctl, t.ref) : null),
+    t.summary ? h("div", { cls: "fe-faint fe-trait-text", text: t.summary }) : null,
+    acts.length ? h("div", { cls: "fe-trait-actions" }, ...acts) : null);
 }
 
 /**

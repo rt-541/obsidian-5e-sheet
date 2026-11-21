@@ -56,6 +56,22 @@ describe("features and traits card", () => {
     [...row.querySelectorAll("button")].find(b => b.textContent === "Use")!.click();
     expect(uses(s).focus).toBe(before + 1);
   });
+  it("a row stacks title, text, then uses: the text gets the full width, pips and Use sit on their own line", () => {
+    for (const mobile of [false, true]) {
+      const s = setup(vex, mobile), row = s.all('[data-group="class:skirmisher"] .fe-trait')[1];
+      expect([...row.children].map(e => (e as HTMLElement).className)).toEqual(["fe-trait-top", "fe-faint fe-trait-text", "fe-trait-actions"]);
+      const top = row.querySelector(".fe-trait-top")!, acts = row.querySelector(".fe-trait-actions")!;
+      expect(top.querySelector(".fe-inv-name")!.textContent).toBe("Sudden Strike");
+      expect(top.textContent).toContain("Lv 3");
+      expect(top.querySelector("[data-act=pin-feature]")).not.toBeNull();
+      expect(acts.querySelector("[data-act=pin-feature]")).toBeNull();
+      expect(acts.querySelectorAll(".fe-pip").length).toBeGreaterThan(0);
+      expect([...acts.querySelectorAll("button:not(.fe-pip)")].map(b => b.textContent)).toEqual(["Use"]);
+      // a row with no uses and no actions has no empty third line
+      const plain = s.all('[data-group="class:skirmisher"] .fe-trait')[0];
+      expect([...plain.children].map(e => (e as HTMLElement).className)).toEqual(["fe-trait-top", "fe-faint fe-trait-text"]);
+    }
+  });
   it("pips on the card spend the same resource as the Features tab", () => {
     const s = setup(vex, false);
     (s.q('[data-group="class:skirmisher"] [data-resource="focus"] .fe-pip') as HTMLElement).click();
