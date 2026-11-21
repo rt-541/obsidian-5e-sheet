@@ -9,20 +9,20 @@ const setTotal = (s: ReturnType<typeof sheetWith>, v: string) => { (s.q('[data-k
 for (const layout of ["desktop", "tablet", "mobile"] as const) describe(`own dice totals (${layout})`, () => {
   it("a Hit Die changes nothing until a total is given, and Roll it for me rolls", () => {
     const s = sheetWith(layout, { ...own, classes: [{ class: "tester", level: 3 }], hp: { max: 20, current: 10, temp: 0 } });   // level 3: two Hit Dice are spent below
-    s.click(s.q('[data-feature="hit-dice"] button'));
+    s.click(s.q('[data-feature="hit-dice"] button:not(.fe-section-toggle)'));
     expect(s.q(".fe-own-roll").textContent).toContain("Roll 1d8 + 2 and enter the total: you heal that much");
     expect(s.ctl.stats()!.hitDice[0].used).toBe(0); expect(s.ctl.stats()!.hp.current).toBe(10);
     expect(s.q('input[type="number"][data-keep="own-total"]').hasAttribute("required")).toBe(true);
     setTotal(s, "7"); s.click(s.q('[data-act="own-apply"]'));
     expect(s.ctl.stats()!.hitDice[0].used).toBe(1); expect(s.ctl.stats()!.hp.current).toBe(17);
     expect(s.q(".fe-own-roll")).toBeNull();
-    s.click(s.q('[data-feature="hit-dice"] button')); s.click(s.q('[data-act="own-roll-for-me"]'));
+    s.click(s.q('[data-feature="hit-dice"] button:not(.fe-section-toggle)')); s.click(s.q('[data-act="own-roll-for-me"]'));
     expect(s.ctl.stats()!.hitDice[0].used).toBe(2); expect(s.host.log[0].title).toBe("Hit Die d8");
   });
 
   it("Cancel changes nothing", () => {
     const s = sheetWith(layout, { ...own, hp: { max: 20, current: 10, temp: 0 } });
-    s.click(s.q('[data-feature="hit-dice"] button')); s.click(s.q('[data-act="own-close"]'));
+    s.click(s.q('[data-feature="hit-dice"] button:not(.fe-section-toggle)')); s.click(s.q('[data-act="own-close"]'));
     expect(s.q(".fe-own-roll")).toBeNull(); expect(s.ctl.stats()!.hitDice[0].used).toBe(0); expect(s.ctl.stats()!.hp.current).toBe(10);
   });
 

@@ -27,6 +27,12 @@
 .fe-card { background: var(--background-secondary); border: 1px solid var(--background-modifier-border); border-radius: var(--radius-m); padding: 8px 10px; }
 .fe-card-title:not(:first-child) { margin-top: 10px; }
 .fe-card-title { font-size: var(--font-ui-smaller); text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); margin-bottom: 6px; }
+.fe-section-head { display: flex; align-items: center; gap: 4px; }
+.fe-card.is-folded > .fe-section-head { margin-bottom: 0; }
+.fe-sheet button.fe-section-toggle { background: transparent; box-shadow: none; padding: 0 4px; min-width: 1.6em; height: auto; color: var(--text-muted); }
+.fe-section-toggle::before { content: "v"; } .fe-section-toggle[aria-expanded="false"]::before { content: ">"; }
+.fe-mobile button.fe-section-toggle, .fe-tablet button.fe-section-toggle { min-height: 44px; min-width: 44px; }
+.fe-sheet .fe-section-name[data-ref] { text-decoration: underline dotted var(--text-faint); }
 .fe-kv { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 3px 0; flex-wrap: wrap; }
 .fe-stat { text-align: center; min-width: 56px; } .fe-stat-v { font-size: var(--font-ui-large); font-weight: var(--font-bold); } .fe-stat-l { font-size: var(--font-ui-smaller); color: var(--text-muted); text-transform: uppercase; }
 .fe-stats { display: flex; gap: 12px; }

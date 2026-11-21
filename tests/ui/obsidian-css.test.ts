@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 
 const css = readFileSync("styles.css", "utf8");
-const BUTTON = ["fe-btn", "fe-roll", "fe-tab", "fe-pip", "fe-switch", "fe-chip-add", "fe-mode-opt", "fe-choice", "fe-crow-btn", "fe-trait-head", "fe-effects-head", "fe-effect-head", "fe-qty-btn", "fe-toggle-btn", "fe-crit", "fe-dmg", "fe-menu-btn", "fe-item-menu-btn", "fe-combo-toggle"];
+const BUTTON = ["fe-btn", "fe-roll", "fe-tab", "fe-pip", "fe-switch", "fe-chip-add", "fe-mode-opt", "fe-choice", "fe-crow-btn", "fe-trait-head", "fe-effects-head", "fe-effect-head", "fe-qty-btn", "fe-toggle-btn", "fe-crit", "fe-dmg", "fe-menu-btn", "fe-item-menu-btn", "fe-combo-toggle", "fe-section-toggle"];
 const CONTESTED = /(^|;)\s*(background(-color)?|padding|border(-radius)?|box-shadow|height)\s*:/;
 
 /** [ids, classes+attributes+pseudo-classes, elements] of one selector. */

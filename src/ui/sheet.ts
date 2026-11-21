@@ -9,6 +9,25 @@ import { ownRollBox } from "./own-dice-ui";
 const TOAST_MS = 2600, TOAST_LONG_MS = 5000, HOVER_MS = 250, GRACE_MS = 200;
 const LAYOUT_CLASSES = ["fe-desktop", "fe-tablet", "fe-mobile"];
 
+/**
+ * A section card with a plain title line gets a fold toggle in front of the title words. Folded, the card keeps only
+ * its title. Remembered per character as `section:<feature id>` (the same plugin data as the traits groups); open by default.
+ * A title that links to the glossary keeps the link on its words, so tapping the toggle never opens a card.
+ */
+function foldable(ctl: SheetController, el: HTMLElement, f: string) {
+  const title = el.classList.contains("fe-card") ? el.querySelector<HTMLElement>(":scope > div.fe-card-title") : null;
+  if (!title) return;
+  const id = `section:${f}`, open = !ctl.isCollapsed(id);
+  const words = h("span", { cls: "fe-section-name" }, ...[...title.childNodes]);
+  if (title.dataset.ref) { words.dataset.ref = title.dataset.ref; delete title.dataset.ref; }
+  title.classList.add("fe-section-head");
+  title.append(h("button", { cls: "fe-section-toggle", title: open ? "Collapse this section" : "Expand this section",
+    attrs: { "aria-expanded": String(open), "aria-label": open ? "Collapse this section" : "Expand this section" }, data: { act: "collapse-section" }, on: { click: () => ctl.toggleCollapsed(id) } }), words);
+  if (open) return;
+  el.classList.add("is-folded");
+  for (const kid of [...el.children]) if (kid !== title) kid.remove();
+}
+
 /** Mount a sheet into `root`; re-renders on every controller change. */
 export function mountSheet(root: HTMLElement, ctl: SheetController, layoutIn: LayoutName | boolean): { destroy(): void; render(): void } {
   const layoutName: LayoutName = layoutIn === true ? "mobile" : layoutIn === false ? "desktop" : layoutIn;
@@ -82,7 +101,7 @@ export function mountSheet(root: HTMLElement, ctl: SheetController, layoutIn: La
     if (!st) { root.append(h("div", { cls: "fe-banner", text: "This NPC's creature is not in the compendium." })); return; }
     const slot = (f: string) => {
       if (!visible.has(f) || !RENDER[f]) return null;
-      const el = RENDER[f](ctl, st); el.dataset.feature = f; return el;
+      const el = RENDER[f](ctl, st); el.dataset.feature = f; foldable(ctl, el, f); return el;
     };
     // a group of tiles is one row; it vanishes when every tile in it is hidden
     const statRow = (fs: readonly string[]): HTMLElement | null => {

@@ -72,7 +72,7 @@ describe.each(["desktop", "tablet", "mobile"] as const)("glossary cards on %s", 
   });
   it("the hit dice title card says how many are left", () => {
     const s = setup(layout);
-    const card = open(s, s.q("[data-feature='hit-dice'] .fe-card-title"))!;
+    const card = open(s, s.q("[data-feature='hit-dice'] .fe-card-title [data-ref]"))!;
     expect(card.textContent).toContain("Hit dice"); expect(card.textContent).toContain("Left: ");
   });
 });
