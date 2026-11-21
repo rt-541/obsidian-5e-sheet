@@ -14,6 +14,7 @@ import { slug } from "../content/registry";
 import { evalFormula } from "./formula";
 import { formulaVars } from "./progression";
 import type { Abil } from "./types";
+import { changeLevelHp } from "./levelup";
 
 export type Who = { companion: number } | undefined;
 export type Action =
@@ -27,6 +28,8 @@ export type Action =
   | { type: "inspiration"; on: boolean }
   /** Swap one mastered weapon for another (Edit mode, after a long rest): `out` leaves the list and `in` takes its place. Display only; no roll changes. */
   | { type: "mastery"; out: string; in: string }
+  /** Edit mode: the hit die roll one past level (index into `levelLog`) gave, as the player rolled it. */
+  | { type: "levelHp"; index: number; roll: number }
   | { type: "addItem"; id: string; /** The armor or weapon a generic item is made from. */ base?: string; /** Put it on straight away. */ equip?: boolean; attune?: boolean } | { type: "removeItem"; index: number }
   /** An item that is not in the compendium: a name, how many, an optional weight per piece in pounds, and whether using one up it. */
   | { type: "addCustomItem"; name: string; qty: number; weight?: number; consumable?: boolean }
@@ -405,6 +408,7 @@ export function apply(c0: Character, a: Action, lim: Limits): Applied {
       const note = a.on ? joinNotes(putAwayRivals(c, a.index, lim), isShield(c, a.index, lim.ctx?.registry) ? oneHandAll(c, lim.ctx?.registry) : undefined) : undefined;
       return { value: c, ...(note ? { note } : {}) };
     }
+    case "levelHp": { const r = changeLevelHp(c, a.index, a.roll); return "error" in r ? { value: c0, error: r.error } : { value: r.value, note: r.note }; }
     case "inspiration": c.inspiration = a.on; break;
     case "addItem": {
       // a reference to the character's own edition is stored plain; the other edition's keeps its `@year`

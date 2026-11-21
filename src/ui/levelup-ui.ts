@@ -83,7 +83,8 @@ function hpPage(ctl: SheetController, s: Pick<"hp">, st: LevelUpState): HTMLElem
     h("div", { text: `Full hit die: d${s.die} (${s.die}) ${sgn(s.conMod)} Constitution = ${gain(s.die)} hit points` }));
   return h("div", { cls: "fe-lu-body", data: { step: "hp" } }, h("div", { cls: "fe-muted", text: `Hit die d${s.die}, Constitution ${sgn(s.conMod)}` }),
     h("div", { cls: "fe-filters" },
-      choiceButton("Roll", `1d${s.die}`, st.hp?.method === "roll", undefined, () => ctl.rollLevelHp(s.die), { hp: "roll" }),
+      choiceButton("Roll", `1d${s.die}`, st.hp?.method === "roll" && !st.hp.typed, undefined, () => ctl.rollLevelHp(s.die), { hp: "roll" }),
+      choiceButton("I rolled it", `type your 1d${s.die}`, st.hp?.method === "roll" && !!st.hp.typed, undefined, () => ctl.enterLevelHp(s.die), { hp: "typed" }),
       choiceButton("Average", `${s.average}`, st.hp?.method === "average", undefined, () => ctl.setLevelUp({ hp: { method: "average" } }), { hp: "average" })),
     st.hp ? h("div", { cls: "fe-name", data: { result: "hp" }, text: st.hp.method === "roll" ? `Rolled ${st.hp.roll} ${sgn(s.conMod)} Constitution = ${gain(st.hp.roll ?? 1)} hit points` : `Average ${s.average} ${sgn(s.conMod)} Constitution = ${gain(s.average)} hit points` }) : null);
 }

@@ -71,7 +71,8 @@ export interface ComboDraft { index: number | null; combo: Combo; error?: string
 export interface LevelUpView { featOpen: Set<string>; spellQuery: string; featQuery: string; /** Pickers (by step key or builder list) showing the other edition. Not saved. */ other?: Set<string>; /** Builder: the race or class whose About card is open. */ about?: string; /** Builder: the edition a first tap asked for, waiting for a second tap to confirm (not saved). */ switchTo?: string; }
 export interface LevelUpState {
   mode: "level" | "resolve"; classId?: string; page: number; /** Search text and the feat/ability switch, kept across redraws. */ view: LevelUpView;
-  hp?: { method: "roll" | "average"; roll?: number }; choices: Record<string, unknown>; error?: string;
+  /** `typed`: the player rolled at the table and typed the number in ("I rolled it"). */
+  hp?: { method: "roll" | "average"; roll?: number; typed?: boolean }; choices: Record<string, unknown>; error?: string;
 }
 /** The "custom item" form in the add panel: raw text as typed, so a half-typed number is kept as is. */
 export interface CustomItemForm {
@@ -966,6 +967,12 @@ export class SheetController {
     if (!this.ownDice()) { this.setLevelUp({ hp: { method: "roll", roll: rollHitDie(die, this.host.rng) } }); return; }
     this.askTotal({ title: "Hit points for this level", say: `Roll 1d${die}`, min: 1, max: die, roll: () => rollHitDie(die, this.host.rng), apply: n => this.setLevelUp({ hp: { method: "roll", roll: n } }) });
   }
+  /** "I rolled it": the player rolled the hit die themselves and types the result, whatever the own-dice setting says. */
+  enterLevelHp(die: number) {
+    this.askTotal({ title: "Hit points for this level", say: `Roll 1d${die}`, min: 1, max: die, roll: () => rollHitDie(die, this.host.rng), apply: n => this.setLevelUp({ hp: { method: "roll", roll: n, typed: true } }) });
+  }
+  /** Edit mode: change the hit die roll a past level gave (index into the level log). */
+  setLevelHp(index: number, roll: number) { this.dispatch({ type: "levelHp", index, roll }); }
   /** The wizard's plan for its current picks (no class yet is just no steps). */
   levelUpSteps(): { steps: Step[]; plan?: LevelPlan; error?: string } {
     const c = this.character, st = this.levelUp;

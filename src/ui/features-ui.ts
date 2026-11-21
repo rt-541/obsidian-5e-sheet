@@ -40,7 +40,29 @@ export function levelUpFeature(ctl: SheetController): HTMLElement {
   const builder = !c.classes.length && ctl.host.openBuilder ? btn("New character (builder)", () => ctl.host.openBuilder?.()) : null;
   builder?.setAttribute("data-act", "open-builder");
   const diff = ctl.confirmUndo ? h("div", { cls: "fe-undo-diff" }, h("div", { cls: "fe-muted", text: "Undoing the last level would change:" }), ...changeList(ctl.undoChanges())) : null;
-  return h("div", { cls: "fe-kv fe-levelup" }, up, ...undo, builder, diff);
+  return h("div", { cls: "fe-kv fe-levelup" }, up, ...undo, builder, diff, ctl.editing ? levelHpList(ctl) : null);
+}
+
+/** Edit mode: each applied level's hit points, with the die roll changeable (a level rolled at the table, typed in later). */
+function levelHpList(ctl: SheetController): HTMLElement | null {
+  const c = ctl.character!; if (!c.levelLog.length) return null;
+  const rows = c.levelLog.map((e, i) => {
+    const cls = `${ctl.host.registry.get<{ name: string }>("class", e.class)?.name ?? e.class} ${e.level}`, hp = e.hp;
+    const added = hp.added !== undefined ? ` (+${hp.added} max HP)` : "";
+    const words = hp.method === "first" ? `full hit die, d${hp.die ?? "?"}${added}` : hp.method === "recorded" ? `${hp.gained} HP, written by hand`
+      : `d${hp.die}, ${hp.method === "roll" ? "rolled" : "average"} ${hp.gained}${added}`;
+    const box = (hp.method === "roll" || hp.method === "average") && hp.die
+      ? h("input", { cls: "fe-amt", data: { act: "level-hp-roll" }, title: `What you rolled on the d${hp.die}`,
+          attrs: { type: "number", min: "1", max: String(hp.die), value: String(hp.gained), "aria-label": `${cls} hit die roll` },
+          on: { change: (ev: Event) => ctl.setLevelHp(i, Number((ev.target as HTMLInputElement).value)) } })
+      : null;
+    return h("div", { cls: "fe-kv", data: { levelHp: String(i) } }, h("span", { cls: "fe-grow", text: `${cls}: ${words}` }), box);
+  });
+  // open/closed is remembered (the sheet redraws after every change, which would otherwise snap it shut)
+  const open = ctl.isCollapsed("open:level-hp");
+  return h("details", { cls: "fe-level-hp", data: { part: "level-hp" }, attrs: open ? { open: "" } : {},
+    on: { toggle: (ev: Event) => { if ((ev.target as HTMLDetailsElement).open !== open) ctl.toggleCollapsed("open:level-hp"); } } },
+    h("summary", { text: "Hit points by level (change a roll)" }), ...rows);
 }
 
 function actionRow(ctl: SheetController, st: ActorStats, f: FeatureRow): HTMLElement {

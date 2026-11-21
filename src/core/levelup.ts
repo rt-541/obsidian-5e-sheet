@@ -600,6 +600,28 @@ export function applyResolve(c: Character, answers: LevelAnswers, registry: Regi
   return { value, summary: done.summary };
 }
 
+/**
+ * Change the hit die roll one past level gave (Edit mode: "I rolled an 8, not a 3"). The level becomes a rolled level;
+ * the maximum and current hit points move by the difference in what it added (at least 1 per level, as when levelling).
+ * The first level (the full die) and hand-recorded levels have no roll to change.
+ */
+export function changeLevelHp(c: Character, index: number, roll: number): { value: Character; note: string } | { error: string } {
+  const entry = c.levelLog[index];
+  if (!entry) return { error: "There is no such level in the level log" };
+  if (entry.hp.method === "first") return { error: "The first level always gives the full hit die" };
+  if (entry.hp.method === "recorded" || !entry.hp.die) return { error: "This level's hit points were written down by hand, with no die to roll" };
+  const die = entry.hp.die;
+  if (!Number.isInteger(roll) || roll < 1 || roll > die) return { error: `A d${die} roll is a whole number from 1 to ${die}` };
+  const con = abilityMod(c.abilities.con);
+  const oldAdded = entry.hp.added ?? Math.max(1, entry.hp.gained + con);
+  const added = Math.max(1, roll + (entry.hp.added !== undefined ? entry.hp.added - entry.hp.gained : con));
+  const v = structuredClone(c), delta = added - oldAdded;
+  v.levelLog[index].hp = { method: "roll", die, gained: roll, added };
+  v.hp.max = Math.max(1, c.hp.max + delta);
+  v.hp.current = Math.min(v.hp.max, Math.max(0, c.hp.current + Math.max(0, delta)));
+  return { value: v, note: `Level ${entry.level} hit points: rolled ${roll}, ${delta >= 0 ? "+" : ""}${delta} maximum hit points.` };
+}
+
 /** Reverse the last applied level exactly: class level, subclass, HP, ability points, feat, spells and items it added. */
 export function undoLevel(c: Character, registry: Registry): { value: Character; summary: string[] } | { error: string } {
   const entry = c.levelLog[c.levelLog.length - 1];
