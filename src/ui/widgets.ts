@@ -198,7 +198,11 @@ export function bar(max: number, used: number, set: (n: number) => void, mode: "
     h("span", { cls: "fe-bar fe-bar-wide", title: `${value} / ${max}${label ? " " + label : ""}` }, h("span", { cls: "fe-bar-fill", attrs: { style: `width:${pct}%` } })),
     h("span", { cls: "fe-bar-num", text: `${value} / ${max}${mode === "progress" ? ` (${pct}%)` : ""}${label ? " " + label : ""}` }),
     mode === "progress"
-      ? h("span", { cls: "fe-bar-ctl" }, h("button", { cls: "fe-btn", text: "−", attrs: { "aria-label": "Undo progress" }, on: { click: step(-1) } }), amount, h("button", { cls: "fe-btn mod-cta", text: "Add", on: { click: step(1) } }))
+      ? h("span", { cls: "fe-bar-ctl" }, h("button", { cls: "fe-btn", text: "−", attrs: { "aria-label": "Undo progress" }, on: { click: step(-1) } }),
+          // a finished track says so: an Add that silently did nothing looked broken
+          ...(used >= max
+            ? [(() => { const b = h("button", { cls: "fe-btn", text: "Done", title: "This track is complete. Use − to undo progress." }) as HTMLButtonElement; b.disabled = true; return b; })()]
+            : [amount, h("button", { cls: "fe-btn mod-cta", text: "Add", on: { click: step(1) } })]))
       : h("span", { cls: "fe-bar-ctl" }, amount, h("button", { cls: "fe-btn", text: "Spend", on: { click: step(1) } }), h("button", { cls: "fe-btn", text: "Restore", on: { click: step(-1) } })));
 }
 
