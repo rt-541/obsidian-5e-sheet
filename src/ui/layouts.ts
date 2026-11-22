@@ -22,8 +22,8 @@ export const DESKTOP: LayoutSpec = {
   tabs: [
     { id: "main", label: "Main", columns: [
       ["abilities", "saves", "skills", "settings", "attack-options", "rations"],
-      [STAT_TILES, "hp", "hp-controls", "coins", "hit-dice", "rests", "death-saves", "conditions", "concentration", "active-effects"],
-      ["toggles", "roll-mode", "attacks", "pinned-spells", "pinned-combos", "spell-dc", "spell-slots", "resources", "traits"]] },
+      [STAT_TILES, "hp", "hp-controls", "coins", "hit-dice", "rests", "death-saves", "conditions", "concentration", "pinned-combos", "active-effects"],
+      ["resources", "toggles", "roll-mode", "attacks", "pinned-spells", "spell-dc", "spell-slots", "traits"]] },
     { id: "combos", label: "Combos", columns: [["combos"]] },
     { id: "spells", label: "Spells", columns: [["spells"]] },
     { id: "features", label: "Features", columns: [["features"]] },
