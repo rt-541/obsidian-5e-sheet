@@ -34,6 +34,8 @@ export type Action =
   | { type: "hpMaxLower"; amount: number } | { type: "hpMaxRestore" }
   /** Restore HP: end a lowered maximum and set current HP to the full maximum (temp HP is untouched). */
   | { type: "hpRestore" }
+  /** Edit mode: add or remove a hand-added language or armor / weapon / tool proficiency on the note. */
+  | { type: "profAdd"; list: "languages" | "other"; value: string } | { type: "profRemove"; list: "languages" | "other"; value: string }
   /** Edit mode: a tab's own section order for one layout (`columns`), or null to put that whole layout back to the default. */
   | { type: "arrange"; layout: string; tab?: string; columns: string[][] | null }
   | { type: "addItem"; id: string; /** The armor or weapon a generic item is made from. */ base?: string; /** Put it on straight away. */ equip?: boolean; attune?: boolean } | { type: "removeItem"; index: number }
@@ -435,6 +437,17 @@ export function apply(c0: Character, a: Action, lim: Limits): Applied {
       const full = lim.derive?.(c).hp.max ?? c.hp.max;
       c.hp.current = full;
       return { value: c, note: `HP restored to ${full}.` };
+    }
+    case "profAdd": {
+      const v = a.value.trim(); if (!v) return { value: c0, error: "Type a name first." };
+      const list = a.list === "languages" ? c.languages : (c.proficiencies.other ??= []);
+      if (list.some(x => x.toLowerCase() === v.toLowerCase())) return { value: c0, note: `${v} is already listed.` };
+      list.push(v); break;
+    }
+    case "profRemove": {
+      if (a.list === "languages") c.languages = c.languages.filter(x => x !== a.value);
+      else { const o = (c.proficiencies.other ?? []).filter(x => x !== a.value); if (o.length) c.proficiencies.other = o; else delete c.proficiencies.other; }
+      break;
     }
     case "inspiration": c.inspiration = a.on; break;
     case "addItem": {

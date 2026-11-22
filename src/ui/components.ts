@@ -12,6 +12,7 @@ import type { SheetController } from "./controller";
 import { h, sgn } from "./h";
 import { slug } from "../content/registry";
 import { btn, card, describeEffects, pips, bar, usesPips } from "./widgets";
+import { profsFeature } from "./profs-ui";
 import { settingsFeature } from "./settings-ui";
 import { editionChip } from "./edition-ui";
 import { featuresFeature, levelUpFeature, xpFeature } from "./features-ui";
@@ -237,6 +238,7 @@ export const RENDER: Record<string, Render> = {
       h("div", { cls: "fe-rests" }, ...activeRests(ctl.rules()).map(r => btn(r.label, () => ctl.open({ kind: "rest", id: r.id }))))));
   },
   settings: ctl => settingsFeature(ctl),
+  profs: (ctl, st) => profsFeature(ctl, st),
   inventory: (ctl, st) => inventoryFeature(ctl, st),
   companions: ctl => { const c = ctl.character!, sts = ctl.companionStats(), r = ctl.host.registry;
     return card("Companions", ...c.companions.map((comp, i) => {

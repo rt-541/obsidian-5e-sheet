@@ -108,6 +108,8 @@ export interface ActorStats {
   maxScores: Record<Abil, number>; darkvision?: number;
   /** Languages from race, background and class choices plus the manual list on the note (characters only). */
   languages?: string[];
+  /** Armor, weapon and tool proficiencies: derived ones first, then the note's own (`proficiencies.other`), characters only. */
+  otherProfs?: string[];
 }
 
 export { abilityMod, profBonus };
@@ -253,7 +255,7 @@ export function deriveCharacter(c: Character, ctx: EffectContext): ActorStats {
   });
   const checks = Object.fromEntries(ABILS.map(a => [a, m[a] + halfOf({ kind: "check", abil: a }) + sumModifier(fx, "check", opt({ kind: "check", abil: a })).add])) as Record<Abil, number>;
   for (const a of ABILS) { const w = checkTerms({ kind: "check", abil: a }, a, false, false); why[`check:${a}`] = sum(`${ABIL_LONG[a]} check ${signed(checks[a])}`, "", w.terms, { notes: w.notes }); }
-  const weaponProf = weaponProficiency(prog.proficiencies.other, classData.length > 0 && classData.every(x => x.d) && prog.unknown.length === 0);
+  const weaponProf = weaponProficiency(mergeLanguages(prog.proficiencies.other, c.proficiencies.other ?? []), classData.length > 0 && classData.every(x => x.d) && prog.unknown.length === 0);
   const attacks = buildAttacks({ fx, shield: items.some(x => x.e.equipped && x.it?.kind === "shield"), mods: m, prof, scales: prog.scales, vars, items, weaponProf, opt, problem, extraOff: new Set(c.optionsOff ?? []),
     masteryOf: (e, it) => masteryOfRow(c, ctx.registry, e, it) });
   const casters: CasterStat[] = prog.spellcasting.map(e => ({ name: e.className, abil: e.abil, progression: e.progression,
@@ -330,6 +332,7 @@ export function deriveCharacter(c: Character, ctx: EffectContext): ActorStats {
     traits: damageTraits(fx), notes: notes(fx), effects: fx, missing, attunedCount: c.inventory.filter(e => e.attuned).length,
     toggles, resources, casters, itemActions, attackOptions: attackOptionRows(c, prog.attackOptions, items, fx, resources, prog.scales, level, vars), progress: prog, maxScores, ...(crits[0] ? { crit: { range: crits[0].effects.critRange!, ...(crits[0].effects.critVs ? { vs: crits[0].effects.critVs } : {}) } } : {}),
     languages: mergeLanguages(prog.languages, c.languages),
+    otherProfs: mergeLanguages(prog.proficiencies.other, c.proficiencies.other ?? []),
     ...(senses.darkvision !== undefined ? { darkvision: senses.darkvision } : {}),
   };
 }

@@ -462,3 +462,8 @@
 .fe-sheet button.fe-move-btn:disabled { opacity: .35; }
 .fe-mobile button.fe-move-btn, .fe-tablet button.fe-move-btn { min-height: 44px; min-width: 44px; }
 .fe-move-hint { margin: 4px 0; }
+/* Languages and proficiencies card (profs-ui.ts) */
+.fe-prof-list { display: grid; gap: 4px; margin-bottom: 6px; }
+.fe-prof { display: inline-flex; align-items: center; gap: 4px; }
+.fe-sheet button.fe-chip-x { background: transparent; box-shadow: none; padding: 0 4px; height: auto; color: var(--text-muted); }
+.fe-mobile button.fe-chip-x, .fe-tablet button.fe-chip-x { min-height: 44px; min-width: 44px; }

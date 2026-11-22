@@ -77,14 +77,14 @@ export const SECTION_LABELS: Record<string, string> = {
   attacks: "Attacks", "attack-options": "Attack options (focus dice, extra damage)", "pinned-spells": "Pinned spells", "pinned-combos": "Pinned combos", combos: "Combos",
   "spell-dc": "Spell save DC", "spell-slots": "Spell slots", spells: "Spells", resources: "Class resources", rations: "Rations",
   traits: "Features and traits (main page)", rests: "Rest buttons", settings: "Settings (rest mode, Hex / Trad, own dice)", features: "Features page", inventory: "Inventory", companions: "Companions",
-  "roll-mode": "Advantage and disadvantage", "roll-log": "Roll log", notes: "Notes",
+  "roll-mode": "Advantage and disadvantage", profs: "Languages and proficiencies", "roll-log": "Roll log", notes: "Notes",
 };
 /** The sections as the sheet is laid out. */
 export const SECTION_GROUPS: { title: string; ids: string[] }[] = [
   { title: "Header", ids: ["inspiration", "prof", "xp", "level-up", "roll-log"] },
   { title: "Combat", ids: ["ac", "initiative", "speed", "passive-perception", "hp", "hp-controls", "hit-dice", "death-saves", "conditions", "active-effects", "roll-mode", "attacks", "attack-options"] },
   { title: "Resources and rests", ids: ["coins", "resources", "rations", "rests", "settings", "toggles", "traits", "features"] },
-  { title: "Checks", ids: ["abilities", "saves", "skills"] },
+  { title: "Checks", ids: ["abilities", "saves", "skills", "profs"] },
   { title: "Spells", ids: ["concentration", "spell-dc", "spell-slots", "spells", "pinned-spells"] },
   { title: "Combos", ids: ["combos", "pinned-combos"] },
   { title: "Other", ids: ["inventory", "companions", "notes"] },
