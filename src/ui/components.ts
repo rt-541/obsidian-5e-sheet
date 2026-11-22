@@ -45,12 +45,15 @@ export function rollButton(ctl: SheetController, label: string, title: string, m
   return h("button", { cls: "fe-roll", text: label, ...whyData(why, true), on: { click: (e: MouseEvent) => ctl.roll(title, mod, target, e, who) } });
 }
 
-function hpBlock(ctl: SheetController, st: ActorStats) {
+function hpBlock(ctl: SheetController, st: ActorStats, who?: number) {
   const pct = st.hp.max ? Math.round(100 * st.hp.current / st.hp.max) : 0;
+  const cut = who === undefined ? ctl.character?.hp.reduced : undefined;
   return h("div", { cls: "fe-hp" },
     h("div", { cls: "fe-hp-line" }, h("span", { cls: "fe-hp-n", text: String(st.hp.current) }),
       h("small", { text: ` / ${st.hp.max}${st.hp.maxReduced ? " (halved)" : ""} · temp ${st.hp.temp}`, ...whyData(whyOf(st, "hp")) })),
-    h("div", { cls: "fe-bar" }, h("div", { cls: "fe-bar-fill", attrs: { style: `width:${pct}%` } })));
+    h("div", { cls: "fe-bar" }, h("div", { cls: "fe-bar-fill", attrs: { style: `width:${pct}%` } })),
+    cut ? h("div", { cls: "fe-kv fe-hp-cut", data: { part: "hp-cut" } }, h("span", { cls: "fe-grow fe-warn", text: `Max HP lowered by ${cut} until a long rest` }),
+      h("button", { cls: "fe-btn", text: "Restore max", data: { act: "hp-max-restore" }, on: { click: () => ctl.dispatch({ type: "hpMaxRestore" }) } })) : null);
 }
 function hpControls(ctl: SheetController, who?: number) {
   const amt = h("input", { cls: "fe-amt", attrs: { type: "number", min: "1", value: String(ctl.amount), "aria-label": "Amount" },
@@ -60,7 +63,10 @@ function hpControls(ctl: SheetController, who?: number) {
     on: { change: (e: Event) => { ctl.damageType = (e.target as HTMLSelectElement).value; } } },
     h("option", { text: "Any", attrs: { value: "" } }),
     ...DAMAGE_TYPES.map(t => h("option", { text: titleCase(t), attrs: { value: t, ...(ctl.damageType === t ? { selected: "" } : {}) } })));
-  return h("div", { cls: "fe-hpctl" }, amt, btn("Damage", act("damage"), "fe-dmg"), btn("Heal", act("heal"), "mod-cta"), btn("Temp HP", act("temp")),
+  // Lower max: a temporary cut to maximum HP (life drain and the like); the character's own sheet only
+  const lower = who === undefined && ctl.character ? h("button", { cls: "fe-btn", text: "Lower max", data: { act: "hp-max-lower" }, on: { click: () => ctl.dispatch({ type: "hpMaxLower", amount: ctl.amount }) } }) : null;
+  if (lower) lower.title = "Lower your maximum HP by this amount until a long rest";
+  return h("div", { cls: "fe-hpctl" }, amt, btn("Damage", act("damage"), "fe-dmg"), btn("Heal", act("heal"), "mod-cta"), btn("Temp HP", act("temp")), lower,
     h("label", { cls: "fe-dtype" }, h("span", { text: "Damage type:" }), kind),
     h("div", { cls: "fe-faint fe-dtype-hint", text: "Change this damage type to match the damage taken." }));
 }
@@ -240,7 +246,7 @@ export const RENDER: Record<string, Render> = {
         ctl.companionMenu === i ? companionMenu(ctl, i, st.name) : null,
         h("div", { cls: "fe-stats" }, stat("AC", String(st.ac.value)), stat("Initiative", rollButton(ctl, sgn(st.initiative), `${st.name} initiative`, st.initiative, { kind: "initiative", abil: "dex" }, i)),
           stat("Speed", `${st.speed.value}${st.speed.other ? ` (${st.speed.other})` : ""}`)),
-        hpBlock(ctl, st), hpControls(ctl, i), conditionChips(ctl, comp.conditions, i), ch.abilities,
+        hpBlock(ctl, st, i), hpControls(ctl, i), conditionChips(ctl, comp.conditions, i), ch.abilities,
         st.skills.length ? ch.skills : null, attacksList(ctl, st, i),
         ...traits.map((t, ti) => h("div", { cls: "fe-note" }, h("b", { text: t.name + ". ", data: { ref: `trait:${comp.creature}:${ti}` } }), t.text)));
     }), btn("Add companion", () => ctl.open({ kind: "add-companion" }))); },

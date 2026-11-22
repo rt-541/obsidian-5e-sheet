@@ -166,7 +166,9 @@ export function deriveCharacter(c: Character, ctx: EffectContext): ActorStats {
   });
   // Effects blocks with a `while` gate (armor, shield, two weapons, a toggle, concentrating) count only while the gate holds.
   const gates = gateStateOf(items, c.active, !!c.concentration);
-  const fx = filterGated([...collectEffects(c, ctx), ...prog.effects], gates);
+  // a temporary cut to maximum HP counts like any other max HP modifier, so the HP card's "why" lists it
+  const cut = c.hp.reduced ? [{ source: "Max HP lowered (until a long rest)", effects: { modifiers: [{ target: "hpMax" as const, value: -c.hp.reduced }] } }] : [];
+  const fx = filterGated([...collectEffects(c, ctx), ...prog.effects, ...cut], gates);
   const toggleRow = (id: string, name: string, source: string, ref: string, def: ToggleDef, effects: Effects, text?: string, itemIndex?: number): ToggleRow => {
     const v = c.active[id], on = v !== undefined && v !== false && v !== 0 && v !== "";
     return { id, name, source, ref, def, effects, on, suppressed: on && !(def.while ?? []).every(g => gateHolds(g, gates)), value: typeof v === "number" ? v : on ? 1 : 0,

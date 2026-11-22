@@ -44,7 +44,8 @@ export interface Character {
   type: "5e-character"; schema: 1; name: string; /** Rules edition; absent means 2014 and is never written to a note that lacks it. */ edition?: Edition; campaign?: string; race?: string; subrace?: string; background?: string;
   classes: ClassLevel[]; abilities: Record<Abil, number>;
   proficiencies: { saves: Abil[]; skills: string[]; expertise: string[] };
-  hp: { max: number; current: number; temp: number };
+  /** `reduced`: a temporary cut to maximum HP (a wraith's touch); a long rest or Restore max ends it. */
+  hp: { max: number; current: number; temp: number; reduced?: number };
   hitDice: Record<string, { used: number }>;
   deathSaves: { successes: number; failures: number };
   spellSlots: Record<string, { used: number }>;
@@ -233,6 +234,7 @@ function parseCharacter(fm: R): Parsed {
     skills: r.strs(pr.skills, "proficiencies.skills"), expertise: r.strs(pr.expertise, "proficiencies.expertise") };
   const hp = r.obj(fm.hp, "hp");
   c.hp = { max: r.whole(hp.max, "hp.max"), current: r.whole(hp.current, "hp.current"), temp: r.whole(hp.temp, "hp.temp") };
+  if (hp.reduced !== undefined) { const n = r.whole(hp.reduced, "hp.reduced"); if (n > 0) c.hp.reduced = n; }
   for (const [k, v] of Object.entries(r.obj(fm.hitDice, "hitDice"))) {
     if (!isObj(v)) { r.errors.push(`hitDice.${k}: must be a mapping`); continue; }
     c.hitDice[k] = { ...v, used: r.whole(v.used, `hitDice.${k}.used`) };

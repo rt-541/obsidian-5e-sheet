@@ -7,7 +7,8 @@ import type { RestCtx, RestDef, RestOptions, RuleModule } from "./module";
 const exhaustionDown = (c: Character) => { if (c.conditions.exhaustion) { c.conditions.exhaustion--; if (!c.conditions.exhaustion) delete c.conditions.exhaustion; } };
 const rulesOf = (ctx: RestCtx) => editionRules(characterEdition(ctx.c));
 const hpMaxAfterExhaustion = (ctx: RestCtx) => { const at = rulesOf(ctx).exhaustionHalvesHpAt; return at !== null && (ctx.c.conditions.exhaustion ?? 0) - 1 >= at; };
-const hpAfterRest = (ctx: RestCtx) => hpMaxAfterExhaustion(ctx) ? Math.floor(ctx.stats.hpFull / 2) : ctx.stats.hpFull;
+/** A long rest also ends a temporary cut to maximum HP, so it heals to the uncut maximum. */
+const hpAfterRest = (ctx: RestCtx) => { const full = ctx.stats.hpFull + (ctx.c.hp.reduced ?? 0); return hpMaxAfterExhaustion(ctx) ? Math.floor(full / 2) : full; };
 const itemName = (ctx: RestCtx, e: InventoryEntry): ItemData | undefined => entryItem(e, ctx.registry);
 
 /** Switches (Rage, stances) that end with this kind of rest; a long rest ends the short ones too. */
@@ -55,6 +56,7 @@ function bigParts(ctx: RestCtx, c: Character | null, goodRest: boolean): string[
   const allHitDice = goodRest || rulesOf(ctx).longRestHitDice === "all";
   const out: string[] = endToggles(ctx, c, ["short", "long"]), ex = ctx.c.conditions.exhaustion ?? 0;
   if (ex) out.push(`Exhaustion ${ex} → ${ex - 1}`);
+  if (ctx.c.hp.reduced) out.push("Max HP back to normal");
   out.push(`HP to ${hpAfterRest(ctx)}`);
   if (ctx.stats.slots.length) out.push("All spell slots");
   const dawn = dawnOnLongRest(ctx);
@@ -69,7 +71,7 @@ function bigParts(ctx: RestCtx, c: Character | null, goodRest: boolean): string[
     if (it?.charges && e.charges?.used && (it.charges.reset === "long" || it.charges.reset === "short" || (it.charges.reset === "dawn" && !ctx.rules["holy-days"]))) out.push(`${it.name}: charges restored`); });
   if (c) {
     exhaustionDown(c);
-    c.hp = { max: c.hp.max, current: hpAfterRest(ctx), temp: 0 };
+    c.hp = { max: c.hp.max, current: hpAfterRest(ctx), temp: 0 };   // drops `reduced`: the long rest ends it
     c.deathSaves = { successes: 0, failures: 0 }; c.spellSlots = {};
     c.resources.forEach(r => { if (resetsOn(r.reset, dawn)) r.used = 0; });
     for (const r of ctx.stats.resources) if (r.derived && resetsOn(r.reset, dawn)) delete c.uses[r.id];

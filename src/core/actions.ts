@@ -30,6 +30,8 @@ export type Action =
   | { type: "mastery"; out: string; in: string }
   /** Edit mode: the hit die roll one past level (index into `levelLog`) gave, as the player rolled it. */
   | { type: "levelHp"; index: number; roll: number }
+  /** Lower maximum HP for now by `amount` (stacks; never below 1 maximum), or `restore` it. A long rest also restores it. */
+  | { type: "hpMaxLower"; amount: number } | { type: "hpMaxRestore" }
   /** Edit mode: a tab's own section order for one layout (`columns`), or null to put that whole layout back to the default. */
   | { type: "arrange"; layout: string; tab?: string; columns: string[][] | null }
   | { type: "addItem"; id: string; /** The armor or weapon a generic item is made from. */ base?: string; /** Put it on straight away. */ equip?: boolean; attune?: boolean } | { type: "removeItem"; index: number }
@@ -418,6 +420,14 @@ export function apply(c0: Character, a: Action, lim: Limits): Applied {
       if (Object.keys(all).length) c.sheet.arrange = all; else delete c.sheet.arrange;
       break;
     }
+    case "hpMaxLower": {
+      const full = (lim.derive?.({ ...c, hp: { ...c.hp, reduced: undefined } }).hp.max) ?? c.hp.max;
+      const reduced = Math.min(Math.max(0, full - 1), (c.hp.reduced ?? 0) + Math.max(0, Math.floor(a.amount)));
+      if (reduced > 0) c.hp.reduced = reduced; else delete c.hp.reduced;
+      c.hp.current = Math.min(c.hp.current, Math.max(1, full - reduced));
+      return { value: c, note: `Max HP lowered by ${reduced} until a long rest.` };
+    }
+    case "hpMaxRestore": delete c.hp.reduced; return { value: c, note: "Max HP back to normal." };
     case "inspiration": c.inspiration = a.on; break;
     case "addItem": {
       // a reference to the character's own edition is stored plain; the other edition's keeps its `@year`
