@@ -32,6 +32,8 @@ export type Action =
   | { type: "levelHp"; index: number; roll: number }
   /** Lower maximum HP for now by `amount` (stacks; never below 1 maximum), or `restore` it. A long rest also restores it. */
   | { type: "hpMaxLower"; amount: number } | { type: "hpMaxRestore" }
+  /** Restore HP: end a lowered maximum and set current HP to the full maximum (temp HP is untouched). */
+  | { type: "hpRestore" }
   /** Edit mode: a tab's own section order for one layout (`columns`), or null to put that whole layout back to the default. */
   | { type: "arrange"; layout: string; tab?: string; columns: string[][] | null }
   | { type: "addItem"; id: string; /** The armor or weapon a generic item is made from. */ base?: string; /** Put it on straight away. */ equip?: boolean; attune?: boolean } | { type: "removeItem"; index: number }
@@ -428,6 +430,12 @@ export function apply(c0: Character, a: Action, lim: Limits): Applied {
       return { value: c, note: `Max HP lowered by ${reduced} until a long rest.` };
     }
     case "hpMaxRestore": delete c.hp.reduced; return { value: c, note: "Max HP back to normal." };
+    case "hpRestore": {
+      delete c.hp.reduced;
+      const full = lim.derive?.(c).hp.max ?? c.hp.max;
+      c.hp.current = full;
+      return { value: c, note: `HP restored to ${full}.` };
+    }
     case "inspiration": c.inspiration = a.on; break;
     case "addItem": {
       // a reference to the character's own edition is stored plain; the other edition's keeps its `@year`

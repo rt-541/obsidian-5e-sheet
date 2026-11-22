@@ -51,3 +51,19 @@ for (const layout of ["desktop", "mobile"] as const) describe(`temporary max HP 
     expect(p.kind === "character" && p.errors.some(e => e.startsWith("hp.reduced"))).toBe(true);
   });
 });
+
+for (const layout of ["desktop", "mobile"] as const) describe(`Restore HP (${layout})`, () => {
+  it("puts current HP back to the character's full maximum and ends a lowered maximum; temp HP is untouched", () => {
+    const s = setup(layout, { max: 40, current: 12, temp: 3, reduced: 10 });
+    s.q('[data-act="hp-restore"]').click();
+    expect(s.last().hp).toEqual({ max: 40, current: 40, temp: 3 });
+    expect(s.ctl.stats()!.hp.max).toBe(40);
+    expect((s.q('[data-act="hp-restore"]') as HTMLButtonElement).disabled).toBe(true);
+  });
+  it("is available whenever HP is below the full maximum", () => {
+    const s = setup(layout, { max: 40, current: 39, temp: 0 });
+    expect((s.q('[data-act="hp-restore"]') as HTMLButtonElement).disabled).toBe(false);
+    s.q('[data-act="hp-restore"]').click();
+    expect(s.last().hp.current).toBe(40);
+  });
+});

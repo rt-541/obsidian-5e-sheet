@@ -66,7 +66,11 @@ function hpControls(ctl: SheetController, who?: number) {
   // Lower max: a temporary cut to maximum HP (life drain and the like); the character's own sheet only
   const lower = who === undefined && ctl.character ? h("button", { cls: "fe-btn", text: "Lower max", data: { act: "hp-max-lower" }, on: { click: () => ctl.dispatch({ type: "hpMaxLower", amount: ctl.amount }) } }) : null;
   if (lower) lower.title = "Lower your maximum HP by this amount until a long rest";
-  return h("div", { cls: "fe-hpctl" }, amt, btn("Damage", act("damage"), "fe-dmg"), btn("Heal", act("heal"), "mod-cta"), btn("Temp HP", act("temp")), lower,
+  // Restore HP: back to the character's full maximum in one tap (ends a lowered maximum too); the character's own sheet only
+  const c = who === undefined ? ctl.character : undefined, full = c ? (ctl.stats()?.hpFull ?? c.hp.max) + (c.hp.reduced ?? 0) : 0;
+  const restore = c ? h("button", { cls: "fe-btn", text: "Restore HP", title: `Back to full: ${full} HP`, data: { act: "hp-restore" }, on: { click: () => ctl.dispatch({ type: "hpRestore" }) } }) as HTMLButtonElement : null;
+  if (restore && c) restore.disabled = c.hp.current >= full && !c.hp.reduced;
+  return h("div", { cls: "fe-hpctl" }, amt, btn("Damage", act("damage"), "fe-dmg"), btn("Heal", act("heal"), "mod-cta"), restore, btn("Temp HP", act("temp")), lower,
     h("label", { cls: "fe-dtype" }, h("span", { text: "Damage type:" }), kind),
     h("div", { cls: "fe-faint fe-dtype-hint", text: "Change this damage type to match the damage taken." }));
 }
