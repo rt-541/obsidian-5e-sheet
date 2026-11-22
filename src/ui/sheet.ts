@@ -5,6 +5,8 @@ import { CHARACTER_FEATURES, NPC_FEATURES, layoutFor, type LayoutName } from "./
 import { detailCard } from "./details";
 import { renderPanel } from "./panels";
 import { ownRollBox } from "./own-dice-ui";
+import { arrangeLayout, slotKey } from "../core/arrange";
+import { arrangeHint, dropColumn, movable, type ArrangeCtx } from "./arrange-ui";
 
 const TOAST_MS = 2600, TOAST_LONG_MS = 5000, HOVER_MS = 250, GRACE_MS = 200;
 const LAYOUT_CLASSES = ["fe-desktop", "fe-tablet", "fe-mobile"];
@@ -88,7 +90,9 @@ export function mountSheet(root: HTMLElement, ctl: SheetController, layoutIn: La
   const render = () => {
     const sp = scrollParent(), keepTop = sp?.scrollTop ?? 0;
     const features = ctl.isNpc ? NPC_FEATURES : CHARACTER_FEATURES;
-    const layout = layoutFor(ctl.isNpc, layoutName), visible = new Set(ctl.visible([...features])), st = ctl.stats();
+    const base = layoutFor(ctl.isNpc, layoutName), visible = new Set(ctl.visible([...features])), st = ctl.stats();
+    // a character's own section order (Edit mode moves) applies in Play mode too
+    const layout = ctl.character ? arrangeLayout(base, ctl.character.sheet.arrange?.[layoutName]) : base;
     const body = root.querySelector<HTMLElement>(".fe-panel-body"), was = body ? { kind: (body.parentElement as HTMLElement).dataset.panel, top: body.scrollTop } : undefined;
     // a search box or form field the player is typing in keeps its focus and caret across the redraw
     const live = root.ownerDocument.activeElement as HTMLInputElement | null, keepKey = live && root.contains(live) ? live.dataset.keep : undefined;
@@ -116,11 +120,23 @@ export function mountSheet(root: HTMLElement, ctl: SheetController, layoutIn: La
     nav.style.setProperty("--fe-tabs", String(tabs.length));
     root.append(nav);
     // every tab is rendered (inactive ones hidden) so each feature exists in the DOM once
+    // Edit mode on a character: every section of the tab columns gets a move bar (the header never moves)
+    const shownKeys = new Set(layout.tabs.flatMap(t => t.columns.flat(1)).filter(s => typeof s === "string" ? visible.has(s) : s.some(f => visible.has(f))).map(slotKey));
+    const arranging: ArrangeCtx | undefined = ctl.editing && ctl.character && !ctl.isNpc ? { ctl, layout: layoutName, spec: layout, visible: shownKeys, touch } : undefined;
     for (const t of tabs) {
       // a tab that opens with the abilities column sizes it to its content; the other columns share the rest (desktop CSS)
       const checks = t.columns.length > 1 && t.columns[0][0] === "abilities";
-      const pane = h("div", { cls: `fe-pane ${checks ? "has-checks" : ""}`.trim(), data: { pane: t.id } },
-        ...t.columns.map((col, i) => h("div", { cls: `fe-col ${checks && i === 0 ? "fe-col-checks" : ""}`.trim() }, ...col.map(s => typeof s === "string" ? slot(s) : statRow(s)))));
+      const draw = (s: (typeof t.columns)[number][number]) => {
+        const el = typeof s === "string" ? slot(s) : statRow(s);
+        return el && arranging ? movable(arranging, t.id, slotKey(s), el) : el;
+      };
+      const cols = t.columns.map((col, i) => {
+        const c = h("div", { cls: `fe-col ${checks && i === 0 ? "fe-col-checks" : ""}`.trim() }, ...col.map(draw));
+        return arranging ? dropColumn(arranging, t.id, i, c) : c;
+      });
+      const pane = h("div", { cls: `fe-pane ${checks ? "has-checks" : ""}`.trim(), data: { pane: t.id } }, ...cols);
+      // the hint sits above the pane, not in it: the pane is the column grid
+      if (arranging) { const hint = arrangeHint(arranging); hint.hidden = t !== active; root.append(hint); }
       if (checks) pane.style.setProperty("--fe-rest", String(t.columns.length - 1));
       pane.hidden = t !== active; root.append(pane);
     }

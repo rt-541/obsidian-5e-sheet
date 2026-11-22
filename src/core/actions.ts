@@ -30,6 +30,8 @@ export type Action =
   | { type: "mastery"; out: string; in: string }
   /** Edit mode: the hit die roll one past level (index into `levelLog`) gave, as the player rolled it. */
   | { type: "levelHp"; index: number; roll: number }
+  /** Edit mode: a tab's own section order for one layout (`columns`), or null to put that whole layout back to the default. */
+  | { type: "arrange"; layout: string; tab?: string; columns: string[][] | null }
   | { type: "addItem"; id: string; /** The armor or weapon a generic item is made from. */ base?: string; /** Put it on straight away. */ equip?: boolean; attune?: boolean } | { type: "removeItem"; index: number }
   /** An item that is not in the compendium: a name, how many, an optional weight per piece in pounds, and whether using one up it. */
   | { type: "addCustomItem"; name: string; qty: number; weight?: number; consumable?: boolean }
@@ -409,6 +411,13 @@ export function apply(c0: Character, a: Action, lim: Limits): Applied {
       return { value: c, ...(note ? { note } : {}) };
     }
     case "levelHp": { const r = changeLevelHp(c, a.index, a.roll); return "error" in r ? { value: c0, error: r.error } : { value: r.value, note: r.note }; }
+    case "arrange": {
+      const all = { ...(c.sheet.arrange ?? {}) };
+      if (a.columns === null || !a.tab) delete all[a.layout];
+      else all[a.layout] = { ...(all[a.layout] ?? {}), [a.tab]: a.columns.map(col => [...col]) };
+      if (Object.keys(all).length) c.sheet.arrange = all; else delete c.sheet.arrange;
+      break;
+    }
     case "inspiration": c.inspiration = a.on; break;
     case "addItem": {
       // a reference to the character's own edition is stored plain; the other edition's keeps its `@year`

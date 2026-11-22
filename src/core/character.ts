@@ -35,7 +35,11 @@ export const COMBO_ACTIONS = ["Action", "Bonus action", "Reaction", "Move", "Fre
 export interface ComboUse { attack?: string; spell?: string; feature?: string; item?: string; /** Index of a companion; with `attack`, that companion's attack. */ companion?: number; resource?: string; cost?: number; dc?: string; dice?: string; }
 export interface ComboStep { action: string; /** Who does it, when not the character (a companion's name). */ who?: string; use?: ComboUse; text: string; }
 export interface Combo { name: string; when: string; steps: ComboStep[]; notes?: string; /** Shown on the main page. */ pinned?: boolean; }
-export interface SheetToggles { hide: string[]; show: string[]; }
+/**
+ * Sections the player hid or showed, and (Edit mode) their own section order per layout:
+ * `arrange.<desktop|tablet|mobile>.<tab id>` is that tab's columns of slot keys (see core/arrange.ts).
+ */
+export interface SheetToggles { hide: string[]; show: string[]; arrange?: Record<string, Record<string, string[][]>>; }
 export interface Character {
   type: "5e-character"; schema: 1; name: string; /** Rules edition; absent means 2014 and is never written to a note that lacks it. */ edition?: Edition; campaign?: string; race?: string; subrace?: string; background?: string;
   classes: ClassLevel[]; abilities: Record<Abil, number>;
@@ -171,7 +175,22 @@ class Reader {
       return [combo];
     });
   }
-  toggles(v: unknown, at: string): SheetToggles { const o = this.obj(v, at); return { hide: this.strs(o.hide, `${at}.hide`), show: this.strs(o.show, `${at}.show`) }; }
+  toggles(v: unknown, at: string): SheetToggles {
+    const o = this.obj(v, at), out: SheetToggles = { hide: this.strs(o.hide, `${at}.hide`), show: this.strs(o.show, `${at}.show`) };
+    if (o.arrange === undefined) return out;
+    const arrange: NonNullable<SheetToggles["arrange"]> = {};
+    for (const [layout, tabs] of Object.entries(this.obj(o.arrange, `${at}.arrange`))) {
+      const keep: Record<string, string[][]> = {};
+      for (const [tab, cols] of Object.entries(this.obj(tabs, `${at}.arrange.${layout}`))) {
+        const p = `${at}.arrange.${layout}.${tab}`;
+        if (!Array.isArray(cols) || !cols.every(c => Array.isArray(c) && c.every(k => typeof k === "string"))) { this.errors.push(`${p}: must be a list of columns, each a list of section names`); continue; }
+        keep[tab] = (cols as string[][]).map(c => [...c]);
+      }
+      if (Object.keys(keep).length) arrange[layout] = keep;
+    }
+    if (Object.keys(arrange).length) out.arrange = arrange;
+    return out;
+  }
   rules(v: unknown, at: string): Record<string, boolean> {
     const o = this.obj(v, at), out: Record<string, boolean> = {};
     for (const [k, x] of Object.entries(o)) out[k] = this.bool(x, `${at}.${k}`);
